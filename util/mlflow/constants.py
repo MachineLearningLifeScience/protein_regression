@@ -1,0 +1,8 @@
+DATASET = "DATASET"
+METHOD = "METHOD"
+
+MSE = "MSE"
+MedSE = "MedSE"
+SEVar = "SEVar"
+MLL = "MLL"
+SPEARMAN_RHO = "rho"

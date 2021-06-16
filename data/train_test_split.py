@@ -1,0 +1,86 @@
+from builtins import ValueError
+
+import numpy as np
+
+
+def positional_splitter(seqs, query_seq, val=True, offset=4, pos_per_fold=100):
+    # offset is the positions that will be dropped between train and test positions
+    # to not allow info leakage just because positions are neighbours
+    # Split_by_DI implements that positions are also split by direct info based on a "threshold"
+    # needs an aln_path to work (fasta file)
+    mut_pos = []  # collect positions for which mutations exist
+    for seq in seqs:
+        mut_pos.append(np.argmax(query_seq != seq))
+        #mut_pos.append(np.where(query_seq != seq))
+    unique_mut = np.unique(mut_pos)
+
+    train_indices = []
+    test_indices = []
+    val_indices = []
+
+    counter = 0
+    for i in range(len(np.unique(mut_pos)) // (pos_per_fold) + 1):
+
+        test_mut = list(unique_mut[counter:counter + pos_per_fold])
+
+        train_mut = list(unique_mut[:max(counter - offset, 0)]) + \
+                    list(unique_mut[counter + pos_per_fold + offset:])
+
+        if offset > 0:
+            buffer_mut = list(unique_mut[max(counter - offset, 0):counter]) + \
+                         list(unique_mut[counter + pos_per_fold:counter + pos_per_fold + offset])
+        else:
+            buffer_mut = []
+
+        if val:
+            val_mut = [unique_mut[-int(1 / 3 * pos_per_fold):],
+                       np.hstack([unique_mut[:int(1 / 6 * pos_per_fold)], unique_mut[-int(1 / 6 * pos_per_fold):]]),
+                       unique_mut[:int(1 / 3 * pos_per_fold)]]
+            train_mut = [mut for mut in train_mut if mut not in val_mut[i]]
+        else:
+            val_mut = [[], [], [], []]
+
+        test_idx = np.hstack([np.where(mut_pos == pos)[0] for pos in test_mut])
+        train_idx = np.hstack([np.where(mut_pos == pos)[0] for pos in train_mut])
+
+        if offset > 0:
+            buffer_idx = np.hstack([np.where(mut_pos == pos)[0] for pos in buffer_mut])
+        else:
+            buffer_idx = []
+
+        if val:
+            val_idx = np.hstack([np.where(mut_pos == pos)[0] for pos in val_mut[i]])
+        else:
+            val_idx = [[], [], [], []]
+
+        verify_num_mut = len(test_mut) + len(train_mut) + len(buffer_mut) + len(val_mut[i])
+        verify_num_idx = (len(test_idx) + len(train_idx) + len(buffer_idx)) + len(val_idx)
+        assert len(list(set(test_mut).intersection(set(train_mut)))) == 0, "test and train idx overlap"
+        assert len(list(set(train_idx).intersection(set(test_idx)))) == 0, "test and train idx overlap"
+        assert len(
+            unique_mut) == verify_num_mut, 'Something wrong with number of positions/mutations. Number of idx: ' + \
+                                           str(verify_num_idx) + 'Number of mut:' + str(verify_num_mut)
+
+        train_indices.append(train_idx)
+        val_indices.append(val_idx)
+        test_indices.append(test_idx)
+
+        counter += pos_per_fold
+
+    return train_indices, val_indices, test_indices
+
+
+def pos_per_fold_assigner(name: str):
+    if name == 'blat' or name == '1FQG':
+        pos_per_fold = 85
+    elif name == 'brca':
+        pos_per_fold = 63
+    elif name == 'timb':
+        pos_per_fold = 28
+    elif name == 'calm':
+        pos_per_fold = 47
+    elif name == 'mth3':
+        pos_per_fold = 107
+    else:
+        raise ValueError("Unknown dataset: %s" % name)
+    return pos_per_fold
