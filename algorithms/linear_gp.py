@@ -22,7 +22,7 @@ class GPOneHotSequenceSpace(AbstractAlgorithm):
         self.gp = GPR(data=(tf.constant(numpy_one_hot_2dmat(X, max=self.alphabet_size)), tf.constant(Y)),
                       kernel=self.kernel)
         opt = Scipy()
-        opt_logs = opt.minimize(self.gp.training_loss, self.gp.trainable_variables, options=dict(maxiter=1000))
+        opt_logs = opt.minimize(self.gp.training_loss, self.gp.trainable_variables, options=dict(maxiter=100))
 
     def predict(self, X):
         return self.gp.predict_f(tf.constant(numpy_one_hot_2dmat(X, max=self.alphabet_size)))
