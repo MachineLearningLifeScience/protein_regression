@@ -1,7 +1,7 @@
 import mlflow
 import numpy as np
 
-from algorithms.linear_gp import GPOneHotSequenceSpace
+from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from util.mlflow.constants import DATASET, METHOD, MSE
 from util.mlflow.convenience_functions import find_experiments_by_tags
 from visualization.plot_metric_for_dataset import plot_metric_for_dataset
