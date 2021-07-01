@@ -4,18 +4,19 @@ from scipy.stats import spearmanr
 
 from algorithms.abstract_algorithm import AbstractAlgorithm
 from data.load_dataset import load_dataset
-from util.mlflow.constants import DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION
+from data.train_test_split import AbstractTrainTestSplitter
+from util.mlflow.constants import DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT
 from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
 
 
-def run_single_regression_task(dataset: str, representation: str, method: AbstractAlgorithm, train_test_splitter):
+def run_single_regression_task(dataset: str, representation: str, method: AbstractAlgorithm, train_test_splitter: AbstractTrainTestSplitter):
     X, Y = load_dataset(dataset, representation=None)
-    train_indices, val_indices, test_indices = train_test_splitter(X)
+    train_indices, val_indices, test_indices = train_test_splitter.split(X)
     if representation is not None:
         X, Y = load_dataset(dataset, representation=representation)
 
-    # TODO: the splitter should also be part of the tags
-    tags = {DATASET: dataset, METHOD: method.get_name(), REPRESENTATION: representation}
+    tags = {DATASET: dataset, METHOD: method.get_name(), REPRESENTATION: representation,
+            SPLIT: train_test_splitter.get_name()}
 
     exp = find_experiments_by_tags(tags)
     if len(exp) == 0:

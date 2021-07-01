@@ -31,7 +31,8 @@ for repr in simons_algos.keys():
         runs = mlflow.search_runs(experiment_ids=[exps[0].experiment_id], run_view_type=ViewType.ACTIVE_ONLY)
         results = []
         for id in runs['run_id'].to_list():
-            results.append(mlflow.tracking.MlflowClient().get_metric_history(id, metric))
+            for r in mlflow.tracking.MlflowClient().get_metric_history(id, metric):
+                results.append(r.value)
         if len(result_list) > 0:
             assert(len(results) == len(result_list[-1]))
         result_list.append(results)

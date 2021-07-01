@@ -2,6 +2,29 @@ from builtins import ValueError
 
 import numpy as np
 
+from data.load_dataset import get_wildtype
+
+
+class AbstractTrainTestSplitter:
+    def __init__(self):
+        self.name = type(self).__name__
+
+    def split(self, X):
+        raise NotImplementedError()
+
+    def get_name(self):
+        return self.name
+
+
+class BlockPostionSplitter(AbstractTrainTestSplitter):
+    def __init__(self, dataset):
+        super().__init__()
+        self.wt = get_wildtype(dataset)
+        self.pos_per_fold = pos_per_fold_assigner(dataset)
+
+    def split(self, X):
+        return positional_splitter(X, self.wt, val=True, offset=4, pos_per_fold=self.pos_per_fold)
+
 
 def positional_splitter(seqs, query_seq, val=True, offset=4, pos_per_fold=100):
     # offset is the positions that will be dropped between train and test positions
