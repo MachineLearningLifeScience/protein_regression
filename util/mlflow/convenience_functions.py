@@ -2,7 +2,7 @@ import mlflow
 import os
 
 
-mlflow.set_tracking_uri(os.path.join(os.getcwd(), "results/mlruns"))
+mlflow.set_tracking_uri(os.path.join("file:"+"/Users/Bruger/Documents/PhD/Speciale_paper/gitlab/protein_regression"+"/results/mlruns"))
 
 
 def make_experiment_name_from_tags(tags: dict):
