@@ -96,7 +96,7 @@ def positional_splitter(seqs, query_seq, val=True, offset=4, pos_per_fold=100):
 def pos_per_fold_assigner(name: str):
     if name == 'blat' or name == '1FQG':
         pos_per_fold = 85
-    elif name == 'brca':
+    elif name == 'brca' or name == 'BRCA':
         pos_per_fold = 63
     elif name == 'timb':
         pos_per_fold = 28
