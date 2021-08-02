@@ -26,7 +26,7 @@ class BlockPostionSplitter(AbstractTrainTestSplitter):
         return positional_splitter(X, self.wt, val=True, offset=4, pos_per_fold=self.pos_per_fold)
 
 
-def positional_splitter(seqs, query_seq, val=True, offset=4, pos_per_fold=100):
+def positional_splitter(seqs, query_seq, val, offset, pos_per_fold):
     # offset is the positions that will be dropped between train and test positions 
     # to not allow info leakage just because positions are neighbours
     # Split_by_DI implements that positions are also split by direct info based on a "threshold"

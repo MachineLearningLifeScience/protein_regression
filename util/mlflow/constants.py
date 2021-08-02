@@ -13,3 +13,4 @@ SPEARMAN_RHO = "rho"
 # representations
 ONE_HOT = None
 TRANSFORMER = "transformer"
+VAE = "vae"

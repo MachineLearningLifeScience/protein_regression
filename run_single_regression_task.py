@@ -15,7 +15,7 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
     if representation is not None:
         X, Y = load_dataset(dataset, representation=representation)
 
-    tags = {DATASET: dataset, METHOD: method.get_name(), REPRESENTATION: representation,
+    tags = {DATASET: dataset, METHOD: method.get_name(), REPRESENTATION: str(representation),
             SPLIT: train_test_splitter.get_name()}
 
     exp = find_experiments_by_tags(tags)
@@ -47,3 +47,19 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
         mlflow.log_metric(MLL, mll, step=split)
         mlflow.log_metric(SPEARMAN_RHO, r, step=split)
     mlflow.end_run()
+
+
+if __name__ == "__main__":
+    dataset = "BRCA"
+    from util.mlflow.constants import VAE
+    representation = VAE
+    from data.load_dataset import get_alphabet
+    alphabet = get_alphabet(dataset)
+    from gpflow.kernels import SquaredExponential
+    from data.train_test_split import BlockPostionSplitter
+    from algorithms.one_hot_gp import GPOneHotSequenceSpace
+    from algorithms.gp_on_real_space import GPonRealSpace
+
+    run_single_regression_task(dataset=dataset, representation=representation,
+                               method=GPonRealSpace(kernel=SquaredExponential()),
+                               train_test_splitter=BlockPostionSplitter(dataset=dataset))
