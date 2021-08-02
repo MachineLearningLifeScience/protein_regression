@@ -26,14 +26,14 @@ class BlockPostionSplitter(AbstractTrainTestSplitter):
         return positional_splitter(X, self.wt, val=True, offset=4, pos_per_fold=self.pos_per_fold)
 
 
-def positional_splitter(assay_df, query_seqs, val=True, offset=4, pos_per_fold=100):
+def positional_splitter(seqs, query_seq, val=True, offset=4, pos_per_fold=100):
     # offset is the positions that will be dropped between train and test positions 
     # to not allow info leakage just because positions are neighbours
     # Split_by_DI implements that positions are also split by direct info based on a "threshold"
     # needs an aln_path to work (fasta file)
     mut_pos = []
-    for seq in assay_df['seqs']:
-        mut_pos.append(np.argmax(query_seqs!=seq))
+    for seq in seqs:
+        mut_pos.append(np.argmax(query_seq != seq))
     unique_mut = np.unique(mut_pos)
 
     train_indices = []
@@ -41,8 +41,7 @@ def positional_splitter(assay_df, query_seqs, val=True, offset=4, pos_per_fold=1
     val_indices = []
 
     counter = 0
-    print(len(np.unique(mut_pos))//(pos_per_fold)+1)
-    for i in range(len(np.unique(mut_pos))//(pos_per_fold)+1):  
+    for i in range(len(np.unique(mut_pos))//(pos_per_fold)+1):
         
         test_mut = list(unique_mut[counter:counter+pos_per_fold])
         if len(test_mut)==0:
@@ -58,7 +57,6 @@ def positional_splitter(assay_df, query_seqs, val=True, offset=4, pos_per_fold=1
             buffer_mut = []
 
         if val:
-            print(list(np.hstack([unique_mut[:int(1/6*pos_per_fold)], unique_mut[-int(1/6*pos_per_fold):]])))
             val_mut = [unique_mut[-int(1/3*pos_per_fold):],
                       np.hstack([unique_mut[:int(1/6*pos_per_fold)], unique_mut[-int(1/6*pos_per_fold):]]),
                       unique_mut[:int(1/3*pos_per_fold)]]
