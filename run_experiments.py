@@ -8,9 +8,7 @@ from data.train_test_split import BlockPostionSplitter
 from run_single_regression_task import run_single_regression_task
 from util.mlflow.constants import TRANSFORMER, VAE
 
-datasets = ["1FQG"]
-#datasets = ["BRCA"]
-datasets = ["CALM"]
+datasets = ["CALM", "BRCA"]
 representations = [VAE, None, TRANSFORMER]
 train_test_splitters = [BlockPostionSplitter]
 
