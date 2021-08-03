@@ -6,12 +6,12 @@ from algorithms.random_forest import RandomForest
 from data.load_dataset import get_wildtype, get_alphabet
 from data.train_test_split import BlockPostionSplitter
 from run_single_regression_task import run_single_regression_task
-from util.mlflow.constants import TRANSFORMER, VAE
+from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
 
 datasets = ["1FQG"]
 datasets = ["BRCA"]
 #datasets = ["CALM"]
-representations = [VAE, None, TRANSFORMER]
+representations = [VAE, ONE_HOT, TRANSFORMER]
 train_test_splitters = [BlockPostionSplitter]
 
 

@@ -5,12 +5,12 @@ from scipy.stats import spearmanr
 from algorithms.abstract_algorithm import AbstractAlgorithm
 from data.load_dataset import load_dataset
 from data.train_test_split import AbstractTrainTestSplitter
-from util.mlflow.constants import DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT
+from util.mlflow.constants import DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT
 from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
 
 
 def run_single_regression_task(dataset: str, representation: str, method: AbstractAlgorithm, train_test_splitter: AbstractTrainTestSplitter):
-    X, Y = load_dataset(dataset, representation=None)
+    X, Y = load_dataset(dataset, representation=ONE_HOT)
     train_indices, val_indices, test_indices = train_test_splitter.split(X)
     if representation is not None:
         X, Y = load_dataset(dataset, representation=representation)
