@@ -4,33 +4,34 @@ from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.random_forest import RandomForest
 from data.load_dataset import get_wildtype, get_alphabet
-from data.train_test_split import BlockPostionSplitter
+from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from run_single_regression_task import run_single_regression_task
 from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
 
 datasets = ["1FQG"]
-datasets = ["BRCA"]
+datasets = ["BRCA", "CALM"]
 #datasets = ["CALM"]
 representations = [VAE, ONE_HOT, TRANSFORMER]
 train_test_splitters = [BlockPostionSplitter]
+train_test_splitters = [lambda dataset: RandomSplitter()]
 
 
-def RandomForestFactory(representation, alphabet, wt):
+def RandomForestFactory(representation, alphabet):
     return RandomForest()
 
 
 # TODO: Sometimes the linesearch can enter numerically unstable parameter regions.
 # TODO: It seems there is now easy way to just downscale the linesearch.
-optimize = True
-def GPLinearFactory(representation, alphabet, wt):
-    if representation is None:
+optimize = False
+def GPLinearFactory(representation, alphabet):
+    if representation is ONE_HOT:
         return GPOneHotSequenceSpace(alphabet_size=len(alphabet), optimize=optimize)
     else:
         return GPonRealSpace(optimize=optimize)
 
 
-def GPSEFactory(representation, alphabet, wt):
-    if representation is None:
+def GPSEFactory(representation, alphabet):
+    if representation is ONE_HOT:
         return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel=SquaredExponential(), optimize=optimize)
     else:
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
@@ -41,8 +42,7 @@ for dataset in datasets:
     for representation in representations:
         for train_test_splitter in train_test_splitters:
             alphabet = get_alphabet(dataset)
-            wt = get_wildtype(dataset)
             for factory in method_factories:
-                method = factory(representation, alphabet, wt)
+                method = factory(representation, alphabet)
                 run_single_regression_task(dataset=dataset, representation=representation, method=method,
                                            train_test_splitter=train_test_splitter(dataset=dataset))

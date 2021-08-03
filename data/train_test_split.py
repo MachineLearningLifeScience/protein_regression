@@ -1,8 +1,9 @@
 from builtins import ValueError
 
 import numpy as np
+from sklearn.model_selection import KFold
 
-from data.load_dataset import get_wildtype
+from data.load_dataset import get_wildtype, load_dataset
 
 
 class AbstractTrainTestSplitter:
@@ -14,6 +15,21 @@ class AbstractTrainTestSplitter:
 
     def get_name(self):
         return self.name
+
+
+class RandomSplitter(AbstractTrainTestSplitter):
+    def __init__(self, seed: int = 42):
+        super().__init__()
+        self.seed = seed
+
+    def split(self, X):
+        kf = KFold(n_splits=10, random_state=self.seed, shuffle=True)
+        train_indices = []
+        test_indices = []
+        for train, test in kf.split(X):
+            train_indices.append(train)
+            test_indices.append(test)
+        return train_indices, None, test_indices
 
 
 class BlockPostionSplitter(AbstractTrainTestSplitter):
