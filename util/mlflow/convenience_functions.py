@@ -1,8 +1,9 @@
 import mlflow
 import os
+from os.path import join
 
 
-mlflow.set_tracking_uri(os.path.join(os.getcwd(), "results/mlruns"))
+mlflow.set_tracking_uri(join(os.getcwd(), join("results", "mlruns")))
 
 
 def make_experiment_name_from_tags(tags: dict):
