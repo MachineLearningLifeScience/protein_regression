@@ -87,7 +87,27 @@ gponehot_mse_bio, gponehot_std_bio
 results = np.array(results_list_bio)
 print(results.shape)
 
+# %%
+import mlflow
+import numpy as np
+import pickle
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from algorithms.linear_gp import GPOneHotSequenceSpace
+from util.mlflow.constants import DATASET, METHOD, MSE
+from util.mlflow.convenience_functions import find_experiments_by_tags
+from visualization.plot_metric_for_dataset import plot_metric_for_dataset
+
+rep_names = ['onehot', 'avgProtbert', 'avgProtbertUMAP', 'avgProtbertVAE', 'VAE1', 'VAE2', 'GPonehot']
+names = ['blat', 'mth3', 'timb', 'calm', 'brca']
+
+results_list_reg = [[[1,2,1],[2,1,2],[3,2,3],[4,5,4],[5,4,5]], 
+                    [[1,2,1],[2,1,2],[3,2,3],[4,5,4],[5,4,5]],
+                    [[1,2,1],[2,1,2],[3,2,3],[4,5,4],[5,4,5]], 
+                    [[1,2,1],[2,1,2],[3,2,3],[4,5,4],[5,4,5]], 
+                    [[1,2,1],[2,1,2],[3,2,3],[4,5,4],[5,4,5]]]
+
 plot_metric_for_dataset(datasets=names, metric_values=results_list_reg, reps=rep_names, cvtype='reg')
-plot_metric_for_dataset(datasets=names, metric_values=results_list_bio, reps=rep_names, cvtype='bio')
 
 # %%
