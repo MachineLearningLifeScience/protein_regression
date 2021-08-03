@@ -17,12 +17,11 @@ results_dict = {}
 last_result_length = None
 
 
-simons_algos = {VAE: [GPOneHotSequenceSpace(alphabet_size=0), GPOneHotSequenceSpace(alphabet_size=0, kernel=SquaredExponential())],
+simons_algos = {VAE: [GPonRealSpace(), GPonRealSpace(kernel=SquaredExponential())],
                 TRANSFORMER: [GPonRealSpace(), GPonRealSpace(kernel=SquaredExponential())]}
 for dataset in datasets:
     result_dict = {}
     for repr in simons_algos.keys():
-        result_dict[repr] = {}
         for a in simons_algos[repr]:
             exps = find_experiments_by_tags({DATASET: dataset, METHOD: a.get_name(), REPRESENTATION: repr})
             assert(len(exps) == 1)
@@ -33,11 +32,11 @@ for dataset in datasets:
                     results.append(r.value)
             # if len(result_list) > 0:
             #     assert(len(results) == len(result_list[-1]))
-            result_dict[repr][a.get_name()] = results
+            result_dict[repr+' '+a.get_name()] = results
     results_dict[dataset] = result_dict
 
 print(results_dict)
 # then calls #plot_metric_for_dataset
-plot_metric_for_dataset(datasets=datasets, metric_values=results_dict, reps=[], cvtype="cv split")
+plot_metric_for_dataset(metric_values=results_dict, cvtype="cv split")
 
 
