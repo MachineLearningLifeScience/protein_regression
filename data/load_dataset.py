@@ -3,13 +3,16 @@ import pickle
 from os.path import join, dirname
 
 from util.aa2int import map_alphabets
-from util.mlflow.constants import TRANSFORMER, VAE
+from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
 
 base_path = join(dirname(__file__), "files")
 
 
-def load_dataset(name: str, desired_alphabet=None, representation=None):
-    if representation is None:
+def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
+    if desired_alphabet is not None and representation is not ONE_HOT:
+        raise ValueError("Desired alphabet can only have a value when representation is one hot!")
+
+    if representation is ONE_HOT:
         if name == "1FQG":  # beta-lactamase
             X, Y = __load_df(name="BLAT_data_df", x_column_name="seqs")
         elif name == "BRCA":
@@ -35,8 +38,6 @@ def load_dataset(name: str, desired_alphabet=None, representation=None):
                 for j in range(X.shape[1]):
                     X[i, j] = alphabet_map[X[i, j]]
     else:
-        if desired_alphabet is not None:
-            raise ValueError("Representation and desired alphabet MUST NOT have a value at the same time!")
         if representation == TRANSFORMER:
             if name == "1FQG":
                 X, Y = __load_df(name="blat_seq_reps_n_phyla", x_column_name="protbert_mean")

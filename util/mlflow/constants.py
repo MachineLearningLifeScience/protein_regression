@@ -11,6 +11,6 @@ MLL = "MLL"
 SPEARMAN_RHO = "rho"
 
 # representations
-ONE_HOT = None
+ONE_HOT = "one_hot"
 TRANSFORMER = "transformer"
 VAE = "vae"
