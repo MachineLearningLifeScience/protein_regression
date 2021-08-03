@@ -14,6 +14,8 @@ def load_dataset(name: str, desired_alphabet=None, representation=None):
             X, Y = __load_df(name="BLAT_data_df", x_column_name="seqs")
         elif name == "BRCA":
             X, Y = __load_df(name="brca_data_df", x_column_name="seqs")
+        elif name == "CALM":
+            X, Y = __load_df(name="calm_data_df", x_column_name="seqs")
         elif name == "DEBUG_SE":
             np.random.seed(42)
             #X = np.random.randn(100, 1)
@@ -40,6 +42,8 @@ def load_dataset(name: str, desired_alphabet=None, representation=None):
                 X, Y = __load_df(name="blat_seq_reps_n_phyla", x_column_name="protbert_mean")
             elif name == "BRCA":
                 X, Y = __load_df(name="brca_seq_reps_n_phyla", x_column_name="protbert_mean")
+            elif name == "CALM":
+                X, Y = __load_df(name="calm_seq_reps_n_phyla", x_column_name="protbert_mean")
             else:
                 raise ValueError("Unknown dataset: %s" % name)
         elif representation == VAE:
@@ -53,6 +57,11 @@ def load_dataset(name: str, desired_alphabet=None, representation=None):
                 idx = np.logical_not(np.isnan(d["assay"]))
                 Y = np.vstack(d["assay"].loc[idx])
                 X = pickle.load(open(join(base_path, "brca_VAE_reps.pkl"), "rb"))
+            elif name == "CALM":
+                d = pickle.load(open(join(base_path, "calm_seq_reps_n_phyla.pkl"), "rb"))
+                idx = np.logical_not(np.isnan(d["assay"]))
+                Y = np.vstack(d["assay"].loc[idx])
+                X = pickle.load(open(join(base_path, "calm_VAE_reps.pkl"), "rb"))
             else:
                 raise ValueError("Unknown dataset: %s" % name)
         else:
@@ -72,13 +81,16 @@ def get_wildtype(name: str):
     elif name == "BRCA":
         d = pickle.load(open(join(base_path, "brca_data_df.pkl"), "rb"))
         wt = d['seqs'][0].astype(np.int64)
+    elif name == "CALM":
+        d = pickle.load(open(join(base_path, "calm_data_df.pkl"), "rb"))
+        wt = d['seqs'][0].astype(np.int64)
     else:
         raise ValueError("Unknown dataset: %s" % name)
     return wt
 
 
 def get_alphabet(name: str):
-    if name == "1FQG" or name == "BRCA":
+    if name == "1FQG" or name == "BRCA" or name == "CALM":
         data_alphabet = list(enumerate([
             "A",
             "C",

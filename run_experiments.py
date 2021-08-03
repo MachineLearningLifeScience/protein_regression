@@ -10,6 +10,7 @@ from util.mlflow.constants import TRANSFORMER, VAE
 
 datasets = ["1FQG"]
 #datasets = ["BRCA"]
+datasets = ["CALM"]
 representations = [VAE, None, TRANSFORMER]
 train_test_splitters = [BlockPostionSplitter]
 

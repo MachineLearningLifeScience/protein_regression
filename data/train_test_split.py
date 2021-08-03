@@ -102,7 +102,7 @@ def pos_per_fold_assigner(name: str):
         pos_per_fold = 63
     elif name == 'timb':
         pos_per_fold = 28
-    elif name == 'calm':
+    elif name == 'calm' or name == 'CALM':
         pos_per_fold = 47
     elif name == 'mth3':
         pos_per_fold = 107
