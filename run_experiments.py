@@ -9,8 +9,8 @@ from run_single_regression_task import run_single_regression_task
 from util.mlflow.constants import TRANSFORMER, VAE
 
 datasets = ["1FQG"]
-#datasets = ["BRCA"]
-datasets = ["CALM"]
+datasets = ["BRCA"]
+#datasets = ["CALM"]
 representations = [VAE, None, TRANSFORMER]
 train_test_splitters = [BlockPostionSplitter]
 
@@ -21,7 +21,7 @@ def RandomForestFactory(representation, alphabet, wt):
 
 # TODO: Sometimes the linesearch can enter numerically unstable parameter regions.
 # TODO: It seems there is now easy way to just downscale the linesearch.
-optimize=False
+optimize = True
 def GPLinearFactory(representation, alphabet, wt):
     if representation is None:
         return GPOneHotSequenceSpace(alphabet_size=len(alphabet), optimize=optimize)
@@ -36,7 +36,7 @@ def GPSEFactory(representation, alphabet, wt):
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
 
 
-method_factories = [RandomForestFactory, GPLinearFactory, GPSEFactory]
+method_factories = [GPSEFactory, RandomForestFactory, GPLinearFactory]
 for dataset in datasets:
     for representation in representations:
         for train_test_splitter in train_test_splitters:
