@@ -13,7 +13,7 @@ def plot_metric_for_dataset(metric_values: dict, cvtype: str):
             mse = np.mean(mse_list)
             std = np.std(mse_list, ddof=1)
             plt.errorbar(i+seps[j], mse, yerr = std, fmt='o', capsize=4, capthick=2, color=c[j], label=rep_key)
-    plt.title('Accuracy of protein regression methods '+ cvtype, size=20)
+    plt.title('Accuracy of protein regression methods using '+ cvtype, size=20)
     markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
     plt.legend(markers, reps, bbox_to_anchor=(1, 1), numpoints=1, prop={'size':16})
     plt.xticks(list(range(len(metric_values.keys()))), metric_values.keys(), size=16)
