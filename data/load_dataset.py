@@ -19,6 +19,12 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
             X, Y = __load_df(name="brca_data_df", x_column_name="seqs")
         elif name == "CALM":
             X, Y = __load_df(name="calm_data_df", x_column_name="seqs")
+        elif name == "MTH3":
+            X, Y = __load_df(name="mth3_data_df", x_column_name="seqs")
+        elif name == "TIMB":
+            X, Y = __load_df(name="timb_data_df", x_column_name="seqs")
+        elif name == "UBQT":
+            X, Y = __load_df(name="ubqt_data_df", x_column_name="seqs")
         elif name == "DEBUG_SE":
             np.random.seed(42)
             #X = np.random.randn(100, 1)
@@ -45,6 +51,12 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
                 X, Y = __load_df(name="brca_seq_reps_n_phyla", x_column_name="protbert_mean")
             elif name == "CALM":
                 X, Y = __load_df(name="calm_seq_reps_n_phyla", x_column_name="protbert_mean")
+            elif name == "MTH3":
+                X, Y = __load_df(name="mth3_seq_reps_n_phyla", x_column_name="seqs")
+            elif name == "TIMB":
+                X, Y = __load_df(name="timb_seq_reps_n_phyla", x_column_name="seqs")
+            elif name == "UBQT":
+                X, Y = __load_df(name="ubqt_seq_reps_n_phyla", x_column_name="seqs")
             else:
                 raise ValueError("Unknown dataset: %s" % name)
         elif representation == VAE:
@@ -63,6 +75,21 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
                 idx = np.logical_not(np.isnan(d["assay"]))
                 Y = np.vstack(d["assay"].loc[idx])
                 X = pickle.load(open(join(base_path, "calm_VAE_reps.pkl"), "rb"))
+            elif name == "MTH3":
+                d = pickle.load(open(join(base_path, "mth3_seq_reps_n_phyla.pkl"), "rb"))
+                idx = np.logical_not(np.isnan(d["assay"]))
+                Y = np.vstack(d["assay"].loc[idx])
+                X = pickle.load(open(join(base_path, "mth3_VAE_reps.pkl"), "rb"))
+            elif name == "TIMB":
+                d = pickle.load(open(join(base_path, "timb_seq_reps_n_phyla.pkl"), "rb"))
+                idx = np.logical_not(np.isnan(d["assay"]))
+                Y = np.vstack(d["assay"].loc[idx])
+                X = pickle.load(open(join(base_path, "timb_VAE_reps.pkl"), "rb"))
+            elif name == "UBQT":
+                d = pickle.load(open(join(base_path, "ubqt_seq_reps_n_phyla.pkl"), "rb"))
+                idx = np.logical_not(np.isnan(d["assay"]))
+                Y = np.vstack(d["assay"].loc[idx])
+                X = pickle.load(open(join(base_path, "ubqt_VAE_reps.pkl"), "rb"))
             else:
                 raise ValueError("Unknown dataset: %s" % name)
         else:
@@ -85,13 +112,22 @@ def get_wildtype(name: str):
     elif name == "CALM":
         d = pickle.load(open(join(base_path, "calm_data_df.pkl"), "rb"))
         wt = d['seqs'][0].astype(np.int64)
+    elif name == "MTH3":
+        d = pickle.load(open(join(base_path, "mth3_data_df.pkl"), "rb"))
+        wt = d['seqs'][0].astype(np.int64)
+    elif name == "TIMB":
+        d = pickle.load(open(join(base_path, "timb_data_df.pkl"), "rb"))
+        wt = d['seqs'][0].astype(np.int64)
+    elif name == "UBQT":
+        d = pickle.load(open(join(base_path, "ubqt_data_df.pkl"), "rb"))
+        wt = d['seqs'][0].astype(np.int64)
     else:
         raise ValueError("Unknown dataset: %s" % name)
     return wt
 
 
 def get_alphabet(name: str):
-    if name == "1FQG" or name == "BRCA" or name == "CALM":
+    if name in ["1FQG", "BRCA", "CALM", "MTH3", "TIMB", "UBQT"]:
         data_alphabet = list(enumerate([
             "A",
             "C",
