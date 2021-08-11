@@ -14,7 +14,7 @@ class RandomForest(AbstractAlgorithm):
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
         self.model = RandomForestRegressor(random_state=42, n_jobs=-1)  # use all processors
-        self.model.fit(X, Y)
+        self.model.fit(X, Y.squeeze())
 
     def predict(self, X):
         pred = self.model.predict(X)
