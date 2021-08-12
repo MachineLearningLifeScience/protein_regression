@@ -8,12 +8,10 @@ from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from run_single_regression_task import run_single_regression_task
 from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
 
-datasets = ["1FQG"]
 datasets = ["BRCA", "CALM"]
-#datasets = ["CALM"]
 representations = [VAE, ONE_HOT, TRANSFORMER]
 train_test_splitters = [BlockPostionSplitter]
-train_test_splitters = [lambda dataset: RandomSplitter()]
+#train_test_splitters = [lambda dataset: RandomSplitter()]
 
 
 def RandomForestFactory(representation, alphabet):
