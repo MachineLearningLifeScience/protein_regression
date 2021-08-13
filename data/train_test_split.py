@@ -39,7 +39,7 @@ class BlockPostionSplitter(AbstractTrainTestSplitter):
         self.pos_per_fold = pos_per_fold_assigner(dataset)
 
     def split(self, X):
-        return positional_splitter(X, self.wt, val=True, offset=4, pos_per_fold=self.pos_per_fold)
+        return positional_splitter(X, self.wt, val=False, offset=4, pos_per_fold=self.pos_per_fold)
 
 
 def positional_splitter(seqs, query_seq, val, offset, pos_per_fold):
