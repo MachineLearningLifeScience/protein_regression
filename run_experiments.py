@@ -6,21 +6,24 @@ from algorithms.random_forest import RandomForest
 from data.load_dataset import get_wildtype, get_alphabet
 from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from run_single_regression_task import run_single_regression_task
-from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
+from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE
 
 datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
-representations = [VAE, TRANSFORMER, ONE_HOT]
+#datasets = ["1FQG"]
+representations = [VAE, TRANSFORMER, ONE_HOT, NONSENSE]
 train_test_splitters = [BlockPostionSplitter]
-train_test_splitters = [lambda dataset: RandomSplitter()]
+#train_test_splitters = [lambda dataset: RandomSplitter()]
 
 
 def RandomForestFactory(representation, alphabet):
     return RandomForest()
 
 
-# TODO: Sometimes the linesearch can enter numerically unstable parameter regions.
-# TODO: It seems there is now easy way to just downscale the linesearch.
+# TODO: set this to true again!
 optimize = False
+if not optimize:
+    import warnings
+    warnings.warn("Optimization for GPs disabled.")
 def GPLinearFactory(representation, alphabet):
     if representation is ONE_HOT:
         return GPOneHotSequenceSpace(alphabet_size=len(alphabet), optimize=optimize)
