@@ -3,7 +3,7 @@ import pickle
 from os.path import join, dirname
 
 from util.aa2int import map_alphabets
-from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
+from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE
 
 base_path = join(dirname(__file__), "files")
 
@@ -25,16 +25,6 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
             X, Y = __load_df(name="timb_data_df", x_column_name="seqs")
         elif name == "UBQT":
             X, Y = __load_df(name="ubqt_data_df", x_column_name="seqs")
-        elif name == "DEBUG_SE":
-            np.random.seed(42)
-            #X = np.random.randn(100, 1)
-            X = np.linspace(-3, 3, 100).reshape(-1, 1)
-            import tensorflow as tf
-            from gpflow.kernels import SquaredExponential
-            k = SquaredExponential()
-            K = k.K(tf.constant(X)).numpy()
-            L = np.linalg.cholesky(K + 1e-6 * np.eye(X.shape[0]))
-            Y = L @ np.random.randn(X.shape[0], 1)
         else:
             raise ValueError("Unknown dataset: %s" % name)
         X = X.astype(np.int64)
@@ -92,6 +82,12 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
                 X = pickle.load(open(join(base_path, "ubqt_VAE_reps.pkl"), "rb"))
             else:
                 raise ValueError("Unknown dataset: %s" % name)
+        elif representation == NONSENSE:
+            _, Y = load_dataset(name, representation=ONE_HOT)
+            restore_seed = np.random.randint(12345)
+            np.random.seed(0)
+            X = np.random.randn(Y.shape[0], 2)
+            np.random.seed(restore_seed)
         else:
             raise ValueError("Unknown value for representation: %s" % representation)
         X = X.astype(np.float64)  # in the one-hot case we want int64, that's why the cast is in this position
@@ -172,4 +168,19 @@ def __load_df(name: str, x_column_name: str):
     idx = np.logical_not(np.isnan(d["assay"]))
     X = np.vstack(d[x_column_name].loc[idx])  #.astype(np.int64)
     Y = np.vstack(d["assay"].loc[idx])
+    return X, Y
+
+
+def make_debug_se_dataset():
+    restore_seed = np.random.randint(12345)
+    np.random.seed(42)
+    # X = np.random.randn(100, 1)
+    X = np.linspace(-3, 3, 100).reshape(-1, 1)
+    import tensorflow as tf
+    from gpflow.kernels import SquaredExponential
+    k = SquaredExponential()
+    K = k.K(tf.constant(X)).numpy()
+    L = np.linalg.cholesky(K + 1e-6 * np.eye(X.shape[0]))
+    Y = L @ np.random.randn(X.shape[0], 1)
+    np.random.seed(restore_seed)
     return X, Y
