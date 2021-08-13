@@ -2,13 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def plot_metric_for_dataset(metric_values: dict, cvtype: str):
-    c = ['darkred', 'dimgray', 'blue', 'darkorange', 'k', 'green', 'purple']
+    c = ['darkred', 'dimgray', 'blue', 'darkorange', 'k', 'lightblue', 'green', 'purple', 'chocolate', 'red', 'lightgreen', 'indigo', 'orange', 'darkblue', 'cyan', 'olive', 'brown', 'pink']
     plt.figure(figsize=(15,10))
     reps = []
     for i, dataset_key in enumerate(metric_values.keys()):
         num_exps = len(metric_values[dataset_key].keys())
         seps = np.linspace(-0.1, 0.1, num_exps)
         for j, rep_key in enumerate(metric_values[dataset_key].keys()):
+            if rep_key not in reps:
+                reps.append(rep_key)
             mse_list = metric_values[dataset_key][rep_key]
             mse = np.mean(mse_list)
             std = np.std(mse_list, ddof=1)

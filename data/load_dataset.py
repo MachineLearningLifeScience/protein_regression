@@ -42,11 +42,11 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
             elif name == "CALM":
                 X, Y = __load_df(name="calm_seq_reps_n_phyla", x_column_name="protbert_mean")
             elif name == "MTH3":
-                X, Y = __load_df(name="mth3_seq_reps_n_phyla", x_column_name="seqs")
+                X, Y = __load_df(name="mth3_seq_reps_n_phyla", x_column_name="protbert_mean")
             elif name == "TIMB":
-                X, Y = __load_df(name="timb_seq_reps_n_phyla", x_column_name="seqs")
+                X, Y = __load_df(name="timb_seq_reps_n_phyla", x_column_name="protbert_mean")
             elif name == "UBQT":
-                X, Y = __load_df(name="ubqt_seq_reps_n_phyla", x_column_name="seqs")
+                X, Y = __load_df(name="ubqt_seq_reps_n_phyla", x_column_name="protbert_mean")
             else:
                 raise ValueError("Unknown dataset: %s" % name)
         elif representation == VAE:

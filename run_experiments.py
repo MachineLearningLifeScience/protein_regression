@@ -8,10 +8,8 @@ from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from run_single_regression_task import run_single_regression_task
 from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
 
-datasets = ["1FQG"]
-datasets = ["BRCA", "CALM"]
-#datasets = ["CALM"]
-representations = [VAE, ONE_HOT, TRANSFORMER]
+datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
+representations = [VAE, TRANSFORMER, ONE_HOT]
 train_test_splitters = [BlockPostionSplitter]
 train_test_splitters = [lambda dataset: RandomSplitter()]
 
@@ -37,7 +35,7 @@ def GPSEFactory(representation, alphabet):
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
 
 
-method_factories = [GPSEFactory, RandomForestFactory, GPLinearFactory]
+method_factories = [RandomForestFactory, GPSEFactory, GPLinearFactory]
 for dataset in datasets:
     for representation in representations:
         for train_test_splitter in train_test_splitters:
