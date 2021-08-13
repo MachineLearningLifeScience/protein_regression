@@ -12,7 +12,7 @@ from data.load_dataset import get_wildtype, get_alphabet
 from visualization.plot_metric_for_dataset import plot_metric_for_dataset
 
 # gathers all our results and saves them into a numpy array
-datasets = ["CALM", "BRCA"]
+datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
 train_test_splitter = BlockPostionSplitter #RandomSplitter # BlockPostionSplitter #RandomSplitter
 metric = MSE
 representations = [VAE, TRANSFORMER, ONE_HOT]

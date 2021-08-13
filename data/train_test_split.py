@@ -110,17 +110,17 @@ def positional_splitter(seqs, query_seq, val, offset, pos_per_fold):
 
 
 def pos_per_fold_assigner(name: str):
-    if name == 'blat' or name == '1FQG':
+    if name.lower() == 'blat' or name == '1FQG':
         pos_per_fold = 85
-    elif name=='ubqt':
+    elif name.lower() == 'ubqt':
         pos_per_fold = 25
-    elif name == 'brca' or name == 'BRCA':
+    elif name.lower() == 'brca':
         pos_per_fold = 63
-    elif name == 'timb':
+    elif name.lower() == 'timb':
         pos_per_fold = 28
-    elif name == 'calm' or name == 'CALM':
+    elif name.lower() == 'calm':
         pos_per_fold = 47
-    elif name == 'mth3':
+    elif name.lower() == 'mth3':
         pos_per_fold = 107
     else:
         raise ValueError("Unknown dataset: %s" % name)
