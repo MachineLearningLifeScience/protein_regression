@@ -35,8 +35,8 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
         method.train(X[train_indices[split], :], Y[train_indices[split], :])
         mu, unc = method.predict(X[test_indices[split], :])
         # record mean and median smse and nll and spearman correlation
-        assert mu.shape == Y[test_indices[split]].flatten().shape, "shape mismatch"
-        err2 = np.square(Y[test_indices[split]].flatten() - mu)
+        assert mu.shape == Y[test_indices[split]].shape, "shape mismatch "+str(mu.shape)+' '+str(Y[test_indices[split]].flatten().shape)
+        err2 = np.square(Y[test_indices[split]] - mu)
         mse = np.mean(err2)
         medse = np.median(err2)
         mse_var = np.var(err2)

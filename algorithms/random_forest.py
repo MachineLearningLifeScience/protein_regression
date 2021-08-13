@@ -17,7 +17,7 @@ class RandomForest(AbstractAlgorithm):
         self.model.fit(X, Y.squeeze())
 
     def predict(self, X):
-        pred = self.model.predict(X)
+        pred = self.model.predict(X).reshape(-1, 1)
         # TODO: unfortunately sklearn does not provide a variance estimate -- damn!
         unc = np.zeros(pred.shape)
         return pred, unc
