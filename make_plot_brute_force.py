@@ -13,7 +13,7 @@ from visualization.plot_metric_for_dataset import plot_metric_for_dataset
 
 # gathers all our results and saves them into a numpy array
 datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
-train_test_splitter = RandomSplitter #RandomSplitter # BlockPostionSplitter 
+train_test_splitter = BlockPostionSplitter #RandomSplitter # BlockPostionSplitter 
 metric = MSE
 representations = [VAE, TRANSFORMER, ONE_HOT]
 results_dict = {}
