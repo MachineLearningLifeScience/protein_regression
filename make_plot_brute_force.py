@@ -6,7 +6,7 @@ from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.random_forest import RandomForest
-from util.mlflow.constants import DATASET, METHOD, MSE, REPRESENTATION, TRANSFORMER, VAE, SPLIT, ONE_HOT
+from util.mlflow.constants import DATASET, METHOD, MSE, REPRESENTATION, TRANSFORMER, VAE, SPLIT, ONE_HOT, NONSENSE
 from util.mlflow.convenience_functions import find_experiments_by_tags
 from data.load_dataset import get_wildtype, get_alphabet
 from visualization.plot_metric_for_dataset import plot_metric_for_dataset
@@ -15,18 +15,20 @@ from visualization.plot_metric_for_dataset import plot_metric_for_dataset
 datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
 train_test_splitter = BlockPostionSplitter #RandomSplitter # BlockPostionSplitter 
 metric = MSE
-representations = [VAE, TRANSFORMER, ONE_HOT]
+representations = [VAE, TRANSFORMER, ONE_HOT, NONSENSE]
+#representations = [ONE_HOT, NONSENSE]
 results_dict = {}
 last_result_length = None
 
-simons_algos = {VAE: [GPonRealSpace(), GPonRealSpace(kernel=SquaredExponential()), RandomForest()],
-                TRANSFORMER: [GPonRealSpace(), GPonRealSpace(kernel=SquaredExponential()), RandomForest()],
-                ONE_HOT: [GPOneHotSequenceSpace(alphabet_size=len(get_alphabet('BRCA'))), GPOneHotSequenceSpace(alphabet_size=len(get_alphabet('BRCA')), kernel=SquaredExponential()), RandomForest()]}
+algos = {VAE: [GPonRealSpace(), GPonRealSpace(kernel=SquaredExponential()), RandomForest()],
+        TRANSFORMER: [GPonRealSpace(), GPonRealSpace(kernel=SquaredExponential()), RandomForest()],
+        ONE_HOT: [GPOneHotSequenceSpace(alphabet_size=len(get_alphabet('BRCA'))), GPOneHotSequenceSpace(alphabet_size=len(get_alphabet('BRCA')), kernel=SquaredExponential()), RandomForest()],
+        NONSENSE: [GPonRealSpace(), GPonRealSpace(kernel=SquaredExponential()), RandomForest()]}
 
 for dataset in datasets:
     result_dict = {}
-    for repr in simons_algos.keys():
-        for a in simons_algos[repr]:
+    for repr in algos.keys():
+        for a in algos[repr]:
             exps = find_experiments_by_tags({DATASET: dataset, 
                                              METHOD: a.get_name(), 
                                              REPRESENTATION: repr,
@@ -45,5 +47,3 @@ for dataset in datasets:
 print(results_dict)
 # then calls #plot_metric_for_dataset
 plot_metric_for_dataset(metric_values=results_dict, cvtype=train_test_splitter(dataset).get_name())
-
-
