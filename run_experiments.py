@@ -13,7 +13,7 @@ datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
 #datasets = ["1FQG"]
 representations = [VAE, TRANSFORMER, ONE_HOT, NONSENSE]
 train_test_splitters = [BlockPostionSplitter]
-#train_test_splitters = [lambda dataset: RandomSplitter()]
+train_test_splitters = [lambda dataset: RandomSplitter()]
 
 
 def RandomForestFactory(representation, alphabet):
@@ -41,7 +41,7 @@ def GPSEFactory(representation, alphabet):
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
 
 
-method_factories = [KNNFactory] #[RandomForestFactory, GPSEFactory, GPLinearFactory]
+method_factories = [RandomForestFactory, GPSEFactory, GPLinearFactory, KNNFactory]
 for dataset in datasets:
     for representation in representations:
         for train_test_splitter in train_test_splitters:
