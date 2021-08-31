@@ -2,20 +2,21 @@ import numpy as np
 from Bio.Seq import Seq
 
 
-alphabet = "ARNDCQEGHILKMFPSTWYV-"
-# map amino acids to integers (A->0, R->1, etc)
-a2n = dict((a, n) for n, a in enumerate(alphabet))
+# DEFUSING ALPHABET MISMATCH IN PLETHORA OF UTILITY FUNCTIONS
+# alphabet = "ARNDCQEGHILKMFPSTWYV-"
+# # map amino acids to integers (A->0, R->1, etc)
+# a2n = dict((a, n) for n, a in enumerate(alphabet))
 
 
-def aa2int(x: str):
-    return a2n.get(x, a2n['-'])
+# def aa2int(x: str):
+#     return a2n.get(x, a2n['-'])
 
 
-def seq2int(seq: str):
-    int_seq = np.zeros(len(seq), dtype=np.int)
-    for i, s in enumerate(seq):
-        int_seq[i] = aa2int(s)
-    return int_seq
+# def seq2int(seq: str):
+#     int_seq = np.zeros(len(seq), dtype=np.int)
+#     for i, s in enumerate(seq):
+#         int_seq[i] = aa2int(s)
+#     return int_seq
 
 
 def list_of_pairs_2_seq(list):

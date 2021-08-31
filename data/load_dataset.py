@@ -1,3 +1,4 @@
+from typing import Tuple
 import numpy as np
 import pickle
 from os.path import join, dirname
@@ -101,24 +102,19 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
 def get_wildtype(name: str):
     if name == "1FQG":  # beta-lactamase
         d = pickle.load(open(join(base_path, "BLAT_data_df.pkl"), "rb"))
-        wt = d['seqs'][0].astype(np.int64)
     elif name == "BRCA":
         d = pickle.load(open(join(base_path, "brca_data_df.pkl"), "rb"))
-        wt = d['seqs'][0].astype(np.int64)
     elif name == "CALM":
         d = pickle.load(open(join(base_path, "calm_data_df.pkl"), "rb"))
-        wt = d['seqs'][0].astype(np.int64)
     elif name == "MTH3":
         d = pickle.load(open(join(base_path, "mth3_data_df.pkl"), "rb"))
-        wt = d['seqs'][0].astype(np.int64)
     elif name == "TIMB":
         d = pickle.load(open(join(base_path, "timb_data_df.pkl"), "rb"))
-        wt = d['seqs'][0].astype(np.int64)
     elif name == "UBQT":
         d = pickle.load(open(join(base_path, "ubqt_data_df.pkl"), "rb"))
-        wt = d['seqs'][0].astype(np.int64)
     else:
         raise ValueError("Unknown dataset: %s" % name)
+    wt = d['seqs'][0].astype(np.int64)
     return wt
 
 
@@ -183,4 +179,14 @@ def make_debug_se_dataset():
     L = np.linalg.cholesky(K + 1e-6 * np.eye(X.shape[0]))
     Y = L @ np.random.randn(X.shape[0], 1)
     np.random.seed(restore_seed)
+    return X, Y
+
+
+def load_IS_data(pdb, data_dir="./data/") -> Tuple[np.ndarray, np.ndarray]:
+    filename = join(data_dir, pdb)
+    X, Y = None, None
+    with open(filename, "rb") as infile:
+        is_data = pickle.load(infile) 
+        # TODO assert filetype and dimensions here
+        X, Y = is_data[:, 0], is_data[:, 1]
     return X, Y

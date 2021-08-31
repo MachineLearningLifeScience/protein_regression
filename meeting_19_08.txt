@@ -1,0 +1,30 @@
+Meeting notes: 19/08/21
+
+Fig1:
+Normalize results by mean of training data-set. Best fit below 1 - estimate of mean == 1
+
+Debug GP, if predictions are off - how is optimization routine conducted?
+sensitivity of kernel hyperparameters?
+
+Make Fig. 1 nice.
+
+add mGP performance
+
+2nd Figure with Fig. 1 grey lines for comparisons?
+
+Variance is dependent on split predictions, NOT model properties.
+
+investigate GP kernels and performance on representations
+
+You cannot trust (GP) predictions on OH random splitting. Weird results in general. Compare w.r.t. mean predictions / KNN prediction?
+What does it mean for the GP regression that all points are equally distant in OH?!
+
+Hyperparameter optimization on GP kernels.
+
+
+PT1:
+Representations are important
+
+Validation is important
+
+DROP MTH3

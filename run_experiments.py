@@ -1,8 +1,10 @@
 from gpflow.kernels import SquaredExponential, Linear, Polynomial
+from algorithms.mgp.kernels import KernelLoader
 
 from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.random_forest import RandomForest
+from algorithms.mgp_fusion import GPfusion
 from algorithms.KNN import KNN
 from data.load_dataset import get_wildtype, get_alphabet
 from data.train_test_split import BlockPostionSplitter, RandomSplitter
@@ -41,6 +43,12 @@ def GPSEFactory(representation, alphabet):
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
 
 
+def GPFusionFactory(representation, alphabet):
+    return GPfusion(kernel=KernelLoader())
+
+
+
+method_factories = [RandomForestFactory, GPSEFactory, GPLinearFactory, GPFusionFactory]
 method_factories = [RandomForestFactory, GPSEFactory, GPLinearFactory, KNNFactory]
 for dataset in datasets:
     for representation in representations:
