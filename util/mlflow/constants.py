@@ -19,6 +19,7 @@ ONE_HOT = "one_hot"
 TRANSFORMER = "transformer"
 VAE = "vae"
 NONSENSE = "nonsense"
+KNN_name = 'knn'
 
 # optimization
 OBSERVED_Y = "OBSERVED_Y"
