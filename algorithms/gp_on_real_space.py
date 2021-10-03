@@ -17,7 +17,7 @@ class GPonRealSpace(AbstractAlgorithm):
         self.optimize = optimize
 
     def get_name(self):
-        return "GP" + self.kernel.name
+        return "GP" + self.kernel.name 
 
     def train(self, X, Y):
         assert(Y.shape[1] == 1)

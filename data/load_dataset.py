@@ -95,7 +95,9 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
     Y = Y.astype(np.float64)
     assert(X.shape[0] == Y.shape[0])
     assert(Y.shape[1] == 1)
-    return X, Y
+    # We flip the sign of Y so our optimization experiment is a minimazation problem
+    # litterature review of modelled proteins showed higher values are better
+    return X, -Y
 
 
 def get_wildtype(name: str):

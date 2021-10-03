@@ -39,14 +39,10 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
         # record mean and median smse and nll and spearman correlation
         assert mu.shape == Y[test_indices[split]].shape, "shape mismatch "+str(mu.shape)+' '+str(Y[test_indices[split]].flatten().shape)
         
-        y_mu = np.mean(Y[train_indices[split], :])
-        y_sig = np.std(Y[train_indices[split], :], ddof=1)
-        
-        mu = mu/y_mu
-        Y[test_indices[split]] = Y[test_indices[split]]/y_mu
-
+        y_mu = np.mean(Y[train_indices[split], :])    
+        baseline = np.mean(np.square(Y[test_indices[split]] - np.repeat(y_mu, len(Y[test_indices[split]])).reshape(-1,1)))
         err2 = np.square(Y[test_indices[split]] - mu)
-        mse = np.mean(err2)
+        mse = np.mean(err2)/baseline
         medse = np.median(err2)
         mse_var = np.var(err2)
         mll = np.mean(err2 / unc / 2 + np.log(2 * np.pi * unc) / 2)

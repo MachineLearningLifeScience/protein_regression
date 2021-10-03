@@ -103,9 +103,9 @@ class UncertainRandomForest(AbstractAlgorithm):
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
         self.model = Uncertain_RandomForestRegressor(random_state=42, n_jobs=-1)  # use all processors
-        self.model.fit(X, Y.squeeze())
+        self.model.fit(X, Y.ravel())
 
     def predict(self, X):
-        out = self.model.predict(X).reshape(-1, 1)
+        out = self.model.predict(X)
         pred, unc = out[0], out[1]
-        return pred, unc
+        return pred.reshape(-1, 1), unc.reshape(-1, 1)

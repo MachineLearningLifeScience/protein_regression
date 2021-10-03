@@ -3,28 +3,27 @@ from gpflow.kernels import SquaredExponential, Linear, Polynomial
 from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.random_forest import RandomForest
+from algorithms.uncertain_rf import UncertainRandomForest
 from algorithms.KNN import KNN
-from data.load_dataset import get_wildtype, get_alphabet
-from data.train_test_split import BlockPostionSplitter, RandomSplitter
-from run_single_regression_task import run_single_regression_task
-from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE
+from data.load_dataset import get_alphabet
+from run_single_optimization_task import run_single_optimization_task
+from util.mlflow.constants import TRANSFORMER, ONE_HOT
 
-datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
-#datasets = ["1FQG"]
-representations = [VAE, TRANSFORMER, ONE_HOT, NONSENSE]
-train_test_splitters = [BlockPostionSplitter]
-#
-# train_test_splitters = [lambda dataset: RandomSplitter()]
-
+datasets = ["1FQG"]
+representations = [TRANSFORMER]
+seeds = [42, 123, 54]
 
 def RandomForestFactory(representation, alphabet):
     return RandomForest()
+
+def UncertainRFFactory(representation, alphabet):
+    return UncertainRandomForest()
 
 def KNNFactory(representation, alphabet):
     return KNN()
 
 # TODO: set this to true again!
-optimize = False
+optimize = True
 if not optimize:
     import warnings
     warnings.warn("Optimization for GPs disabled.")
@@ -34,7 +33,6 @@ def GPLinearFactory(representation, alphabet):
     else:
         return GPonRealSpace(optimize=optimize)
 
-
 def GPSEFactory(representation, alphabet):
     if representation is ONE_HOT:
         return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel=SquaredExponential(), optimize=optimize)
@@ -42,12 +40,12 @@ def GPSEFactory(representation, alphabet):
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
 
 
-method_factories = [RandomForestFactory, GPSEFactory, GPLinearFactory, KNNFactory]
+method_factories = [GPSEFactory, GPLinearFactory, UncertainRFFactory]
 for dataset in datasets:
-    for representation in representations:
-        for train_test_splitter in train_test_splitters:
+    for seed in seeds:
+        for representation in representations:
             alphabet = get_alphabet(dataset)
             for factory in method_factories:
                 method = factory(representation, alphabet)
-                run_single_regression_task(dataset=dataset, representation=representation, method=method,
-                                           train_test_splitter=train_test_splitter(dataset=dataset))
+                run_single_optimization_task(dataset=dataset, representation=representation,
+                                            method=method, seed=seed)
