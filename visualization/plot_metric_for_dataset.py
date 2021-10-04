@@ -49,7 +49,7 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str):
                 axs[d].axvline(1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
                 axs[d].set_yticks(list(range(len(list(metric_values[dataset_key].keys())))))
                 axs[d].set_yticklabels(['' for i in range(len(list(metric_values[dataset_key].keys())))])
-                axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=14)
+                axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
                 axs[d].tick_params(axis='x', which='major', labelsize=14)
                 axs[d].set_title(dataset_key, size=16)
                 axs[d].set_xlabel('Normalized MSE', size=14)
@@ -63,17 +63,17 @@ def plot_optimization_task(metric_values: dict, name: str):
     c = ['dimgrey', '#661100', '#332288']
     plt.figure()
     for d, dataset_key in enumerate(metric_values.keys()):
-        reps = []
+        algos = []
         for i, algo in enumerate(metric_values[dataset_key].keys()):           
             for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
-                if rep not in reps:
-                    reps.append(rep)
+                if algo not in algos:
+                    algos.append(algo)
 
                 observations = np.vstack(metric_values[dataset_key][algo][rep])
                 means = np.mean(observations, axis=0)
                 stds = np.std(observations, ddof=1, axis=0)/np.sqrt(observations.shape[0])
-                plt.errorbar(list(range(len(means))), means, yerr=stds, color=c[i])
-
+                plt.plot(means, color=c[i], label=algo, linewidth=2)
+                plt.fill_between(list(range(len(means))), means-stds, means+stds, color=c[i], alpha=0.5)
                 if name == 'Best observed':
                     _, Y = load_dataset(dataset_key, representation=rep)
                     plt.hlines(min(Y), 0, len(means), linestyles='--', colors='dimgrey')
@@ -82,5 +82,9 @@ def plot_optimization_task(metric_values: dict, name: str):
     plt.ylabel(name, size=16)
     plt.xticks(size=14)
     plt.yticks(size=14)
+
+    markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
+    plt.legend(markers, algos, bbox_to_anchor=(1, 1.03), numpoints=1, prop={'size':12})
+
     plt.savefig('results/figures/'+name+'_optimization_plot')
     plt.show()

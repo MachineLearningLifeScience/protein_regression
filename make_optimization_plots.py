@@ -5,6 +5,7 @@ from mlflow.entities import ViewType
 from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.one_hot_gp import GPOneHotSequenceSpace
+from algorithms.uncertain_rf import UncertainRandomForest
 from algorithms.random_forest import RandomForest
 from algorithms.KNN import KNN
 from util.mlflow.constants import DATASET, METHOD, MSE, REPRESENTATION, TRANSFORMER, VAE, SPLIT, ONE_HOT, NONSENSE, KNN_name, SEED, OPTIMIZATION,\
@@ -16,8 +17,8 @@ from visualization.plot_metric_for_dataset import plot_optimization_task
 # gathers all our results and saves them into a numpy array
 datasets = ["1FQG"]
 representations = [TRANSFORMER]
-seeds = [42]
-algos = [GPonRealSpace().get_name()]#, GPonRealSpace(kernel=SquaredExponential()).get_name(), RandomForest().get_name(), KNN().get_name()]
+seeds = [42, 123, 54, 2345, 987, 6538]
+algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel=SquaredExponential()).get_name(), UncertainRandomForest().get_name()]
 
 
 minObs_dict = {}

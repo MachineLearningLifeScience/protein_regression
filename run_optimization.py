@@ -11,7 +11,7 @@ from util.mlflow.constants import TRANSFORMER, ONE_HOT
 
 datasets = ["1FQG"]
 representations = [TRANSFORMER]
-seeds = [42, 123, 54]
+seeds = [2345, 987, 6538]
 
 def RandomForestFactory(representation, alphabet):
     return RandomForest()
