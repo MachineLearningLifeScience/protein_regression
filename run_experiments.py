@@ -11,8 +11,8 @@ from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from run_single_regression_task import run_single_regression_task
 from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE
 
-datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
-#datasets = ["1FQG"]
+#datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
+datasets = ["1FQG"]
 representations = [VAE, TRANSFORMER, ONE_HOT, NONSENSE]
 train_test_splitters = [BlockPostionSplitter]
 train_test_splitters = [lambda dataset: RandomSplitter()]
@@ -48,8 +48,7 @@ def GPFusionFactory(representation, alphabet):
 
 
 
-method_factories = [RandomForestFactory, GPSEFactory, GPLinearFactory, GPFusionFactory]
-method_factories = [RandomForestFactory, GPSEFactory, GPLinearFactory, KNNFactory]
+method_factories = [RandomForestFactory, GPSEFactory, GPLinearFactory, GPFusionFactory, KNNFactory]
 for dataset in datasets:
     for representation in representations:
         for train_test_splitter in train_test_splitters:
