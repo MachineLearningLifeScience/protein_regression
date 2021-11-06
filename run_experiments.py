@@ -4,13 +4,14 @@ from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.random_forest import RandomForest
 from algorithms.KNN import KNN
+from algorithms.mgp.fusion_scaler import BayesScaler
 from data.load_dataset import get_wildtype, get_alphabet
 from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from run_single_regression_task import run_single_regression_task
 from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE
 
-datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
-#datasets = ["1FQG"]
+#datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
+datasets = ["BRCA"]
 representations = [VAE, TRANSFORMER, ONE_HOT, NONSENSE]
 train_test_splitters = [BlockPostionSplitter]
 #
@@ -22,6 +23,9 @@ def RandomForestFactory(representation, alphabet):
 
 def KNNFactory(representation, alphabet):
     return KNN()
+
+def BayesRegressorFactory(representation, alphabet):
+    return BayesScaler()
 
 # TODO: set this to true again!
 optimize = False
@@ -42,7 +46,7 @@ def GPSEFactory(representation, alphabet):
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
 
 
-method_factories = [RandomForestFactory, GPSEFactory, GPLinearFactory, KNNFactory]
+method_factories = [RandomForestFactory, GPSEFactory, GPLinearFactory, KNNFactory, BayesRegressorFactory]
 for dataset in datasets:
     for representation in representations:
         for train_test_splitter in train_test_splitters:

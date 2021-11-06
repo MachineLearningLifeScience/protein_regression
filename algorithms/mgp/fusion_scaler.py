@@ -7,89 +7,79 @@ from pyro.infer import MCMC, NUTS
 import pyro.distributions as dist
 import pickle
 from os import path
+from typing import List
+from algorithms.abstract_algorithm import AbstractAlgorithm
 
 
-class BayesScaler:
+class BayesScaler(AbstractAlgorithm):
     """
-    Bayesian In Silico Scaling for Rosetta simulated data.
-    Using MCMC (w/ NUTS sampler)
+    Bayesian regression scaling using MCMC (w/ NUTS sampler).
+    On joint subset of mutations given simulated experimental values
+    and experimental observations.
+
+    Input:
+    is_mutations -- List[str]: in-silico mutation names
+    ΔΔg -- np.ndarray: in-silico experimental observations
+    exp_mutations -- List[str]: experimental mutation names
+    experimentally_observed_ΔΔg -- np.ndarray: experimental observations
     """
-    def __init__(self, is_mutations: list, ΔΔg, exp_mutations, experimentally_observed_ΔΔg,
+    def __init__(self,
                 α_a=2., β_a=1.5, α_b=1.3, β_b=2., α_c=2, β_c=5., σ_d=0.15, σ_n=0.5,
-                samples_N=10000, warmup_N=500, pdb_ID=None, cached=False, vae=False, holdout_idx=None):
+                samples_N=10000, warmup_N=500, train_test_split=0.2):
         pyro.set_rng_seed(42)
         pyro.clear_param_store()
-        self.pdb_ID = pdb_ID
-        self.cached = cached
-        self.vae = vae
-        self.cached_filename = path.join("./cache/", f"{self.pdb_ID}_scaler_vae{vae}.pkl")
+        self.model = None
+        self.mcmc = None
+        self.train_test_split = train_test_split
         self.samples_N = samples_N
         self.warmup_N = warmup_N
-        self.chains_N = 1
-        self.x_range = (min(ΔΔg)-2, max(ΔΔg)+2)
-        self.is_mutations = is_mutations
-        self.exp_mutations = exp_mutations
-        self.ΔΔg_is = ΔΔg
-        self.experimentally_observed_ΔΔg = experimentally_observed_ΔΔg
-        # persist samples that fitted transformation - exclude downstream
-        self.holdout_idx = holdout_idx 
-
-        ΔΔg_exp, ΔΔg_is = self._check_observed()
-
-        self.ΔΔg_exp = torch.Tensor(ΔΔg_exp)
-        self.ΔΔg_is = torch.Tensor(ΔΔg_is)
+        self.chains_N = 1   
         self.α_a, self.β_a = α_b, β_b
         self.α_b, self.β_b = α_a, β_a
         self.α_c, self.β_c = α_c, β_c
         self.σ_d, self.σ_n = σ_d, σ_n
 
-        self.mcmc = self.get_mcmc_results()
+    def get_name(self):
+        return "BS"
 
-        self.a_samples = self.mcmc.get("a")
-        self.b_samples = self.mcmc.get("b")
-        self.c_samples = self.mcmc.get("c")
-        self.d_samples = self.mcmc.get("d")
-        self.a = self.a_samples.mean(0)
-        self.b = self.b_samples.mean(0)
-        self.c = self.c_samples.mean(0)
-        self.d = self.d_samples.mean(0)
+    def train(self, X, Y):
+        self.x_range = (min(Y)-2, max(Y)+2)
+        Y = np.random.shuffle(Y)
+        holdout_idx = int(self.train_test_split*Y.shape[0])
+        y_train, y_test = torch.Tensor(Y[:holdout_idx]), torch.Tensor(Y[holdout_idx:])
+        self.mcmc = self.run_mcmc(y_exp=y_test, y_is=y_train)
+
+    def predict(self, X):
+        mcmc = {k: v.detach().cpu().numpy() for k, v in self.mcmc.get_samples().items()}
+        a_samples = mcmc.get("a")
+        b_samples = mcmc.get("b")
+        c_samples = mcmc.get("c")
+        d_samples = mcmc.get("d")
+        a = a_samples.mean(0)
+        b = b_samples.mean(0)
+        c = c_samples.mean(0)
+        d = d_samples.mean(0)
 
         # put samples in range context:
-        self.xx = np.arange(self.x_range[0], self.x_range[1], 0.01)
+        xx = np.arange(self.x_range[0], self.x_range[1], 0.01)
         # theta for all sampled points
-        self.θ_samples = np.array([self.a_samples[i] * np.exp(np.dot(self.c_samples[i], 
-                self.ΔΔg_is)) + np.dot(self.b_samples[i], self.ΔΔg_is) + self.d_samples[i] for i in range(self.samples_N)])
-        self.θ_xx_samples = np.array([self.a_samples[i] * np.exp(np.dot(self.c_samples[i], 
-                self.xx)) + np.dot(self.b_samples[i], self.xx) + self.d_samples[i] for i in range(self.samples_N)])
-        self.θ = self.a * np.exp(np.dot(self.c, self.ΔΔg_is)) + np.dot(self.b, self.ΔΔg_is) + self.d
-        self.θ_xx = np.array(list(map(self.transform, self.xx)))
-        self.σ_T = np.sum(np.square(self.θ_samples - self.θ)) / self.samples_N
-        self.σ_T_samples = np.sum(np.square(self.θ_samples - self.θ), axis=0) / self.samples_N
+        θ_samples = np.array([a_samples[i] * np.exp(np.dot(c_samples[i], 
+                X)) + np.dot(b_samples[i], X) + d_samples[i] for i in range(self.samples_N)])
+        θ_xx_samples = np.array([a_samples[i] * np.exp(np.dot(c_samples[i], 
+                xx)) + np.dot(b_samples[i], xx) + d_samples[i] for i in range(self.samples_N)])
+        θ = a * np.exp(np.dot(c, X)) + np.dot(b, X) + d
+        θ_xx = np.array(list(map(self.predict, xx)))
+        σ_T = np.sum(np.square(θ_samples - θ)) / self.samples_N
+        σ_T_samples = np.sum(np.square(θ_samples - θ), axis=0) / self.samples_N
         # compute sigma over the whole range of possible inputs
-        self.σ_T_xx = np.sum(np.square(self.θ_xx_samples - self.θ_xx), axis=0) / self.samples_N
-
-    def get_mcmc_results(self):
-        """
-        Checks if cached MCMC samples exist and loads them.
-        If not MCMC sampling is conducted on specified models.
-        """
-        if self.cached and path.isfile(self.cached_filename):
-            print(f"Loading saved MCMC run from {self.cached_filename}")
-            with open(self.cached_filename, "rb") as infile:
-                mcmc = pickle.load(infile)
-        else:
-            mcmc = self.run_mcmc()
-            mcmc = {k: v.detach().cpu().numpy() for k, v in mcmc.get_samples().items()}
-            if self.cached:
-                with open(self.cached_filename, "wb") as outfile:
-                    pickle.dump(mcmc, outfile)
-        return mcmc
-
-    def transform(self, x: float) -> float:
-        return self.a * np.exp(np.dot(self.c, x)) + np.dot(self.b, x) + self.d
+        σ_T_xx = np.sum(np.square(θ_xx_samples - θ_xx), axis=0) / self.samples_N
+        y_pred = a * np.exp(np.dot(c, X)) + np.dot(b, X) + d
+        # TODO assert ∃ sigma per prediction
+        return y_pred, σ_T
     
     def _check_observed(self) -> np.array:
         """
+        NOTE: used in mgpfusion context - discontinued
         set of simulated mutations that have an experimental counterpart
         :Input: 
             ΔΔg = list of (Rosetta) simulated values
@@ -113,21 +103,21 @@ class BayesScaler:
             observed_ΔΔg, simulated_ΔΔg = list(zip(*subsample))
         return list(observed_ΔΔg), list(simulated_ΔΔg)
 
-    def _model(self, sim_ΔΔg, obs_ΔΔg):
+    def _model(self, y_is, y_exp):
         a = pyro.sample('a', dist.Gamma(self.α_a, self.β_a))
         b = 0.5 * pyro.sample('b', dist.Beta(self.α_b, self.β_b))
         c = 3.33 * pyro.sample('c', dist.Beta(self.α_c, self.β_c))
         d = pyro.sample('d', dist.Normal(-a, self.σ_d))
         # theta conditioned from in silico data
-        θ = a * torch.exp(c*sim_ΔΔg) + b*sim_ΔΔg + d
-        with pyro.plate("data", obs_ΔΔg.shape[0]):
+        θ = a * torch.exp(c*y_is) + b*y_is + d
+        with pyro.plate("data", y_exp.shape[0]):
             # observations are experimental data
-            pyro.sample('obs', dist.Normal(θ, self.σ_n), obs=obs_ΔΔg)
+            pyro.sample('obs', dist.Normal(θ, self.σ_n), obs=y_exp)
     
-    def run_mcmc(self):
+    def run_mcmc(self, y_is, y_exp):
         nuts_kernel = NUTS(self._model, jit_compile=True)
         mcmc = MCMC(nuts_kernel, num_samples=self.samples_N, warmup_steps=self.warmup_N)
-        mcmc.run(self.ΔΔg_is, self.ΔΔg_exp)
+        mcmc.run(y_is, y_exp)
         return mcmc
 
     @staticmethod
