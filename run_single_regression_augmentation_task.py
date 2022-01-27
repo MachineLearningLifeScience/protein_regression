@@ -5,7 +5,7 @@ from algorithms.abstract_algorithm import AbstractAlgorithm
 from data.load_dataset import load_dataset
 from data.load_augmentation import load_augmentation
 from data.train_test_split import AbstractTrainTestSplitter
-from util.mlflow.constants import DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, AUGMENTATION
+from util.mlflow.constants import DATASET, METHOD, MSE, ROSETTA, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, AUGMENTATION
 from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
 
 
@@ -16,12 +16,16 @@ def run_single_augmentation_task(dataset: str, representation: str, method: Abst
     if representation is not None:
         X, Y = load_dataset(dataset, representation=representation)
 
-    augmentation_vector = load_augmentation(augmentation=augmentation)
-    # TODO double-check format and shape here!!
-    X = X.c_(augmentation_vector)
+    A, Y = load_augmentation(name=dataset, augmentation=augmentation)
 
-    tags = {DATASET: dataset, METHOD: method.get_name(), REPRESENTATION: representation,
-            SPLIT: train_test_splitter.get_name(), AUGMENTATION: augmentation}
+    # TODO double-check format and shape here!!
+    X = X.c_(A)
+
+    tags = {DATASET: dataset, 
+            METHOD: method.get_name(), 
+            REPRESENTATION: representation,
+            SPLIT: train_test_splitter.get_name(), 
+            AUGMENTATION: augmentation}
 
     exp = find_experiments_by_tags(tags)
     if len(exp) == 0:
@@ -61,7 +65,7 @@ def run_single_augmentation_task(dataset: str, representation: str, method: Abst
 
 
 if __name__ == "__main__":
-    dataset = "BRCA"
+    dataset = "UBQT"
     from util.mlflow.constants import VAE
     representation = VAE
     from data.load_dataset import get_alphabet
@@ -71,6 +75,6 @@ if __name__ == "__main__":
     from algorithms.one_hot_gp import GPOneHotSequenceSpace
     from algorithms.gp_on_real_space import GPonRealSpace
 
-    run_single_regression_task(dataset=dataset, representation=representation,
+    run_single_augmentation_task(dataset=dataset, representation=representation,
                                method=GPonRealSpace(kernel=SquaredExponential()),
-                               train_test_splitter=BlockPostionSplitter(dataset=dataset))
+                               train_test_splitter=BlockPostionSplitter(dataset=dataset), augmentation=ROSETTA)

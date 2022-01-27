@@ -1,10 +1,10 @@
 import numpy as np
 import random
 import pandas as pd
-import torch
-import pyro
-from pyro.infer import MCMC, NUTS
-import pyro.distributions as dist
+#import torch
+#import pyro
+#from pyro.infer import MCMC, NUTS
+#import pyro.distributions as dist
 import pickle
 from os import path
 from typing import List
