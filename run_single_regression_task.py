@@ -3,18 +3,23 @@ import mlflow
 from scipy.stats import spearmanr
 
 from algorithms.abstract_algorithm import AbstractAlgorithm
-from data.load_dataset import load_dataset
+from data.load_dataset import load_dataset, get_alphabet
 from data.train_test_split import AbstractTrainTestSplitter
+from util.numpy_one_hot import numpy_one_hot_2dmat
 from util.mlflow.constants import DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT
 from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
 
 
 def run_single_regression_task(dataset: str, representation: str, method: AbstractAlgorithm, train_test_splitter: AbstractTrainTestSplitter):
+    # load X for CV splitting
     X, Y = load_dataset(dataset, representation=ONE_HOT)
     train_indices, val_indices, test_indices = train_test_splitter.split(X)
-    if representation is not None:
-        X, Y = load_dataset(dataset, representation=representation)
+    X, Y = load_dataset(dataset, representation=representation)
+    
+    if representation is ONE_HOT:
+        X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
 
+    print(X.shape)
     tags = {DATASET: dataset, METHOD: method.get_name(), REPRESENTATION: representation,
             SPLIT: train_test_splitter.get_name()}
 

@@ -2,7 +2,8 @@ import numpy as np
 import mlflow
 from scipy.stats import spearmanr
 from algorithms.abstract_algorithm import AbstractAlgorithm
-from data.load_dataset import load_dataset
+from data.load_dataset import load_dataset, get_alphabet
+from util.numpy_one_hot import numpy_one_hot_2dmat
 from data.load_augmentation import load_augmentation
 from data.train_test_split import AbstractTrainTestSplitter
 from util.mlflow.constants import DATASET, METHOD, MSE, ROSETTA, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, AUGMENTATION
@@ -11,15 +12,22 @@ from util.mlflow.convenience_functions import find_experiments_by_tags, make_exp
 
 def run_single_augmentation_task(dataset: str, representation: str, method: AbstractAlgorithm, augmentation: str, train_test_splitter: AbstractTrainTestSplitter):
     # TODO: Why do we load X, Y twice? Why not representation with def value? 
+    if not representation: 
+        raise ValueError("Representation required for data loading...")
+    # load X for the CV splitting requiring label-encoding
     X, Y = load_dataset(dataset, representation=ONE_HOT)
     train_indices, val_indices, test_indices = train_test_splitter.split(X)
-    if representation is not None:
-        X, Y = load_dataset(dataset, representation=representation)
 
+    X, Y = load_dataset(dataset, representation=representation)
+    if representation is ONE_HOT:
+        X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
     A, Y = load_augmentation(name=dataset, augmentation=augmentation)
+    X = np.concatenate([X, A], axis=1)
 
-    # TODO double-check format and shape here!!
-    X = X.c_(A)
+    print("DEBUG")
+    print(dataset)
+    print(representation)
+    print(X)
 
     tags = {DATASET: dataset, 
             METHOD: method.get_name(), 

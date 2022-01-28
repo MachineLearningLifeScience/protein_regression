@@ -14,7 +14,7 @@ from visualization.plot_metric_for_dataset import barplot_metric_comparison
 
 # gathers all our results and saves them into a numpy array
 datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
-train_test_splitter = BlockPostionSplitter #RandomSplitter # BlockPostionSplitter 
+train_test_splitter = RandomSplitter # BlockPostionSplitter 
 metric = MSE
 representations = [VAE, TRANSFORMER, ONE_HOT]
 last_result_length = None
