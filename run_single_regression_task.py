@@ -27,7 +27,6 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
     # record experiments by dataset name and have the tags as logged parameters
     experiment = mlflow.set_experiment(dataset)
     mlflow.start_run(experiment_id=experiment)
-    mlflow.log_params(tags)
     mlflow.set_tags(tags)
 
     for split in range(0, len(train_indices)):
