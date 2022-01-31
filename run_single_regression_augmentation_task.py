@@ -11,7 +11,6 @@ from util.mlflow.convenience_functions import find_experiments_by_tags, make_exp
 
 
 def run_single_augmentation_task(dataset: str, representation: str, method: AbstractAlgorithm, augmentation: str, train_test_splitter: AbstractTrainTestSplitter):
-    # TODO: Why do we load X, Y twice? Why not representation with def value? 
     if not representation: 
         raise ValueError("Representation required for data loading...")
     # load X for the CV splitting requiring label-encoding
@@ -24,30 +23,18 @@ def run_single_augmentation_task(dataset: str, representation: str, method: Abst
     A, Y = load_augmentation(name=dataset, augmentation=augmentation)
     X = np.concatenate([X, A], axis=1)
 
-    print("DEBUG")
-    print(dataset)
-    print(representation)
-    print(X)
-
     tags = {DATASET: dataset, 
             METHOD: method.get_name(), 
             REPRESENTATION: representation,
             SPLIT: train_test_splitter.get_name(), 
             AUGMENTATION: augmentation}
 
-    exp = find_experiments_by_tags(tags)
-    if len(exp) == 0:
-        experiment_name = make_experiment_name_from_tags(tags)
-        e_id = mlflow.create_experiment(experiment_name)
-        mlflow.set_experiment(experiment_name)
-        for t in tags.keys():
-            mlflow.tracking.MlflowClient().set_experiment_tag(e_id, t, tags[t])
-    elif len(exp) == 1:
-        mlflow.set_experiment(exp[0].name)
-    else:
-        raise RuntimeError("There should be at most one experiment for a given tag combination!")
-
-    mlflow.start_run()
+    # record experiments by dataset name and have the tags as logged parameters
+    experiment = mlflow.set_experiment(dataset)
+    mlflow.start_run(experiment_id=experiment)
+    mlflow.log_params(tags)
+    mlflow.set_tags(tags)
+    
     for split in range(0, len(train_indices)):
         method.train(X[train_indices[split], :], Y[train_indices[split], :])
         mu, unc = method.predict(X[test_indices[split], :])

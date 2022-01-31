@@ -6,8 +6,7 @@ from algorithms.abstract_algorithm import AbstractAlgorithm
 from data.load_dataset import load_dataset, get_alphabet
 from data.train_test_split import AbstractTrainTestSplitter
 from util.numpy_one_hot import numpy_one_hot_2dmat
-from util.mlflow.constants import DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT
-from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
+from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT
 
 
 def run_single_regression_task(dataset: str, representation: str, method: AbstractAlgorithm, train_test_splitter: AbstractTrainTestSplitter):
@@ -20,22 +19,17 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
         X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
 
     print(X.shape)
-    tags = {DATASET: dataset, METHOD: method.get_name(), REPRESENTATION: representation,
-            SPLIT: train_test_splitter.get_name()}
+    tags = {DATASET: dataset, METHOD: method.get_name(), 
+            REPRESENTATION: representation,
+            SPLIT: train_test_splitter.get_name(), 
+            AUGMENTATION: None}
 
-    exp = find_experiments_by_tags(tags)
-    if len(exp) == 0:
-        experiment_name = make_experiment_name_from_tags(tags)
-        e_id = mlflow.create_experiment(experiment_name)
-        mlflow.set_experiment(experiment_name)
-        for t in tags.keys():
-            mlflow.tracking.MlflowClient().set_experiment_tag(e_id, t, tags[t])
-    elif len(exp) == 1:
-        mlflow.set_experiment(exp[0].name)
-    else:
-        raise RuntimeError("There should be at most one experiment for a given tag combination!")
+    # record experiments by dataset name and have the tags as logged parameters
+    experiment = mlflow.set_experiment(dataset)
+    mlflow.start_run(experiment_id=experiment)
+    mlflow.log_params(tags)
+    mlflow.set_tags(tags)
 
-    mlflow.start_run()
     for split in range(0, len(train_indices)):
         method.train(X[train_indices[split], :], Y[train_indices[split], :])
         mu, unc = method.predict(X[test_indices[split], :])

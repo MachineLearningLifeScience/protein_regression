@@ -14,7 +14,7 @@ def load_augmentation(name: str, augmentation: str):
         if name == "1FQG":
             A, Y = __load_rosetta_df(name="BLAT")
         elif name == "CALM":
-            A, Y = __load_rosetta_df(name="calm")
+            A, Y = __load_rosetta_df(name="CALM")
         elif name == "UBQT":
             A, Y = __load_rosetta_df(name="UBQT")
         else:
@@ -40,7 +40,7 @@ def __load_rosetta_df(name: str):
         X: np.ndarray : DDG simulation values, v-stacked array
         Y: np.ndarray : observation array values
     """
-    rosetta_df = pd.read_csv(join(base_path, "{}_single_mutation_rosetta.csv".format(name)))
+    rosetta_df = pd.read_csv(join(base_path, "{}_single_mutation_rosetta.csv".format(name.lower())))
     alphabet = dict((v, k) for k,v in get_alphabet(name=name).items())
     df = pickle.load(open(join(base_path, "{}_data_df.pkl".format(name.lower())), "rb"))
     idx_array = np.logical_not(np.isnan(df["assay"]))

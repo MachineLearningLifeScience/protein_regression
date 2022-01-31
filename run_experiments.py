@@ -9,15 +9,19 @@ from data.load_dataset import get_wildtype, get_alphabet
 from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from run_single_regression_task import run_single_regression_task
 from run_single_regression_augmentation_task import run_single_augmentation_task
-from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE
+from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
 from util.mlflow.constants import VAE_DENSITY, ROSETTA
 
 datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
 #datasets = ["BRCA"]
 representations = [ONE_HOT, VAE, TRANSFORMER]
-augmentations = [VAE, ROSETTA]
+augmentations = [VAE_DENSITY, ROSETTA]
 train_test_splitters = [BlockPostionSplitter] # [lambda dataset: RandomSplitter()] #[BlockPostionSplitter]
-
+# TODO: set this to true again!
+optimize = False
+if not optimize:
+    import warnings
+    warnings.warn("Optimization for GPs disabled.")
 
 def RandomForestFactory(representation, alphabet):
     return RandomForest()
@@ -27,12 +31,6 @@ def KNNFactory(representation, alphabet):
 
 def BayesRegressorFactory(representation, alphabet):
     return BayesScaler()
-
-# TODO: set this to true again!
-optimize = False
-if not optimize:
-    import warnings
-    warnings.warn("Optimization for GPs disabled.")
 
 def GPLinearFactory(representation, alphabet):
     if representation is ONE_HOT:
@@ -62,7 +60,7 @@ def run_experiments():
 
 
 def run_augmentation_experiments():
-    for dataset in ["UBQT", "1FQG", "CALM"]:
+    for dataset in ["UBQT", "CALM", "1FQG"]:
         for representation in [TRANSFORMER, ONE_HOT]:
             for train_test_splitter in train_test_splitters:
                 alphabet = get_alphabet(dataset)
@@ -73,7 +71,6 @@ def run_augmentation_experiments():
                                                 train_test_splitter=train_test_splitter(dataset=dataset), augmentation=augmentation)
                 
 
-
 if __name__ == "__main__":
-    #run_experiments()
+    run_experiments()
     run_augmentation_experiments()
