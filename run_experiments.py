@@ -16,7 +16,7 @@ datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
 #datasets = ["BRCA"]
 representations = [ONE_HOT, VAE, TRANSFORMER]
 augmentations = [VAE_DENSITY, ROSETTA]
-train_test_splitters = [BlockPostionSplitter] # [lambda dataset: RandomSplitter()] #[BlockPostionSplitter]
+train_test_splitters = [lambda dataset: RandomSplitter()] #[BlockPostionSplitter]
 # TODO: set this to true again!
 optimize = False
 if not optimize:
@@ -64,13 +64,13 @@ def run_augmentation_experiments():
         for representation in [TRANSFORMER, ONE_HOT]:
             for train_test_splitter in train_test_splitters:
                 alphabet = get_alphabet(dataset)
-                for augmentation in [ROSETTA]: # TODO add VAE
-                    for factory in [GPSEFactory]:
+                for augmentation in [ROSETTA, VAE_DENSITY]:
+                    for factory in [GPSEFactory, RandomForestFactory]:
                         method = factory(representation, alphabet)
                         run_single_augmentation_task(dataset=dataset, representation=representation, method=method,
                                                 train_test_splitter=train_test_splitter(dataset=dataset), augmentation=augmentation)
                 
 
 if __name__ == "__main__":
-    run_experiments()
+    #run_experiments()
     run_augmentation_experiments()

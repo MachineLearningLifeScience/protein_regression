@@ -12,6 +12,7 @@ def make_experiment_name_from_tags(tags: dict):
 
 def find_experiments_by_tags(tags: dict):
     exps = mlflow.tracking.MlflowClient().list_experiments()
+    print(exps)
     def all_tags_match(e):
         for tag in tags.keys():
             if tag not in e.tags:

@@ -13,14 +13,19 @@ from util.mlflow.convenience_functions import find_experiments_by_tags, make_exp
 def run_single_augmentation_task(dataset: str, representation: str, method: AbstractAlgorithm, augmentation: str, train_test_splitter: AbstractTrainTestSplitter):
     if not representation: 
         raise ValueError("Representation required for data loading...")
+    A, Y, missed_assay_indices = load_augmentation(name=dataset, augmentation=augmentation)
     # load X for the CV splitting requiring label-encoding
     X, Y = load_dataset(dataset, representation=ONE_HOT)
+    if missed_assay_indices is not None and len(A) != len(X):
+        X = np.delete(X, missed_assay_indices, axis=0) 
     train_indices, val_indices, test_indices = train_test_splitter.split(X)
 
     X, Y = load_dataset(dataset, representation=representation)
+    if missed_assay_indices is not None and len(A) != len(X):
+        X = np.delete(X, missed_assay_indices, axis=0) 
     if representation is ONE_HOT:
         X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
-    A, Y = load_augmentation(name=dataset, augmentation=augmentation)
+    
     X = np.concatenate([X, A], axis=1)
 
     tags = {DATASET: dataset, 
