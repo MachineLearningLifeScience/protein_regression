@@ -27,13 +27,11 @@ def run_single_augmentation_task(dataset: str, representation: str, method: Abst
         X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
     
     X = np.concatenate([X, A], axis=1)
-
     tags = {DATASET: dataset, 
             METHOD: method.get_name(), 
             REPRESENTATION: representation,
             SPLIT: train_test_splitter.get_name(), 
             AUGMENTATION: augmentation}
-
     # record experiments by dataset name and have the tags as logged parameters
     experiment = mlflow.set_experiment(dataset)
     mlflow.start_run(experiment_id=experiment)

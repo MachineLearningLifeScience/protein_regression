@@ -9,7 +9,7 @@ from util.numpy_one_hot import numpy_one_hot_2dmat
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT
 
 
-def run_single_regression_task(dataset: str, representation: str, method: AbstractAlgorithm, train_test_splitter: AbstractTrainTestSplitter):
+def run_single_regression_task(dataset: str, representation: str, method: AbstractAlgorithm, train_test_splitter: AbstractTrainTestSplitter, augmentation: str):
     # load X for CV splitting
     X, Y = load_dataset(dataset, representation=ONE_HOT)
     train_indices, val_indices, test_indices = train_test_splitter.split(X)
@@ -18,15 +18,15 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
     if representation is ONE_HOT:
         X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
 
-    print(X.shape)
-    tags = {DATASET: dataset, METHOD: method.get_name(), 
+    tags = {DATASET: dataset, 
+            METHOD: method.get_name(), 
             REPRESENTATION: representation,
             SPLIT: train_test_splitter.get_name(), 
-            AUGMENTATION: None}
+            AUGMENTATION: augmentation}
 
     # record experiments by dataset name and have the tags as logged parameters
     experiment = mlflow.set_experiment(dataset)
-    mlflow.start_run(experiment_id=experiment)
+    mlflow.start_run()
     mlflow.set_tags(tags)
 
     for split in range(0, len(train_indices)):
@@ -50,6 +50,11 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
         mlflow.log_metric(SEVar, mse_var, step=split)
         mlflow.log_metric(MLL, mll, step=split)
         mlflow.log_metric(SPEARMAN_RHO, r, step=split)
+        
+        mus = list(np.hstack(mu.cpu().numpy()))
+        uncs = list(np.hstack(unc.cpu().numpy()))
+        errs = list(np.hstack(err2/baseline))
+        mlflow.log_dict({'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
     mlflow.end_run()
 
 

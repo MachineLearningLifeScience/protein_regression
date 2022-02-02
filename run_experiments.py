@@ -10,12 +10,11 @@ from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from run_single_regression_task import run_single_regression_task
 from run_single_regression_augmentation_task import run_single_augmentation_task
 from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
-from util.mlflow.constants import VAE_DENSITY, ROSETTA
+from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 
-datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
-#datasets = ["BRCA"]
-representations = [ONE_HOT, VAE, TRANSFORMER]
-augmentations = [VAE_DENSITY, ROSETTA]
+datasets = ["1FQG"] # ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
+representations = [TRANSFORMER]
+augmentations = [NO_AUGMENT]
 train_test_splitters = [lambda dataset: RandomSplitter()] #[BlockPostionSplitter]
 # TODO: set this to true again!
 optimize = False
@@ -45,7 +44,7 @@ def GPSEFactory(representation, alphabet):
     else:
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
 
-method_factories = [RandomForestFactory, GPSEFactory, GPLinearFactory, KNNFactory] #, BayesRegressorFactory]
+method_factories = [GPSEFactory] #RandomForestFactory, GPSEFactory, GPLinearFactory, KNNFactory] #, BayesRegressorFactory]
 
 
 def run_experiments():
@@ -53,10 +52,12 @@ def run_experiments():
         for representation in representations:
             for train_test_splitter in train_test_splitters:
                 alphabet = get_alphabet(dataset)
-                for factory in method_factories:
-                    method = factory(representation, alphabet)
-                    run_single_regression_task(dataset=dataset, representation=representation, method=method,
-                                            train_test_splitter=train_test_splitter(dataset=dataset))
+                for augmentation in augmentations:
+                    for factory in method_factories:
+                        method = factory(representation, alphabet)
+                        run_single_regression_task(dataset=dataset, representation=representation, method=method,
+                                                train_test_splitter=train_test_splitter(dataset=dataset),
+                                                 augmentation=augmentation)
 
 
 def run_augmentation_experiments():
@@ -72,5 +73,5 @@ def run_augmentation_experiments():
                 
 
 if __name__ == "__main__":
-    #run_experiments()
-    run_augmentation_experiments()
+    run_experiments()
+    #run_augmentation_experiments()
