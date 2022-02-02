@@ -15,7 +15,7 @@ from visualization.plot_metric_for_dataset import barplot_metric_augmentation_co
 # gathers all our results and saves them into a numpy array
 #datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
 datasets = ["UBQT", "1FQG", "CALM"]
-train_test_splitter = BlockPostionSplitter # RandomSplitter # 
+train_test_splitter = RandomSplitter # BlockPostionSplitter #
 metric = MSE
 last_result_length = None
 # reps = [ONE_HOT, VAE, TRANSFORMER]
@@ -34,7 +34,8 @@ def plot_metric_comparison():
             for rep in reps:
                 filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}' and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}' and tags.{AUGMENTATION} = 'None'"
                 exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(dataset)
-                runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY)
+                runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, 
+                                        max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
                 assert len(runs) >= 1 , rep+a+dataset
                 results = []
                 for id in runs['run_id'].to_list():
@@ -60,7 +61,8 @@ def plot_metric_augmentation_comparison():
                 for aug in augmentation:
                     filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}' and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}' and tags.{AUGMENTATION} = '{aug}'"
                     exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(dataset)
-                    runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
+                    runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, 
+                                                run_view_type=ViewType.ACTIVE_ONLY)
                     assert len(runs) == 1 , rep+a+dataset+str(augmentation)
                     results = []      
                     for id in runs['run_id'].to_list():
