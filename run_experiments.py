@@ -5,6 +5,7 @@ from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.random_forest import RandomForest
 from algorithms.KNN import KNN
 from algorithms.mgp.fusion_scaler import BayesScaler
+from algorithms.uncertain_rf import UncertainRandomForest
 from data.load_dataset import get_wildtype, get_alphabet
 from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from run_single_regression_task import run_single_regression_task
@@ -37,6 +38,8 @@ def GPLinearFactory(representation, alphabet):
     else:
         return GPonRealSpace(optimize=optimize)
 
+def UncertainRFFactory(representation, alphabet):
+    return UncertainRandomForest()
 
 def GPSEFactory(representation, alphabet):
     if representation is ONE_HOT:
@@ -44,8 +47,7 @@ def GPSEFactory(representation, alphabet):
     else:
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
 
-method_factories = [GPSEFactory] #RandomForestFactory, GPSEFactory, GPLinearFactory, KNNFactory] #, BayesRegressorFactory]
-
+method_factories = [GPLinearFactory, UncertainRFFactory, GPSEFactory] #RandomForestFactory, GPSEFactory, GPLinearFactory, KNNFactory] #, BayesRegressorFactory]
 
 def run_experiments():
     for dataset in datasets:
