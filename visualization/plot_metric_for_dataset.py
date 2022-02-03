@@ -34,8 +34,8 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, height=0.15):
     filename = 'results/figures/'+'accuracy_of_methods_barplot_'+cvtype
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,5))
     axs = np.ravel(ax)
+    reps = []
     for d, dataset_key in enumerate(metric_values.keys()):
-        reps = []
         for i, algo in enumerate(metric_values[dataset_key].keys()):
             seps = np.linspace(-height*0.5*len(metric_values[dataset_key].keys()), 
                                height*0.5*len(metric_values[dataset_key].keys()), 
@@ -57,10 +57,10 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, height=0.15):
                 axs[d].tick_params(axis='x', which='both', labelsize=14)
                 axs[d].set_title(dataset_key, size=16)
                 axs[d].set_xlabel('1 minus normalized MSE', size=14)
-    plt.suptitle(plot_heading)
-    markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
+    handles, labels = axs[-1].get_legend_handles_labels()
+    fig.legend(handles[:len(reps)], reps, loc='lower right', prop={'size': 14})
+    plt.suptitle(plot_heading, size=20)
     plt.savefig(filename)
-    plt.legend(markers, reps, bbox_to_anchor=(1, 1.03), numpoints=1, prop={'size':12})
     plt.show()
 
 
@@ -72,8 +72,8 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
     filename = 'results/figures/'+'accuracy_of_methods_barplot_' + cvtype + "_".join(augmentation)
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,5))
     axs = np.ravel(ax)
+    representations = []
     for i, dataset_key in enumerate(metric_values.keys()):
-        representations = []
         algorithm_keys = metric_values[dataset_key].keys()
         for j, algo in enumerate(algorithm_keys):
             representation_keys = metric_values[dataset_key][algo].keys()
@@ -100,10 +100,10 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
                     axs[i].tick_params(axis='x', which='both', labelsize=14)
                     axs[i].set_title(dataset_key, size=16)
                     axs[i].set_xlabel('1 minus normalized MSE', size=14)
-                    axs[i].legend()
                     idx += 1
-    plt.suptitle(plot_heading)
-    markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
+    handles, labels = axs[-1].get_legend_handles_labels()
+    fig.legend(handles[:len(representations)], representations, loc='lower right', prop={'size': 14})
+    plt.suptitle(plot_heading, size=20)
     plt.savefig(filename)
     plt.tight_layout()
     plt.show()
