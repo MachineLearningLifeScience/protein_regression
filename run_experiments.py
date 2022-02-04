@@ -16,7 +16,7 @@ from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 datasets = ["1FQG"] # ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
 representations = [TRANSFORMER]
 augmentations = [NO_AUGMENT]
-train_test_splitters = [lambda dataset: RandomSplitter()] #[BlockPostionSplitter]
+train_test_splitters = [lambda dataset: BlockPostionSplitter(dataset)] #[BlockPostionSplitter]
 # TODO: set this to true again!
 optimize = False
 if not optimize:

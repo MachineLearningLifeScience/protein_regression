@@ -8,16 +8,18 @@ from data.train_test_split import AbstractTrainTestSplitter
 from util.numpy_one_hot import numpy_one_hot_2dmat
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT
 
-def prep_for_logdict(mu, unc, err2, baseline):
+def prep_for_logdict(y, mu, unc, err2, baseline):
     if type(mu)==np.ndarray:
+        trues = list(np.hstack(y))
         mus = list(np.hstack(mu))
         uncs = list(np.hstack(unc))
         errs = list(np.hstack(err2/baseline))
     else:
+        trues = list(np.hstack(y))
         mus = list(np.hstack(mu.cpu().numpy()))
         uncs = list(np.hstack(unc.cpu().numpy()))
         errs = list(np.hstack(err2/baseline))
-    return mus, uncs, errs
+    return trues, mus, uncs, errs
 
 def run_single_regression_task(dataset: str, representation: str, method: AbstractAlgorithm, train_test_splitter: AbstractTrainTestSplitter, augmentation: str):
     # load X for CV splitting
@@ -61,9 +63,9 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
         mlflow.log_metric(MLL, mll, step=split)
         mlflow.log_metric(SPEARMAN_RHO, r, step=split)
         
-        mus, uncs, errs = prep_for_logdict(mu, unc, err2, baseline)
+        trues, mus, uncs, errs = prep_for_logdict(Y[test_indices[split], :], mu, unc, err2, baseline)
 
-        mlflow.log_dict({'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
+        mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
     mlflow.end_run()
 
 
