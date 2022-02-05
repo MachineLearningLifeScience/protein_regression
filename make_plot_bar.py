@@ -14,11 +14,11 @@ from visualization.plot_metric_for_dataset import barplot_metric_augmentation_co
 from typing import List
 
 # gathers all our results and saves them into a numpy array
-train_test_splitter = BlockPostionSplitter # RandomSplitter #
+train_test_splitter =  BlockPostionSplitter # RandomSplitter #
 last_result_length = None
 
 def plot_metric_comparison(datasets: List[str] = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"], algos=[GPonRealSpace().get_name(), GPonRealSpace(kernel=SquaredExponential()).get_name(), RandomForest().get_name(), KNN().get_name()],
-                            metric=MSE, train_test_splitter=BlockPostionSplitter, reps=[ONE_HOT, VAE, TRANSFORMER]):
+                            metric=MSE, train_test_splitter=RandomSplitter, reps=[ONE_HOT, VAE, TRANSFORMER]):
     results_dict = {}
     for dataset in datasets:
         algo_results = {}
@@ -43,7 +43,7 @@ def plot_metric_comparison(datasets: List[str] = ["MTH3", "TIMB", "UBQT", "1FQG"
     barplot_metric_comparison(metric_values=results_dict, cvtype=train_test_splitter(dataset).get_name())
 
 
-def plot_metric_augmentation_comparison(datasets: List[str]=["UBQT", "1FQG", "CALM"], reps = [ONE_HOT, TRANSFORMER],
+def plot_metric_augmentation_comparison(datasets: List[str]=["UBQT", "CALM", "1FQG"], reps = [ONE_HOT, TRANSFORMER],
                                         algos = [GPonRealSpace(kernel=SquaredExponential()).get_name(), RandomForest().get_name()], 
                                         metric=MSE, train_test_splitter=BlockPostionSplitter, augmentation = [ROSETTA, VAE_DENSITY]):
     results_dict = {}

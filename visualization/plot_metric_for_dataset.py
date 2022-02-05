@@ -37,8 +37,8 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, height=0.15):
     reps = []
     for d, dataset_key in enumerate(metric_values.keys()):
         for i, algo in enumerate(metric_values[dataset_key].keys()):
-            seps = np.linspace(-height*0.5*len(metric_values[dataset_key].keys()), 
-                               height*0.5*len(metric_values[dataset_key].keys()), 
+            seps = np.linspace(-height*0.25*len(metric_values[dataset_key].keys()), 
+                               height*0.25*len(metric_values[dataset_key].keys()), 
                                len(metric_values[dataset_key][algo].keys()))
             for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
                 if rep not in reps:
@@ -50,6 +50,8 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, height=0.15):
                             facecolor=c[j], edgecolor=c[j], ecolor='black', capsize=5, hatch='//')
                 axs[d].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
                 axs[d].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
+                axs[d].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+                axs[d].axvline(-0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
                 axs[d].set_yticks(list(range(len(list(metric_values[dataset_key].keys())))))
                 axs[d].set_yticklabels(['' for i in range(len(list(metric_values[dataset_key].keys())))])
                 axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
@@ -64,7 +66,7 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, height=0.15):
     plt.show()
 
 
-def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, augmentation: dict, height=0.25):
+def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, augmentation: dict, height=0.3):
     c = ['dimgrey', '#661100', '#332288', '#117733']
     cc = ['cyan', 'darkorange', 'deeppink', 'royalblue']
     augmentations_string = " ".join(augmentation)
@@ -80,7 +82,7 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
             idx = 0
             for k, rep in enumerate(representation_keys):
                 augmentation_keys = metric_values[dataset_key][algo][rep].keys()
-                seps = np.linspace(-height*0.5*len(algorithm_keys), height*0.5*len(algorithm_keys), 
+                seps = np.linspace(-height*0.7*len(algorithm_keys), height*0.7*len(algorithm_keys), 
                                 len(algorithm_keys)*len(representation_keys)*len(augmentation_keys))
                 for l, aug in enumerate(augmentation_keys):
                     repname = f"{rep}_{aug}"
@@ -93,6 +95,8 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
                             facecolor=c[k], edgecolor=cc[l], ecolor='black', capsize=5, hatch='/', linewidth=2)
                     axs[i].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
                     axs[i].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
+                    axs[i].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+                    axs[i].axvline(-0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
                     axs[i].set_yticks(list(range(len(list(metric_values[dataset_key].keys())))))
                     axs[i].set_yticklabels(['' for i in range(len(list(metric_values[dataset_key].keys())))])
                     axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
