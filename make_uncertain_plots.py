@@ -19,14 +19,6 @@ from data.load_dataset import get_wildtype, get_alphabet
 from visualization.plot_metric_for_dataset import barplot_metric_augmentation_comparison, barplot_metric_comparison
 from typing import List
 
-datasets = ["1FQG"]
-train_test_splitter = RandomSplitter #BlockPostionSplitter # RandomSplitter # 
-metric = MSE
-last_result_length = None
-reps = [TRANSFORMER]
-augmentations =  [NO_AUGMENT]
-algos = [GPonRealSpace(kernel=SquaredExponential()).get_name()]
-
 
 def combine_pointsets(x1,x2):
     """
@@ -254,14 +246,13 @@ def plot_uncertainty_eval(datasets: List[str]=["1FQG"], reps = [TRANSFORMER],
     confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name())
     reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(dataset).get_name())
 
+datasets = ["1FQG"]
+train_test_splitter = RandomSplitter #BlockPostionSplitter # RandomSplitter # 
+metric = MSE
+last_result_length = None
+reps = [TRANSFORMER]
+augmentations =  [NO_AUGMENT]
+algos = [GPonRealSpace(kernel=SquaredExponential()).get_name()]
+
 plot_uncertainty_eval()
 
-#                         results.append(r.value)
-#                 aug_results[aug] = results
-#             reps_results[rep] = aug_results
-#         if a == 'GPsquared_exponential':
-#             a = "GPsqexp"
-#         algo_results[a] = reps_results
-#     results_dict[dataset] = algo_results
-    
-# print(results_dict)
