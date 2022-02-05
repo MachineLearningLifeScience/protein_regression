@@ -70,7 +70,7 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
     c = ['dimgrey', '#661100', '#332288', '#117733']
     cc = ['cyan', 'darkorange', 'deeppink', 'royalblue']
     augmentations_string = " ".join(augmentation)
-    plot_heading = f'Augmented algoritms and representations, cv-type: {cvtype}, augmentation {augmentations_string}'
+    plot_heading = f'Augmented models and representations, cv-type: {cvtype}, augmentation {augmentations_string}'
     filename = 'results/figures/'+'accuracy_of_methods_barplot_' + cvtype + "_".join(augmentation)
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,5))
     axs = np.ravel(ax)
