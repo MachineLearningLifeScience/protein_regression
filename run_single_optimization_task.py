@@ -10,7 +10,9 @@ from util.mlflow.convenience_functions import find_experiments_by_tags, make_exp
 
 
 def _expected_improvement(mean, variance, eta):
-    return (eta - mean) * normal.cdf(eta) + variance * normal.pdf(eta)
+    s = np.std(variance)
+    gamma = (eta - mean) / s
+    return s * (gamma * normal.cdf(gamma) + normal.pdf(gamma))
 
 
 def run_single_optimization_task(dataset: str, method: AbstractAlgorithm, seed: int, representation=TRANSFORMER,
