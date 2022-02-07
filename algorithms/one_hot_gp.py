@@ -19,4 +19,4 @@ class GPOneHotSequenceSpace(GPonRealSpace):
         self._optimize()
 
     def predict(self, X):
-        return self.gp.predict_f(tf.constant(X))
+        return self.gp.predict_y(tf.constant(X))
