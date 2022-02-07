@@ -90,7 +90,7 @@ class Uncertain_RandomForestRegressor(RandomForestRegressor):
         y_hat /= len(self.estimators_)
         y_hat2 /= len(self.estimators_)
         
-        return y_hat, np.sqrt((y_hat2) - y_hat**2) 
+        return y_hat, (y_hat2) - y_hat**2
 
 
 class UncertainRandomForest(AbstractAlgorithm):

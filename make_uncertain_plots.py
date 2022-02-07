@@ -143,7 +143,7 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     for s in metric_values[dataset_key][algo][rep][aug].keys():
                         trues = metric_values[dataset_key][algo][rep][aug][s]['trues']
                         preds = metric_values[dataset_key][algo][rep][aug][s]['pred']
-                        uncertainties = metric_values[dataset_key][algo][rep][aug][s]['unc']
+                        uncertainties = np.sqrt(metric_values[dataset_key][algo][rep][aug][s]['unc'])
                         
                         # confidence calibration
                         C, perc, E, S = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
@@ -186,7 +186,7 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
                         algos.append(algo)
                     quantile_errs, oracle_errs = [], []
                     for s in metric_values[dataset_key][algo][rep][aug].keys():
-                        uncertainties = metric_values[dataset_key][algo][rep][aug][s]['unc']
+                        uncertainties = np.sqrt(metric_values[dataset_key][algo][rep][aug][s]['unc'])
                         errors = metric_values[dataset_key][algo][rep][aug][s]['mse']
                         
                         # Ranking-based calibration
