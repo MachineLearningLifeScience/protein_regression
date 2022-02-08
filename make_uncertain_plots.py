@@ -119,8 +119,9 @@ def prep_reliability_diagram(true, preds, uncertainties, number_quantiles):
 
     # Sharpness
     Sharpness = np.mean(uncertainties)
+    Sharpness_std = np.std(uncertainties)
 
-    return count, perc, ECE, Sharpness
+    return count, perc, ECE, Sharpness, Sharpness_std
 
 
 def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str = ''):
@@ -131,6 +132,7 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
         algos = []
         ECE_list = []
         Sharpness_list = []
+        Sharpness_std_list = []
         for i, algo in enumerate(metric_values[dataset_key].keys()):           
             for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
                 for aug in metric_values[dataset_key][algo][rep].keys():
@@ -140,22 +142,25 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     count = []
                     ECE = 0
                     Sharpness = 0
+                    Sharpness_std = 0
                     for s in metric_values[dataset_key][algo][rep][aug].keys():
                         trues = metric_values[dataset_key][algo][rep][aug][s]['trues']
                         preds = metric_values[dataset_key][algo][rep][aug][s]['pred']
                         uncertainties = np.sqrt(metric_values[dataset_key][algo][rep][aug][s]['unc'])
                         
                         # confidence calibration
-                        C, perc, E, S = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
+                        C, perc, E, S, Se = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
                         count.append(C/np.sum(C))
                         ECE += E
                         Sharpness += S / number_splits
+                        Sharpness_std += Se / number_splits
                         
                     count = np.mean(np.vstack(count), 0)
                     plt.plot(perc, np.cumsum(count), c=c[i], lw=2, linestyle='-')
                     plt.scatter(perc, np.cumsum(count), c=c[i], s=30-i*5)
                     ECE_list.append(ECE)
                     Sharpness_list.append(Sharpness)
+                    Sharpness_std_list.append(Sharpness_std)
     
     plt.plot(perc,perc, ls=':', color='k', label='Perfect Calibration')
     plt.ylabel('Cumulative confidence', size=14)
@@ -164,11 +169,11 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     plt.yticks(size=14)
 
     markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
-    plt.legend(markers, [A+' ECE: '+str(np.round(E,3))+' Sharpness: '+str(np.round(S,3)) for A,E,S in zip(algos, ECE_list, Sharpness_list)], 
+    plt.legend(markers, [A+' ECE: '+str(np.round(E,3))+' Sharpness: '+str(np.round(S,3))+'+-'+str(np.round(Se,3)) for A,E,S,Se in zip(algos, ECE_list, Sharpness_list, Sharpness_std_list)], 
     bbox_to_anchor=(.7, .9), 
     numpoints=1, prop={'size':12})
 
-    plt.savefig('results/figures/'+cvtype+'_reliabilitydiagram.pdf')
+    plt.savefig('results/figures/'+cvtype+'_reliabilitydiagram.png')
     plt.show()
 
 
@@ -206,7 +211,7 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
                     plt.xlabel('Percentile', size=14)
                     plt.title(algo, size=18)
                     plt.legend() 
-                    plt.savefig('results/figures/'+algo+cvtype+'_confidence_curve.pdf')
+                    plt.savefig('results/figures/'+algo+cvtype+'_confidence_curve.png')
                     plt.show()
 
 
@@ -247,12 +252,16 @@ def plot_uncertainty_eval(datasets: List[str]=["1FQG"], reps = [TRANSFORMER],
     reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(dataset).get_name())
 
 datasets = ["1FQG"]
-train_test_splitter = RandomSplitter #BlockPostionSplitter # RandomSplitter # 
+train_test_splitter = BlockPostionSplitter #BlockPostionSplitter # RandomSplitter # 
 metric = MSE
 last_result_length = None
 reps = [TRANSFORMER]
 augmentations =  [NO_AUGMENT]
-algos = [GPonRealSpace(kernel=SquaredExponential()).get_name()]
+algos = [GPonRealSpace().get_name(), 
+         GPonRealSpace(kernel=SquaredExponential()).get_name(), 
+         UncertainRandomForest().get_name()]
 
-plot_uncertainty_eval()
+plot_uncertainty_eval(datasets=datasets, reps = reps,
+                      algos = algos, train_test_splitter=train_test_splitter, 
+                      augmentations = augmentations, number_quantiles = 10)
 
