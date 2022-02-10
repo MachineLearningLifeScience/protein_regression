@@ -45,7 +45,7 @@ def plot_metric_comparison(datasets: List[str] = ["MTH3", "TIMB", "UBQT", "1FQG"
 
 def plot_metric_augmentation_comparison(datasets: List[str]=["UBQT", "CALM", "1FQG"], reps = [ONE_HOT, TRANSFORMER],
                                         algos = [GPonRealSpace(kernel=SquaredExponential()).get_name(), RandomForest().get_name()], 
-                                        metric=MSE, train_test_splitter=BlockPostionSplitter, augmentation = [ROSETTA, VAE_DENSITY]):
+                                        metric=MSE, train_test_splitter=RandomSplitter, augmentation = [ROSETTA, VAE_DENSITY]):
     results_dict = {}
     for dataset in datasets:
         algo_results = {}

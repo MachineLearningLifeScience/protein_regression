@@ -13,7 +13,7 @@ from run_single_regression_augmentation_task import run_single_augmentation_task
 from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
 from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 
-datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
+datasets = ["1FQG"] # ["MTH3", "TIMB", "UBQT", "CALM", "BRCA"]
 representations = [ONE_HOT, TRANSFORMER, VAE]
 augmentations = [NO_AUGMENT]
 train_test_splitters = [lambda dataset: RandomSplitter()] # [BlockPostionSplitter] 
@@ -63,12 +63,12 @@ def run_experiments():
 
 
 def run_augmentation_experiments():
-    for dataset in ["UBQT", "CALM", "1FQG"]:
+    for dataset in ["1FQG"]: # ["UBQT", "CALM"]:
         for representation in [TRANSFORMER, ONE_HOT]:
             for train_test_splitter in train_test_splitters:
                 alphabet = get_alphabet(dataset)
                 for augmentation in [ROSETTA, VAE_DENSITY]:
-                    for factory in [GPSEFactory, RandomForestFactory]:
+                    for factory in [GPSEFactory, UncertainRFFactory]:
                         method = factory(representation, alphabet)
                         run_single_augmentation_task(dataset=dataset, representation=representation, method=method,
                                                 train_test_splitter=train_test_splitter(dataset=dataset), augmentation=augmentation)
