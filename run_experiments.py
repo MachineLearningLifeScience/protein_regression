@@ -13,10 +13,10 @@ from run_single_regression_augmentation_task import run_single_augmentation_task
 from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
 from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 
-datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"]
-representations = [ONE_HOT, TRANSFORMER, VAE]
+datasets = ["1FQG"]
+representations = [TRANSFORMER]
 augmentations = [NO_AUGMENT]
-train_test_splitters = [lambda dataset: RandomSplitter()] # [BlockPostionSplitter] 
+train_test_splitters = [lambda dataset: BlockPostionSplitter(dataset)] # [BlockPostionSplitter, RandomSplitter] 
 optimize = True
 
 if not optimize:
@@ -47,7 +47,7 @@ def GPSEFactory(representation, alphabet):
     else:
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
 
-method_factories = [GPLinearFactory, UncertainRFFactory, GPSEFactory, RandomForestFactory, KNNFactory] #, BayesRegressorFactory]
+method_factories = [GPLinearFactory, UncertainRFFactory, GPSEFactory] #, BayesRegressorFactory]
 
 def run_experiments():
     for dataset in datasets:
@@ -76,4 +76,4 @@ def run_augmentation_experiments():
 
 if __name__ == "__main__":
     run_experiments()
-    run_augmentation_experiments()
+    #run_augmentation_experiments()
