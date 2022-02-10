@@ -13,13 +13,8 @@ from run_single_regression_augmentation_task import run_single_augmentation_task
 from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
 from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 
-<<<<<<< HEAD
-datasets = ["1FQG"]
-representations = [TRANSFORMER]
-=======
 datasets = ["1FQG"] # ["MTH3", "TIMB", "UBQT", "CALM", "BRCA"]
 representations = [ONE_HOT, TRANSFORMER, VAE]
->>>>>>> 3d322239fc34ee045f2d1749a660355f5ddff09b
 augmentations = [NO_AUGMENT]
 train_test_splitters = [lambda dataset: BlockPostionSplitter(dataset)] # [BlockPostionSplitter, RandomSplitter] 
 optimize = True
