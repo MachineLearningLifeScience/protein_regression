@@ -26,7 +26,8 @@ class GPonRealSpace(AbstractAlgorithm):
         self._optimize()
 
     def predict(self, X):
-        return self.gp.predict_y(tf.constant(X))
+        μ, var = self.gp.predict_y(tf.constant(X))
+        return μ, var
 
     def _optimize(self):
         if self.optimize:

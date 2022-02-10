@@ -1,3 +1,7 @@
+import os
+import sys
+from os.path import join, dirname
+import json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -19,6 +23,14 @@ from data.load_dataset import get_wildtype, get_alphabet
 from visualization.plot_metric_for_dataset import barplot_metric_augmentation_comparison, barplot_metric_comparison
 from typing import List
 
+base_path = join(dirname(__file__), "results")
+datasets = ["1FQG"]
+train_test_splitter = RandomSplitter # BlockPostionSplitter #
+metric = MSE
+last_result_length = None
+reps = [TRANSFORMER]
+augmentations =  [NO_AUGMENT]
+algos = [GPonRealSpace(kernel=SquaredExponential()).get_name()]
 
 def combine_pointsets(x1,x2):
     """
@@ -201,7 +213,12 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
 
                     quantile_errs = np.mean(np.vstack(quantile_errs), 0)
                     oracle_errs = np.mean(np.vstack(oracle_errs), 0)
-                    pgon = Polygon(combine_pointsets(quantile_errs,oracle_errs)) # Assuming the OP's x,y coordinates
+                    try:
+                        pgon = Polygon(combine_pointsets(quantile_errs,oracle_errs)) # Assuming the OP's x,y coordinates
+                    except:
+                        print("ERROR building Polygon with")
+                        print(f"Quantile: {quantile_errs}")
+                        print(f"Oracle: {oracle_errs}")
 
                     plot_polygon(ax, pgon, facecolor='red', edgecolor='red', alpha=0.2)
                     plt.plot(qs, np.flip(quantile_errs), lw=3, 
@@ -217,9 +234,9 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
 
 
 def plot_uncertainty_eval(datasets: List[str]=["1FQG"], reps = [TRANSFORMER],
-                                        algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel=SquaredExponential()).get_name(), 
+                                        algos = [GPonRealSpace(kernel=SquaredExponential()).get_name(), 
                                         UncertainRandomForest().get_name()], train_test_splitter=RandomSplitter, 
-                                        augmentations = [NO_AUGMENT], number_quantiles: int = 10):
+                                        augmentations = [ROSETTA], number_quantiles: int = 10):
     results_dict = {}
     for dataset in datasets:
         algo_results = {}
@@ -230,38 +247,35 @@ def plot_uncertainty_eval(datasets: List[str]=["1FQG"], reps = [TRANSFORMER],
                 for aug in augmentations:
                     filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}' and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}' and tags.{AUGMENTATION} = '{aug}'"
                     exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(dataset)
+                    print("DEBUG")
+                    print(filter_string)
+                    print(exps)
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
+                    print(runs)
                     assert len(runs) == 1 , rep+a+dataset+str(aug)
                     for id in runs['run_id'].to_list():
-                        import os
-                        PATH = exps.artifact_location.split('protein_regression/')[1]+'/'+id+'/artifacts'
-                        l = len(os.listdir(PATH))
+                        print(runs)
+                        PATH = f"{base_path}\mlruns\{exps.experiment_id}\{id}" + "\\" + "artifacts"
+                        print(PATH)
                         split_dict = {}
-                        for s in range(l):
-                            import json
-                            f = open(PATH+'/split'+str(s)+'/output.json')
-                            split_dict[s] = json.load(f)
-                            f.close()
+                        for s, split in enumerate(mlflow.tracking.MlflowClient().list_artifacts(id)):
+                            print(split)
+                            print(split.path)
+                            with open(PATH+ "\\" + split.path +'\output.json') as infile:
+                                split_dict[s] = json.load(infile)
+                            print(split_dict)
                     aug_results[aug] = split_dict
                 reps_results[rep] = aug_results
             if a == 'GPsquared_exponential':
                 a = "GPsqexp"
             algo_results[a] = reps_results
         results_dict[dataset] = algo_results
+    print("RESULTS")
+    print(results_dict)
+    sys.exit()
     confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name())
     reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(dataset).get_name())
 
-datasets = ["1FQG"]
-train_test_splitter = BlockPostionSplitter #BlockPostionSplitter # RandomSplitter # 
-metric = MSE
-last_result_length = None
-reps = [TRANSFORMER]
-augmentations =  [NO_AUGMENT]
-algos = [GPonRealSpace().get_name(), 
-         GPonRealSpace(kernel=SquaredExponential()).get_name(), 
-         UncertainRandomForest().get_name()]
 
-plot_uncertainty_eval(datasets=datasets, reps = reps,
-                      algos = algos, train_test_splitter=train_test_splitter, 
-                      augmentations = augmentations, number_quantiles = 10)
-
+if __name__ == "__main__":
+    plot_uncertainty_eval()
