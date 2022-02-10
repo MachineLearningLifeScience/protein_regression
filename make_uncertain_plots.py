@@ -119,15 +119,15 @@ def quantile_and_oracle_errors(uncertainties, errors, number_quantiles):
 # confidence calibration
 def prep_reliability_diagram(true, preds, uncertainties, number_quantiles):
     true, preds, uncertainties = np.array(true), np.array(preds), np.array(uncertainties)
-    # get counts per confidence interval
-    conf = np.abs(stats.norm.cdf(true-preds, loc=0, scale=uncertainties)-stats.norm.cdf(preds-true, loc=0, scale=uncertainties))
-    count, _ = np.histogram(conf, bins=10, range=(0,1))
 
     # confidence intervals
-    perc = np.linspace(0.1,1,number_quantiles)
+    four_sigma = 0.999936657516334
+    perc = np.concatenate([np.linspace(0.1,0.9,number_quantiles-1),[four_sigma]])
+    count_arr = np.vstack([np.abs(true-preds) <= stats.norm.interval(q, loc=np.zeros(len(preds)), scale=uncertainties)[1] for q in perc])
+    count = np.mean(count_arr, axis=1)
 
     # ECE
-    ECE = np.mean(np.abs(np.cumsum(count)/np.sum(count) - perc))
+    ECE = np.mean(np.abs(count - perc))
 
     # Sharpness
     Sharpness = np.mean(uncertainties)
@@ -162,14 +162,15 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                         
                         # confidence calibration
                         C, perc, E, S, Se = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
-                        count.append(C/np.sum(C))
+                        count.append(C)
                         ECE += E
                         Sharpness += S / number_splits
                         Sharpness_std += Se / number_splits
                         
                     count = np.mean(np.vstack(count), 0)
-                    plt.plot(perc, np.cumsum(count), c=c[i], lw=2, linestyle='-')
-                    plt.scatter(perc, np.cumsum(count), c=c[i], s=30-i*5)
+ 
+                    plt.plot(perc, count, c=c[i], lw=2, linestyle='-')
+                    plt.scatter(perc, count, c=c[i], s=30-i*5)
                     ECE_list.append(ECE)
                     Sharpness_list.append(Sharpness)
                     Sharpness_std_list.append(Sharpness_std)
@@ -236,7 +237,7 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
 def plot_uncertainty_eval(datasets: List[str]=["1FQG"], reps = [TRANSFORMER],
                                         algos = [GPonRealSpace(kernel=SquaredExponential()).get_name(), 
                                         UncertainRandomForest().get_name()], train_test_splitter=RandomSplitter, 
-                                        augmentations = [ROSETTA], number_quantiles: int = 10):
+                                        augmentations = [NO_AUGMENT], number_quantiles: int = 10):
     results_dict = {}
     for dataset in datasets:
         algo_results = {}
@@ -247,23 +248,14 @@ def plot_uncertainty_eval(datasets: List[str]=["1FQG"], reps = [TRANSFORMER],
                 for aug in augmentations:
                     filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}' and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}' and tags.{AUGMENTATION} = '{aug}'"
                     exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(dataset)
-                    print("DEBUG")
-                    print(filter_string)
-                    print(exps)
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
-                    print(runs)
                     assert len(runs) == 1 , rep+a+dataset+str(aug)
                     for id in runs['run_id'].to_list():
-                        print(runs)
-                        PATH = f"{base_path}\mlruns\{exps.experiment_id}\{id}" + "\\" + "artifacts"
-                        print(PATH)
+                        PATH = f"{base_path}/mlruns/{exps.experiment_id}/{id}" + "/artifacts"
                         split_dict = {}
                         for s, split in enumerate(mlflow.tracking.MlflowClient().list_artifacts(id)):
-                            print(split)
-                            print(split.path)
-                            with open(PATH+ "\\" + split.path +'\output.json') as infile:
+                            with open(PATH+ "/" + split.path +'/output.json') as infile:
                                 split_dict[s] = json.load(infile)
-                            print(split_dict)
                     aug_results[aug] = split_dict
                 reps_results[rep] = aug_results
             if a == 'GPsquared_exponential':
@@ -271,9 +263,8 @@ def plot_uncertainty_eval(datasets: List[str]=["1FQG"], reps = [TRANSFORMER],
             algo_results[a] = reps_results
         results_dict[dataset] = algo_results
     print("RESULTS")
-    print(results_dict)
-    sys.exit()
-    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name())
+    
+    #confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name())
     reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(dataset).get_name())
 
 
