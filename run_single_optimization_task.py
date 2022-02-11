@@ -10,7 +10,7 @@ from util.mlflow.convenience_functions import find_experiments_by_tags, make_exp
 
 
 def _expected_improvement(mean, variance, eta):
-    s = np.std(variance)
+    s = np.sqrt(variance)
     gamma = (eta - mean) / s
     return s * (gamma * normal.cdf(gamma) + normal.pdf(gamma))
 
