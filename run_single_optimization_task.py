@@ -1,6 +1,6 @@
 import numpy as np
 import mlflow
-from scipy.stats import multivariate_normal as normal
+from scipy.stats import norm as normal
 
 from algorithms.abstract_algorithm import AbstractAlgorithm
 from data.load_dataset import load_dataset
