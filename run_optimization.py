@@ -10,8 +10,8 @@ from run_single_optimization_task import run_single_optimization_task
 from util.mlflow.constants import TRANSFORMER, ONE_HOT
 
 datasets = ["1FQG"]
-representations = [TRANSFORMER]
-seeds = [1, 3, 42, 79, 123]
+representations = [ONE_HOT]
+seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245]
 
 def RandomForestFactory(representation, alphabet):
     return RandomForest()
