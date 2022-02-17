@@ -19,3 +19,6 @@ class KNN(AbstractAlgorithm):
         pred = self.model.predict(X).reshape(-1, 1)
         unc = np.zeros(pred.shape)
         return pred, unc
+
+    def predict_f(self, X: ndarray):
+        return self.predict(X)

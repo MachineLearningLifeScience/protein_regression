@@ -8,6 +8,9 @@ class AbstractAlgorithm():
     def predict(self, X: ndarray):
         raise NotImplementedError("abstract method")
 
+    def predict_f(self, X: ndarray):
+        raise NotImplementedError("abstract method")
+
     def train(self, X: ndarray, Y: ndarray):
         """
 

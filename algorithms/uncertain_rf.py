@@ -109,3 +109,6 @@ class UncertainRandomForest(AbstractAlgorithm):
         out = self.model.predict(X)
         pred, unc = out[0], out[1]
         return pred.reshape(-1, 1), unc.reshape(-1, 1)
+
+    def predict_f(self, X):
+        return self.predict(X)

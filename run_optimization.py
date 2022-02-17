@@ -7,11 +7,11 @@ from algorithms.uncertain_rf import UncertainRandomForest
 from algorithms.KNN import KNN
 from data.load_dataset import get_alphabet
 from run_single_optimization_task import run_single_optimization_task
-from util.mlflow.constants import TRANSFORMER, ONE_HOT
+from util.mlflow.constants import TRANSFORMER, ONE_HOT, VAE
 
 datasets = ["1FQG"]
 representations = [TRANSFORMER]
-seeds = [1, 3, 42, 79, 123]
+seeds = [42, 79, 123]
 
 def RandomForestFactory(representation, alphabet):
     return RandomForest()
@@ -22,11 +22,11 @@ def UncertainRFFactory(representation, alphabet):
 def KNNFactory(representation, alphabet):
     return KNN()
 
-# TODO: set this to true again!
 optimize = True
 if not optimize:
     import warnings
     warnings.warn("Optimization for GPs disabled.")
+
 def GPLinearFactory(representation, alphabet):
     if representation is ONE_HOT:
         return GPOneHotSequenceSpace(alphabet_size=len(alphabet), optimize=optimize)
@@ -40,7 +40,7 @@ def GPSEFactory(representation, alphabet):
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
 
 
-method_factories = [GPSEFactory, GPLinearFactory, UncertainRFFactory]
+method_factories = [UncertainRFFactory, GPSEFactory]
 for dataset in datasets:
     for seed in seeds:
         for representation in representations:
