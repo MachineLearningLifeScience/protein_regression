@@ -25,12 +25,14 @@ from typing import List
 
 base_path = join(dirname(__file__), "results")
 datasets = ["1FQG"]
-train_test_splitter = RandomSplitter # BlockPostionSplitter #
+train_test_splitter = BlockPostionSplitter # BlockPostionSplitter #
 metric = MSE
 last_result_length = None
 reps = [TRANSFORMER]
 augmentations =  [NO_AUGMENT]
-algos = [GPonRealSpace(kernel=SquaredExponential()).get_name()]
+number_quantiles = 10
+algos = [GPonRealSpace(kernel=SquaredExponential()).get_name(), 
+         UncertainRandomForest().get_name()]
 
 def combine_pointsets(x1,x2):
     """
@@ -236,7 +238,7 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
 
 def plot_uncertainty_eval(datasets: List[str]=["1FQG"], reps = [TRANSFORMER],
                                         algos = [GPonRealSpace(kernel=SquaredExponential()).get_name(), 
-                                        UncertainRandomForest().get_name()], train_test_splitter=RandomSplitter, 
+                                        UncertainRandomForest().get_name()], train_test_splitter=BlockPostionSplitter, 
                                         augmentations = [NO_AUGMENT], number_quantiles: int = 10):
     results_dict = {}
     for dataset in datasets:
@@ -264,9 +266,11 @@ def plot_uncertainty_eval(datasets: List[str]=["1FQG"], reps = [TRANSFORMER],
         results_dict[dataset] = algo_results
     print("RESULTS")
     
-    #confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name())
+    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name())
     reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(dataset).get_name())
 
 
 if __name__ == "__main__":
-    plot_uncertainty_eval()
+    plot_uncertainty_eval(datasets=datasets, reps=reps,
+                          algos=algos, train_test_splitter=train_test_splitter, 
+                          augmentations = augmentations, number_quantiles=number_quantiles)

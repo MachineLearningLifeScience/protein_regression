@@ -14,10 +14,10 @@ class GPOneHotSequenceSpace(GPonRealSpace):
 
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
-        self.gp = GPR(data=(tf.constant(X), tf.constant(Y)),
+        self.gp = GPR(data=(tf.constant(X.astype(float)), tf.constant(Y.astype(float))),
                       kernel=self.kernel, mean_function=Constant())
         self._optimize()
 
     def predict(self, X):
-        μ, var = self.gp.predict_y(tf.constant(X))
+        μ, var = self.gp.predict_y(tf.constant(X.astype(float)))
         return μ, var

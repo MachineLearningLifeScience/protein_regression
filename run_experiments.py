@@ -14,7 +14,7 @@ from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT
 from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 
 datasets = ["1FQG"] # ["MTH3", "TIMB", "UBQT", "CALM", "BRCA"]
-representations = [ONE_HOT, TRANSFORMER, VAE]
+representations = [TRANSFORMER]
 augmentations = [NO_AUGMENT]
 train_test_splitters = [lambda dataset: BlockPostionSplitter(dataset)] # [BlockPostionSplitter, RandomSplitter] 
 optimize = True
@@ -47,7 +47,7 @@ def GPSEFactory(representation, alphabet):
     else:
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
 
-method_factories = [GPLinearFactory, UncertainRFFactory, GPSEFactory] #, BayesRegressorFactory]
+method_factories = [UncertainRFFactory]#, GPSEFactory] #, BayesRegressorFactory]
 
 def run_experiments():
     for dataset in datasets:

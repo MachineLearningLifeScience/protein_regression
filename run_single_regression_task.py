@@ -44,6 +44,7 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
     for split in range(0, len(train_indices)):
         method.train(X[train_indices[split], :], Y[train_indices[split], :])
         mu, unc = method.predict(X[test_indices[split], :])
+        print(unc)
         assert(mu.shape[1] == 1 == unc.shape[1])
         assert(mu.shape[0] == unc.shape[0] == len(test_indices[split]))
         # record mean and median smse and nll and spearman correlation
