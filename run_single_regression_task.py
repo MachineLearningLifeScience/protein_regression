@@ -1,25 +1,14 @@
 import numpy as np
 import mlflow
+from tqdm import tqdm
 from scipy.stats import spearmanr
 
 from algorithms.abstract_algorithm import AbstractAlgorithm
 from data.load_dataset import load_dataset, get_alphabet
 from data.train_test_split import AbstractTrainTestSplitter
 from util.numpy_one_hot import numpy_one_hot_2dmat
+from util.log_uncertainty import prep_for_logdict
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT
-
-def prep_for_logdict(y, mu, unc, err2, baseline):
-    if type(mu)==np.ndarray:
-        trues = list(np.hstack(y))
-        mus = list(np.hstack(mu))
-        uncs = list(np.hstack(unc))
-        errs = list(np.hstack(err2/baseline))
-    else:
-        trues = list(np.hstack(y))
-        mus = list(np.hstack(mu.cpu().numpy()))
-        uncs = list(np.hstack(unc.cpu().numpy()))
-        errs = list(np.hstack(err2/baseline))
-    return trues, mus, uncs, errs
 
 def run_single_regression_task(dataset: str, representation: str, method: AbstractAlgorithm, train_test_splitter: AbstractTrainTestSplitter, augmentation: str):
     # load X for CV splitting
@@ -41,7 +30,7 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
     mlflow.start_run()
     mlflow.set_tags(tags)
 
-    for split in range(0, len(train_indices)):
+    for split in tqdm(range(0, len(train_indices))):
         method.train(X[train_indices[split], :], Y[train_indices[split], :])
         mu, unc = method.predict(X[test_indices[split], :])
         print(unc)
@@ -58,14 +47,13 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
         mse_var = np.var(err2)
         mll = np.mean(err2 / unc / 2 + np.log(2 * np.pi * unc) / 2)
         r = spearmanr(Y[test_indices[split]], mu)[0]  # we do not care about the p-value
+
         mlflow.log_metric(MSE, mse, step=split)
         mlflow.log_metric(MedSE, medse, step=split)
         mlflow.log_metric(SEVar, mse_var, step=split)
         mlflow.log_metric(MLL, mll, step=split)
         mlflow.log_metric(SPEARMAN_RHO, r, step=split)
-        
         trues, mus, uncs, errs = prep_for_logdict(Y[test_indices[split], :], mu, unc, err2, baseline)
-
         mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
     mlflow.end_run()
 

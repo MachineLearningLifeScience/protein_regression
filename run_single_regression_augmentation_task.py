@@ -1,11 +1,13 @@
 import numpy as np
 import mlflow
+from tqdm import tqdm
 from scipy.stats import spearmanr
 from algorithms.abstract_algorithm import AbstractAlgorithm
 from data.load_dataset import load_dataset, get_alphabet
 from util.numpy_one_hot import numpy_one_hot_2dmat
 from data.load_augmentation import load_augmentation
 from data.train_test_split import AbstractTrainTestSplitter
+from util.log_uncertainty import prep_for_logdict
 from util.mlflow.constants import DATASET, METHOD, MSE, ROSETTA, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, AUGMENTATION
 from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
 
@@ -37,7 +39,7 @@ def run_single_augmentation_task(dataset: str, representation: str, method: Abst
     mlflow.start_run(experiment_id=experiment)
     mlflow.set_tags(tags)
     
-    for split in range(0, len(train_indices)):
+    for split in tqdm(range(0, len(train_indices))):
         method.train(X[train_indices[split], :], Y[train_indices[split], :])
         mu, unc = method.predict(X[test_indices[split], :])
         assert(mu.shape[1] == 1 == unc.shape[1])
@@ -53,11 +55,14 @@ def run_single_augmentation_task(dataset: str, representation: str, method: Abst
         mse_var = np.var(err2)
         mll = np.mean(err2 / unc / 2 + np.log(2 * np.pi * unc) / 2)
         r = spearmanr(Y[test_indices[split]], mu)[0]  # we do not care about the p-value
+
         mlflow.log_metric(MSE, mse, step=split)
         mlflow.log_metric(MedSE, medse, step=split)
         mlflow.log_metric(SEVar, mse_var, step=split)
         mlflow.log_metric(MLL, mll, step=split)
         mlflow.log_metric(SPEARMAN_RHO, r, step=split)
+        trues, mus, uncs, errs = prep_for_logdict(Y[test_indices[split], :], mu, unc, err2, baseline)
+        mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
     mlflow.end_run()
 
 

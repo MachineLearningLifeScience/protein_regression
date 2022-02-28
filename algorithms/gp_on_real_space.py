@@ -29,6 +29,10 @@ class GPonRealSpace(AbstractAlgorithm):
         μ, var = self.gp.predict_y(tf.constant(X))
         return μ, var
 
+    def predict_f(self, X):
+        μ, var = self.gp.predict_f(tf.constant(X))
+        return μ, var
+
     def _optimize(self):
         if self.optimize:
             opt = Scipy()

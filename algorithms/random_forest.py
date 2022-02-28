@@ -21,3 +21,6 @@ class RandomForest(AbstractAlgorithm):
         # TODO: unfortunately sklearn does not provide a variance estimate -- damn!
         unc = np.zeros(pred.shape)
         return pred, unc
+
+    def predict_f(self, X):
+        return self.predict(X)

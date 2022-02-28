@@ -21,3 +21,7 @@ class GPOneHotSequenceSpace(GPonRealSpace):
     def predict(self, X):
         μ, var = self.gp.predict_y(tf.constant(X.astype(float)))
         return μ, var
+
+    def predict_f(self, X):
+        μ, var = self.gp.predict_f(tf.constant(X))
+        return μ, var
