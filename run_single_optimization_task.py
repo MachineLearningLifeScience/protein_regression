@@ -11,7 +11,7 @@ from data.load_dataset import load_dataset, get_alphabet
 from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, TRANSFORMER, SEED, OPTIMIZATION, EXPERIMENT_TYPE, \
     OBSERVED_Y, VAE, ONE_HOT
 from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
-
+from scipy import stats
 
 def _expected_improvement(mean, variance, eta):
     s = np.sqrt(variance)
@@ -58,7 +58,7 @@ def run_single_optimization_task(dataset: str, method: AbstractAlgorithm, seed: 
         Y_observed = Y[selected_X, :]
         method.train(X_observed, Y_observed)
         remaining_X = np.setdiff1d(np.arange(X.shape[0]), selected_X, assume_unique=True)
-
+        remaining_Y = Y[remaining_X, :]
         candidates = X[remaining_X, :]
         mu, unc = method.predict_f(candidates)
         assert(mu.shape[1] == 1 == unc.shape[1])
@@ -69,6 +69,14 @@ def run_single_optimization_task(dataset: str, method: AbstractAlgorithm, seed: 
         # the acquisition function we maximize
         best_candidate = np.argmax(scoring, axis=0)[0]
         next = remaining_X[best_candidate]
+
+        Sharpness = np.std(unc, ddof=1)/np.mean(unc)
+        mlflow.log_metric('Sharpness', Sharpness, step=i)
+        EI_y_corr = stats.spearmanr(scoring,remaining_Y)[0]
+        print('a', np.mean(scoring), np.max(unc), np.min(unc), np.mean(EI_y_corr))
+
+        mlflow.log_metric('EI_y_corr', EI_y_corr, step=i)
+
     mlflow.end_run()
 
 

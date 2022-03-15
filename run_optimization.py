@@ -10,9 +10,9 @@ from run_single_optimization_task import run_single_optimization_task
 from util.mlflow.constants import TRANSFORMER, ONE_HOT, VAE
 
 datasets = ["1FQG"]
-representations = [ONE_HOT]
+representations = [TRANSFORMER]
 seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245]
-
+seeds = [11]
 def RandomForestFactory(representation, alphabet):
     return RandomForest()
 
@@ -40,7 +40,7 @@ def GPSEFactory(representation, alphabet):
         return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
 
 
-method_factories = [UncertainRFFactory, GPSEFactory]
+method_factories = [GPSEFactory, UncertainRFFactory]
 for dataset in datasets:
     for seed in seeds:
         for representation in representations:

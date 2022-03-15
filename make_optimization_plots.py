@@ -17,8 +17,9 @@ from visualization.plot_metric_for_dataset import plot_optimization_task
 # gathers all our results and saves them into a numpy array
 datasets = ["1FQG"]
 representations = [TRANSFORMER]
-seeds = [42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245]
-algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel=SquaredExponential()).get_name(), UncertainRandomForest().get_name()]
+seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245]
+seeds = [11]
+algos = [GPonRealSpace(kernel=SquaredExponential()).get_name(), UncertainRandomForest().get_name()]
 
 
 minObs_dict = {}

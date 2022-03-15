@@ -132,10 +132,9 @@ def prep_reliability_diagram(true, preds, uncertainties, number_quantiles):
     ECE = np.mean(np.abs(count - perc))
 
     # Sharpness
-    Sharpness = np.mean(uncertainties)
-    Sharpness_std = np.std(uncertainties)
+    Sharpness = np.std(uncertainties, ddof=1)/np.mean(uncertainties)
 
-    return count, perc, ECE, Sharpness, Sharpness_std
+    return count, perc, ECE, Sharpness
 
 
 def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation=''):
@@ -158,18 +157,16 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     count = []
                     ECE = 0
                     Sharpness = 0
-                    Sharpness_std = 0
                     for s in metric_values[dataset_key][algo][rep][aug].keys():
                         trues = metric_values[dataset_key][algo][rep][aug][s]['trues']
                         preds = metric_values[dataset_key][algo][rep][aug][s]['pred']
                         uncertainties = np.sqrt(metric_values[dataset_key][algo][rep][aug][s]['unc'])
                         
                         # confidence calibration
-                        C, perc, E, S, Se = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
+                        C, perc, E, S = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
                         count.append(C)
                         ECE += E
                         Sharpness += S / number_splits
-                        Sharpness_std += Se / number_splits
                         
                     count = np.mean(np.vstack(count), 0)
                     axs[j].plot(perc, np.cumsum(count), c=c[i], lw=2, linestyle='-')
@@ -178,7 +175,6 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     axs[j].set_title(rep)
                     ECE_list.append(ECE)
                     Sharpness_list.append(Sharpness)
-                    Sharpness_std_list.append(Sharpness_std)
     plt.suptitle(f"{str(dataset)} Calibration Split: {cvtype}")
     plt.ylabel('Cumulative confidence', size=14)
     plt.xlabel('Percentile', size=14)
@@ -186,7 +182,7 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     plt.yticks(size=14)
 
     markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
-    plt.legend(markers, [A+' ECE: '+str(np.round(E,3))+'\n Sharpness: '+str(np.round(S,3))+'+-'+str(np.round(Se,3)) for A,E,S,Se in zip(algos, ECE_list, Sharpness_list, Sharpness_std_list)], 
+    plt.legend(markers, [A+' ECE: '+str(np.round(E,3))+'\n Sharpness: '+str(np.round(S,3)) for A,E,S in zip(algos, ECE_list, Sharpness_list)], 
     loc="lower right", prop={'size':12})
 
     plt.savefig(f'results/figures/{cvtype}_reliabilitydiagram_{dataset}_{representation}.png')
