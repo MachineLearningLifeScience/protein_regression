@@ -11,18 +11,18 @@ from algorithms.abstract_algorithm import AbstractAlgorithm
 
 
 class GPonRealSpace(AbstractAlgorithm):
-    def __init__(self, kernel=Linear(), optimize=True):
+    def __init__(self, kernel_factory=lambda: Linear(), optimize=True):
         self.gp = None
-        self.kernel = kernel
+        self.kernel_factory = kernel_factory
         self.optimize = optimize
 
     def get_name(self):
-        return "GP" + self.kernel.name 
+        return "GP" + self.kernel_factory().name
 
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
-        self.gp = GPR(data=(tf.constant(X), tf.constant(Y)),
-                      kernel=self.kernel, mean_function=Constant())
+        self.gp = GPR(data=(tf.constant(X), tf.constant(Y)), kernel=self.kernel_factory(), mean_function=Constant(),
+                      noise_variance=1e-3)
         self._optimize()
 
     def predict(self, X):
@@ -61,4 +61,5 @@ class GPonRealSpace(AbstractAlgorithm):
             opt.eval_func = eval_func
             opt_logs = opt.minimize(self.gp.training_loss, self.gp.trainable_variables, method="BFGS",
                                     options=dict(maxiter=100))
+            pass
 

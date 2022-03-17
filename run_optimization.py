@@ -1,4 +1,4 @@
-from gpflow.kernels import SquaredExponential, Linear, Polynomial
+from gpflow.kernels import SquaredExponential, Linear, Polynomial, Matern52
 
 from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.one_hot_gp import GPOneHotSequenceSpace
@@ -35,9 +35,15 @@ def GPLinearFactory(representation, alphabet):
 
 def GPSEFactory(representation, alphabet):
     if representation is ONE_HOT:
-        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel=SquaredExponential(), optimize=optimize)
+        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel_factory=lambda: SquaredExponential(), optimize=optimize)
     else:
-        return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
+        return GPonRealSpace(kernel_factory=lambda: SquaredExponential(), optimize=optimize)
+
+def GPMaternFactory(representation, alphabet):
+    if representation is ONE_HOT:
+        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel_factory=lambda: Matern52(), optimize=optimize)
+    else:
+        return GPonRealSpace(kernel_factory=lambda: Matern52(), optimize=optimize)
 
 
 method_factories = [GPSEFactory, UncertainRFFactory]
@@ -48,4 +54,4 @@ for dataset in datasets:
             for factory in method_factories:
                 method = factory(representation, alphabet)
                 run_single_optimization_task(dataset=dataset, representation=representation,
-                                            method=method, seed=seed)
+                                             method=method, seed=seed)

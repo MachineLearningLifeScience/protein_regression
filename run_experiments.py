@@ -43,9 +43,9 @@ def UncertainRFFactory(representation, alphabet):
 
 def GPSEFactory(representation, alphabet):
     if representation is ONE_HOT:
-        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel=SquaredExponential(), optimize=optimize)
+        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel_factory=lambda: SquaredExponential(), optimize=optimize)
     else:
-        return GPonRealSpace(kernel=SquaredExponential(), optimize=optimize)
+        return GPonRealSpace(kernel_factory=lambda: SquaredExponential(), optimize=optimize)
 
 method_factories = [UncertainRFFactory]#, GPSEFactory] #, BayesRegressorFactory]
 
@@ -58,8 +58,8 @@ def run_experiments():
                     for factory in method_factories:
                         method = factory(representation, alphabet)
                         run_single_regression_task(dataset=dataset, representation=representation, method=method,
-                                                train_test_splitter=train_test_splitter(dataset=dataset),
-                                                 augmentation=augmentation)
+                                                   train_test_splitter=train_test_splitter(dataset=dataset),
+                                                   augmentation=augmentation)
 
 
 def run_augmentation_experiments():
