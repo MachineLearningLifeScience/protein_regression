@@ -1,9 +1,12 @@
 import numpy as np
+import argparse
 import mlflow
 import warnings
 import tensorflow as tf
 from tqdm import tqdm
 from scipy.stats import norm as normal
+
+from algorithm_factories import ALGORITHM_REGISTRY
 from algorithms.abstract_algorithm import AbstractAlgorithm
 from gpflow.kernels import SquaredExponential
 from algorithms.gp_on_real_space import GPonRealSpace
@@ -13,6 +16,7 @@ from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, TRANSFORMER, 
 from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
 from scipy import stats
 
+
 def _expected_improvement(mean, variance, eta):
     s = np.sqrt(variance)
     gamma = (eta - mean) / s
@@ -20,8 +24,8 @@ def _expected_improvement(mean, variance, eta):
     return s * (gamma * normal.cdf(gamma) + normal.pdf(gamma))
 
 
-def run_single_optimization_task(dataset: str, method: AbstractAlgorithm, seed: int, representation=TRANSFORMER,
-                                 max_iterations=500):
+def run_single_optimization_task(dataset: str, method_key: str, seed: int, representation: str, max_iterations: int):
+    method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     X, Y = load_dataset(dataset, representation=representation)
     # TODO: find out which datasets are minimization and which are maximiation problems
     np.random.seed(seed)
@@ -81,9 +85,12 @@ def run_single_optimization_task(dataset: str, method: AbstractAlgorithm, seed: 
 
 
 if __name__ == "__main__":
-    dataset = "BRCA"
-    representation = VAE
-    alphabet = get_alphabet(dataset)
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument("-d", "--dataset", type=str)
+    parser.add_argument("-m", "--method_key", type=str)
+    parser.add_argument("-s", "--seed", type=int)
+    parser.add_argument("-r", "--representation", type=str)
+    parser.add_argument("-i", "--max_iterations", type=int, default=500)
 
-    run_single_optimization_task(dataset=dataset, representation=representation,
-                                 method=GPonRealSpace(kernel=SquaredExponential()), seed=0)
+    args = parser.parse_args()
+    run_single_optimization_task(**vars(args))
