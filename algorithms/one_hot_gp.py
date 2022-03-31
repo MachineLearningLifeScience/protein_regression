@@ -15,7 +15,7 @@ class GPOneHotSequenceSpace(GPonRealSpace):
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
         self.gp = GPR(data=(tf.constant(X.astype(float)), tf.constant(Y.astype(float))), kernel=self.kernel_factory(),
-                      mean_function=Constant(), noise_variance=1e-3)
+                      mean_function=self.mean_function, noise_variance=self.initial_noise)
         self._optimize()
 
     def predict(self, X):
