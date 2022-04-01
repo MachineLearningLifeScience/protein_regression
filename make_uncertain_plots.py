@@ -11,6 +11,7 @@ import mlflow
 import numpy as np
 from gpflow.kernels import SquaredExponential
 from mlflow.entities import ViewType
+import data
 from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.one_hot_gp import GPOneHotSequenceSpace
@@ -31,7 +32,7 @@ last_result_length = None
 reps = [TRANSFORMER]
 augmentations =  [NO_AUGMENT]
 number_quantiles = 10
-algos = [GPonRealSpace(kernel=SquaredExponential()).get_name(), 
+algos = [GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), 
          UncertainRandomForest().get_name()]
 
 def combine_pointsets(x1,x2):
@@ -222,7 +223,7 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
                         print("ERROR building Polygon with")
                         print(f"Quantile: {quantile_errs}")
                         print(f"Oracle: {oracle_errs}")
-
+                    
                     plot_polygon(axs[i,j], pgon, facecolor='red', edgecolor='red', alpha=0.12)
                     axs[i,j].plot(qs, np.flip(quantile_errs), lw=2, 
                     label='AUCO: '+str(np.round(pgon.area,3))+'\nError drop: '+str(np.round(quantile_errs[-1]/quantile_errs[0],3)))
@@ -238,9 +239,9 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
 
 
 
-def plot_uncertainty_eval(datasets: List[str]=["1FQG"], reps = [ONE_HOT, VAE, TRANSFORMER],
-                                        algos = [GPonRealSpace(kernel=SquaredExponential()).get_name(), 
-                                        UncertainRandomForest().get_name()], train_test_splitter=BlockPostionSplitter, 
+def plot_uncertainty_eval(datasets: List[str]=["BLAT"], reps = [ONE_HOT, VAE, TRANSFORMER],
+                                        algos = [GPonRealSpace(kernel_factory= lambda:  SquaredExponential()).get_name(), 
+                                        UncertainRandomForest().get_name()], train_test_splitter=RandomSplitter, 
                                         augmentations = [NO_AUGMENT], number_quantiles: int = 10):
     results_dict = {}
     for dataset in datasets:
@@ -266,8 +267,8 @@ def plot_uncertainty_eval(datasets: List[str]=["1FQG"], reps = [ONE_HOT, VAE, TR
                 a = "GPsqexp"
             algo_results[a] = reps_results
         results_dict[dataset] = algo_results
-    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name(), dataset="BLAT", representation=rep)
-    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(dataset).get_name(), dataset="BLAT", representation=rep)
+    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep)
+    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep)
 
 
 if __name__ == "__main__":

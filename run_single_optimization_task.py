@@ -12,6 +12,7 @@ from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, TRANSFORMER, 
     OBSERVED_Y, VAE, ONE_HOT
 from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
 from scipy import stats
+from gpflow.utilities import print_summary
 
 def _expected_improvement(mean, variance, eta):
     s = np.sqrt(variance)
@@ -73,8 +74,7 @@ def run_single_optimization_task(dataset: str, method: AbstractAlgorithm, seed: 
         Sharpness = np.std(unc, ddof=1)/np.mean(unc)
         mlflow.log_metric('Sharpness', Sharpness, step=i)
         EI_y_corr = stats.spearmanr(scoring,remaining_Y)[0]
-        print('a', np.mean(scoring), np.max(unc), np.min(unc), np.mean(EI_y_corr))
-
+        #print_summary(method.gp)
         mlflow.log_metric('EI_y_corr', EI_y_corr, step=i)
 
     mlflow.end_run()

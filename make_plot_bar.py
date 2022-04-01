@@ -14,11 +14,13 @@ from visualization.plot_metric_for_dataset import barplot_metric_augmentation_co
 from typing import List
 
 # gathers all our results and saves them into a numpy array
-train_test_splitter =  BlockPostionSplitter # RandomSplitter #
+train_test_splitter =  RandomSplitter # BlockPostionSplitter # 
 last_result_length = None
 
-def plot_metric_comparison(datasets: List[str] = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"], algos=[GPonRealSpace().get_name(), GPonRealSpace(kernel=SquaredExponential()).get_name(), RandomForest().get_name(), KNN().get_name()],
-                            metric=MSE, train_test_splitter=RandomSplitter, reps=[ONE_HOT, VAE, TRANSFORMER]):
+def plot_metric_comparison(datasets: List[str] = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"], 
+                            algos=[GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), RandomForest().get_name(), KNN().get_name()],
+                            metric=MSE, train_test_splitter=train_test_splitter, 
+                            reps=[ONE_HOT, VAE, TRANSFORMER]):
     results_dict = {}
     for dataset in datasets:
         algo_results = {}
@@ -32,8 +34,11 @@ def plot_metric_comparison(datasets: List[str] = ["MTH3", "TIMB", "UBQT", "1FQG"
                 assert len(runs) == 1 , rep+a+dataset
                 results = []
                 for id in runs['run_id'].to_list():
-                    for r in mlflow.tracking.MlflowClient().get_metric_history(id, metric):
-                        results.append(r.value)
+                    try:
+                        for r in mlflow.tracking.MlflowClient().get_metric_history(id, metric):
+                            results.append(r.value)
+                    except mlflow.exceptions.MlflowException:
+                        continue
                 reps_results[rep] = results
             if a == 'GPsquared_exponential':
                 a = "GPsqexp"
@@ -43,9 +48,11 @@ def plot_metric_comparison(datasets: List[str] = ["MTH3", "TIMB", "UBQT", "1FQG"
     barplot_metric_comparison(metric_values=results_dict, cvtype=train_test_splitter(dataset).get_name())
 
 
-def plot_metric_augmentation_comparison(datasets: List[str]=["UBQT", "CALM", "1FQG"], reps = [ONE_HOT, TRANSFORMER],
-                                        algos = [GPonRealSpace(kernel=SquaredExponential()).get_name(), RandomForest().get_name()], 
-                                        metric=MSE, train_test_splitter=RandomSplitter, augmentation = [ROSETTA, VAE_DENSITY]):
+def plot_metric_augmentation_comparison(datasets: List[str]=["UBQT", "CALM", "1FQG"], 
+                                        reps = [ONE_HOT, VAE, TRANSFORMER],
+                                        algos = [GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name()], # , RandomForest().get_name()
+                                        metric=MSE, train_test_splitter=train_test_splitter, 
+                                        augmentation = [ROSETTA, VAE_DENSITY]):
     results_dict = {}
     for dataset in datasets:
         algo_results = {}

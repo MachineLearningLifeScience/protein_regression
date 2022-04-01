@@ -9,7 +9,7 @@ from data.load_augmentation import load_augmentation
 from data.train_test_split import AbstractTrainTestSplitter
 from util.log_uncertainty import prep_for_logdict
 from util.mlflow.constants import DATASET, METHOD, MSE, ROSETTA, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, AUGMENTATION
-from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
+from util.mlflow.constants import GP_LEN, GP_VAR, GP_L_VAR, GP_MU
 
 
 def run_single_augmentation_task(dataset: str, representation: str, method: AbstractAlgorithm, augmentation: str, train_test_splitter: AbstractTrainTestSplitter):
@@ -61,6 +61,11 @@ def run_single_augmentation_task(dataset: str, representation: str, method: Abst
         mlflow.log_metric(SEVar, mse_var, step=split)
         mlflow.log_metric(MLL, mll, step=split)
         mlflow.log_metric(SPEARMAN_RHO, r, step=split)
+        if "GP" in method.get_name():
+            #mlflow.log_metric(GP_MU, method.gp.mean_function.c.numpy()[0], step=split)
+            mlflow.log_metric(GP_VAR, float(method.gp.kernel.variance.numpy()), step=split)
+            mlflow.log_metric(GP_L_VAR, float(method.gp.likelihood.variance.numpy()), step=split)
+            mlflow.log_metric(GP_LEN, float(method.gp.kernel.lengthscales.numpy()), step=split)
         trues, mus, uncs, errs = prep_for_logdict(Y[test_indices[split], :], mu, unc, err2, baseline)
         mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
     mlflow.end_run()

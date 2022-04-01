@@ -15,6 +15,12 @@ SEVar = "SEVar"
 MLL = "MLL"
 SPEARMAN_RHO = "rho"
 
+# GP metrics
+GP_MU = "mu"
+GP_LEN = "len"
+GP_VAR = "var"
+GP_L_VAR = "l_var"
+
 # representations
 ONE_HOT = "one_hot"
 TRANSFORMER = "transformer"

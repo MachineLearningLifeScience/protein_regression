@@ -1,6 +1,6 @@
 import mlflow
 import numpy as np
-from gpflow.kernels import SquaredExponential
+from gpflow.kernels import SquaredExponential, Matern52
 from mlflow.entities import ViewType
 from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from algorithms.gp_on_real_space import GPonRealSpace
@@ -17,10 +17,12 @@ from visualization.plot_metric_for_dataset import plot_optimization_task
 # gathers all our results and saves them into a numpy array
 datasets = ["1FQG"]
 representations = [TRANSFORMER]
-seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245]
-seeds = [11]
-algos = [GPonRealSpace(kernel=SquaredExponential()).get_name(), UncertainRandomForest().get_name()]
+seeds = [123, 54, 2345, 987, 6538, 78543, 3465, 43245]
+#seeds = [11]
 
+algos = [GPonRealSpace(kernel_factory=lambda: SquaredExponential()).get_name(), 
+        UncertainRandomForest().get_name()]
+#   
 
 minObs_dict = {}
 regret_dict = {}
@@ -84,7 +86,7 @@ for dataset in datasets:
     meanObs_dict[dataset] = algo_meanObs
     lastObs_dict[dataset] = algo_lastObs        
 
-plot_optimization_task(metric_values=minObs_dict, name='Best observed')
-plot_optimization_task(metric_values=regret_dict, name='Regret')
-plot_optimization_task(metric_values=meanObs_dict, name='Mean observed')
-plot_optimization_task(metric_values=lastObs_dict, name='Last observed')
+plot_optimization_task(metric_values=minObs_dict, name=f'Best_observed_{representations}_{datasets}')
+plot_optimization_task(metric_values=regret_dict, name=f'Regret_{representations}_{datasets}')
+plot_optimization_task(metric_values=meanObs_dict, name=f'Mean_observed_{representations}_{datasets}')
+plot_optimization_task(metric_values=lastObs_dict, name=f'Last_observed_{representations}_{datasets}')

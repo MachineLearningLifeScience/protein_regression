@@ -1,11 +1,15 @@
 import warnings
 import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
 import gpflow.optimizers
-from gpflow.mean_functions import Constant
+from gpflow.utilities import to_default_float
+from gpflow.mean_functions import Constant, Zero
 from gpflow.optimizers import Scipy
 from gpflow.models import GPR
 from gpflow.kernels.linears import Linear
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 from algorithms.abstract_algorithm import AbstractAlgorithm
 
@@ -23,6 +27,8 @@ class GPonRealSpace(AbstractAlgorithm):
         assert(Y.shape[1] == 1)
         self.gp = GPR(data=(tf.constant(X), tf.constant(Y)), kernel=self.kernel_factory(), mean_function=Constant(),
                       noise_variance=1e-3)
+        self.gp.kernel.variance.prior = tfp.distributions.Gamma(to_default_float(4), to_default_float(4))
+        self.gp.kernel.lengthscales.prior = tfp.distributions.Gamma(to_default_float(4), to_default_float(4))
         self._optimize()
 
     def predict(self, X):

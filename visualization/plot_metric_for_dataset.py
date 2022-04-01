@@ -113,7 +113,7 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
     plt.show()
 
 
-def plot_optimization_task(metric_values: dict, name: str):
+def plot_optimization_task(metric_values: dict, name: str, max_iterations=500):
     c = ['dimgrey', '#661100', '#332288']
     plt.figure()
     for d, dataset_key in enumerate(metric_values.keys()):
@@ -122,8 +122,9 @@ def plot_optimization_task(metric_values: dict, name: str):
             for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
                 if algo not in algos:
                     algos.append(algo)
-
-                observations = np.vstack(metric_values[dataset_key][algo][rep])
+                # TODO: the way these results are collected is very messy.
+                # TODO each experiment should be distinct and partial runs not be recorded, all should have the same len
+                observations = np.vstack(metric_values[dataset_key][algo][rep][-max_iterations:])
                 means = np.mean(observations, axis=0)
                 stds = np.std(observations, ddof=1, axis=0)/np.sqrt(observations.shape[0])
                 plt.plot(means, color=c[i], label=algo, linewidth=2)
@@ -138,7 +139,7 @@ def plot_optimization_task(metric_values: dict, name: str):
     plt.yticks(size=14)
 
     markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
-    plt.legend(markers, algos, bbox_to_anchor=(1, 1.03), numpoints=1, prop={'size':12})
-
+    plt.legend(markers, algos, loc="lower right", numpoints=1, prop={'size':12})
+    plt.tight_layout()
     plt.savefig('results/figures/'+name+'_optimization_plot')
     plt.show()
