@@ -30,6 +30,8 @@ class GPonRealSpace(AbstractAlgorithm):
         assert(Y.shape[1] == 1)
         self.gp = GPR(data=(tf.constant(X), tf.constant(Y)), kernel=self.kernel_factory(),
                       mean_function=self.mean_function, noise_variance=self.initial_noise)
+        self.gp.kernel.variance.prior = tfp.distributions.Gamma(to_default_float(4), to_default_float(4))
+        self.gp.kernel.lengthscales.prior = tfp.distributions.Gamma(to_default_float(4), to_default_float(4))
         self._optimize()
 
     def predict(self, X):
