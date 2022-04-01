@@ -4,7 +4,7 @@ import mlflow
 from tqdm import tqdm
 from scipy.stats import spearmanr
 
-from algorithms.abstract_algorithm import AbstractAlgorithm
+from algorithm_factories import ALGORITHM_REGISTRY
 from data.load_dataset import load_dataset, get_alphabet
 from data.train_test_split import AbstractTrainTestSplitter
 from util.numpy_one_hot import numpy_one_hot_2dmat
@@ -14,7 +14,9 @@ from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU
 from util.preprocess import scale_observations
 from gpflow.utilities import print_summary
 
-def run_single_regression_task(dataset: str, representation: str, method: AbstractAlgorithm, train_test_splitter: AbstractTrainTestSplitter, augmentation: str):
+
+def run_single_regression_task(dataset: str, representation: str, method_key: str, train_test_splitter: AbstractTrainTestSplitter, augmentation: str):
+    method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     # load X for CV splitting
     X, Y = load_dataset(dataset, representation=ONE_HOT)
     train_indices, val_indices, test_indices = train_test_splitter.split(X)
@@ -73,9 +75,9 @@ def run_single_regression_task(dataset: str, representation: str, method: Abstra
 
 
 if __name__ == "__main__":
-    dataset = "BRCA"
-    from util.mlflow.constants import VAE
-    representation = VAE
+    dataset = "1FQG"
+    from util.mlflow.constants import VAE, TRANSFORMER
+    representation = TRANSFORMER
     from data.load_dataset import get_alphabet
     alphabet = get_alphabet(dataset)
     from gpflow.kernels import SquaredExponential
@@ -84,5 +86,5 @@ if __name__ == "__main__":
     from algorithms.gp_on_real_space import GPonRealSpace
 
     run_single_regression_task(dataset=dataset, representation=representation,
-                               method=GPonRealSpace(kernel=SquaredExponential()),
-                               train_test_splitter=BlockPostionSplitter(dataset=dataset))
+                               method=GPonRealSpace(kernel_factory=lambda: SquaredExponential()),
+                               train_test_splitter=BlockPostionSplitter(dataset=dataset), augmentation=NO_AUGMENT)

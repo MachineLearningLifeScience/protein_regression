@@ -1,4 +1,5 @@
 import warnings
+
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
@@ -19,16 +20,16 @@ class GPonRealSpace(AbstractAlgorithm):
         self.gp = None
         self.kernel_factory = kernel_factory
         self.optimize = optimize
+        self.initial_noise = 1e-3
+        self.mean_function = Zero()
 
     def get_name(self):
         return "GP" + self.kernel_factory().name
 
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
-        self.gp = GPR(data=(tf.constant(X), tf.constant(Y)), kernel=self.kernel_factory(), mean_function=Constant(),
-                      noise_variance=1e-3)
-        self.gp.kernel.variance.prior = tfp.distributions.Gamma(to_default_float(4), to_default_float(4))
-        self.gp.kernel.lengthscales.prior = tfp.distributions.Gamma(to_default_float(4), to_default_float(4))
+        self.gp = GPR(data=(tf.constant(X), tf.constant(Y)), kernel=self.kernel_factory(),
+                      mean_function=self.mean_function, noise_variance=self.initial_noise)
         self._optimize()
 
     def predict(self, X):
@@ -68,4 +69,3 @@ class GPonRealSpace(AbstractAlgorithm):
             opt_logs = opt.minimize(self.gp.training_loss, self.gp.trainable_variables, method="BFGS",
                                     options=dict(maxiter=100))
             pass
-
