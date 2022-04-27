@@ -3,18 +3,21 @@ import mlflow
 from tqdm import tqdm
 from scipy.stats import spearmanr
 from algorithms.abstract_algorithm import AbstractAlgorithm
+from util.preprocess import scale_observations
 from data.load_dataset import load_dataset, get_alphabet
 from util.numpy_one_hot import numpy_one_hot_2dmat
 from data.load_augmentation import load_augmentation
 from data.train_test_split import AbstractTrainTestSplitter
 from util.log_uncertainty import prep_for_logdict
+from algorithm_factories import ALGORITHM_REGISTRY
 from util.mlflow.constants import DATASET, METHOD, MSE, ROSETTA, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, AUGMENTATION
 from util.mlflow.constants import GP_LEN, GP_VAR, GP_L_VAR, GP_MU
 
 
-def run_single_augmentation_task(dataset: str, representation: str, method: AbstractAlgorithm, augmentation: str, train_test_splitter: AbstractTrainTestSplitter):
+def run_single_augmentation_task(dataset: str, representation: str, method_key: AbstractAlgorithm, augmentation: str, train_test_splitter: AbstractTrainTestSplitter):
     if not representation: 
         raise ValueError("Representation required for data loading...")
+    method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     A, Y, missed_assay_indices = load_augmentation(name=dataset, augmentation=augmentation)
     # load X for the CV splitting requiring label-encoding
     X, Y = load_dataset(dataset, representation=ONE_HOT)
@@ -33,15 +36,23 @@ def run_single_augmentation_task(dataset: str, representation: str, method: Abst
             METHOD: method.get_name(), 
             REPRESENTATION: representation,
             SPLIT: train_test_splitter.get_name(), 
-            AUGMENTATION: augmentation}
+            AUGMENTATION: augmentation,
+            "OPTIMIZE": method.optimize}
     # record experiments by dataset name and have the tags as logged parameters
     experiment = mlflow.set_experiment(dataset)
     mlflow.start_run(experiment_id=experiment)
     mlflow.set_tags(tags)
     
     for split in tqdm(range(0, len(train_indices))):
-        method.train(X[train_indices[split], :], Y[train_indices[split], :])
-        mu, unc = method.predict(X[test_indices[split], :])
+        X_train = X[train_indices[split], :]
+        Y_train = Y[train_indices[split], :]
+        Y_test = Y[test_indices[split]]
+        mean_y, std_y, scaled_y = scale_observations(Y_train)
+        method.train(X_train, scaled_y)
+        #print_summary(method.gp)
+        _mu, unc = method.predict_f(X[test_indices[split], :])
+        # undo scaling
+        mu = _mu*std_y + mean_y
         assert(mu.shape[1] == 1 == unc.shape[1])
         assert(mu.shape[0] == unc.shape[0] == len(test_indices[split]))
         # record mean and median smse and nll and spearman correlation
@@ -65,7 +76,7 @@ def run_single_augmentation_task(dataset: str, representation: str, method: Abst
             #mlflow.log_metric(GP_MU, method.gp.mean_function.c.numpy()[0], step=split)
             mlflow.log_metric(GP_VAR, float(method.gp.kernel.variance.numpy()), step=split)
             mlflow.log_metric(GP_L_VAR, float(method.gp.likelihood.variance.numpy()), step=split)
-            mlflow.log_metric(GP_LEN, float(method.gp.kernel.lengthscales.numpy()), step=split)
+            #mlflow.log_metric(GP_LEN, float(method.gp.kernel.lengthscales.numpy()), step=split)
         trues, mus, uncs, errs = prep_for_logdict(Y[test_indices[split], :], mu, unc, err2, baseline)
         mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
     mlflow.end_run()

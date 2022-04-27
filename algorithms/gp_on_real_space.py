@@ -1,10 +1,12 @@
+from statistics import variance
 import warnings
 
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 import gpflow.optimizers
-from gpflow.utilities import to_default_float
+from gpflow import Parameter
+from gpflow.utilities import to_default_float, set_trainable
 from gpflow.mean_functions import Constant, Zero
 from gpflow.optimizers import Scipy
 from gpflow.models import GPR
@@ -13,15 +15,18 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 from algorithms.abstract_algorithm import AbstractAlgorithm
-
+seed = 42
+np.random.seed(seed)
+tf.random.set_seed(seed)
 
 class GPonRealSpace(AbstractAlgorithm):
-    def __init__(self, kernel_factory=lambda: Linear(), optimize=True):
+    def __init__(self, kernel_factory=lambda: Linear(), optimize=True, ard=False):
         self.gp = None
         self.kernel_factory = kernel_factory
         self.optimize = optimize
-        self.initial_noise = 1e-3
         self.mean_function = Zero()
+        self.noise_variance = 0.1 #1e-3
+        self.ard = ard
 
     def get_name(self):
         return "GP" + self.kernel_factory().name
@@ -29,9 +34,14 @@ class GPonRealSpace(AbstractAlgorithm):
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
         self.gp = GPR(data=(tf.constant(X), tf.constant(Y)), kernel=self.kernel_factory(),
-                      mean_function=self.mean_function, noise_variance=self.initial_noise)
-        self.gp.kernel.variance.prior = tfp.distributions.Gamma(to_default_float(4), to_default_float(4))
-        self.gp.kernel.lengthscales.prior = tfp.distributions.Gamma(to_default_float(4), to_default_float(4))
+                      mean_function=self.mean_function, noise_variance=self.noise_variance)
+        self.gp.kernel.variance.assign(0.4) #, transform=tfp.bijectors.Softplus()) #, prior=tfp.distributions.Gamma(to_default_float(4), to_default_float(4)))
+        if self.gp.kernel.__class__ == gpflow.kernels.SquaredExponential:
+            self.gp.kernel.lengthscales.assign(0.5)
+        if self.ard:         # use ARD with len per dimension for VAE
+            self.gp.kernel.lengthscales = Parameter(tf.ones(X.shape[1])*0.5, transform=tfp.bijectors.Softplus()) #, prior=tfp.distributions.Gamma(to_default_float(4), to_default_float(4)))
+            self.gp.ard = True 
+        set_trainable(self.gp.likelihood.variance, False)
         self._optimize()
 
     def predict(self, X):
@@ -45,7 +55,6 @@ class GPonRealSpace(AbstractAlgorithm):
     def _optimize(self):
         if self.optimize:
             opt = Scipy()
-
             cls = opt
             def eval_func(closure, variables, compile=True):
                 def _tf_eval(x):
@@ -69,5 +78,5 @@ class GPonRealSpace(AbstractAlgorithm):
                 return _eval
             opt.eval_func = eval_func
             opt_logs = opt.minimize(self.gp.training_loss, self.gp.trainable_variables, method="BFGS",
-                                    options=dict(maxiter=100))
+                                    options=dict(maxiter=500))
             pass

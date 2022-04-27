@@ -3,7 +3,7 @@ import os
 from os.path import join
 
 
-mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
+mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))#join("results", "mlruns")
 
 
 def make_experiment_name_from_tags(tags: dict):

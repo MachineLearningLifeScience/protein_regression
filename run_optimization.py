@@ -4,7 +4,7 @@ from util.execution.cluster import execute_job_array_on_slurm_cluster
 from util.mlflow.constants import TRANSFORMER, ONE_HOT, VAE
 from gpflow.utilities import print_summary
 
-RUN_ON_CLUSTER = True
+RUN_ON_CLUSTER = False
 
 datasets = ["1FQG"]
 representations = [TRANSFORMER]
@@ -23,7 +23,7 @@ for dataset in datasets:
                 if RUN_ON_CLUSTER:
                     commands.append(command_template % (dataset, seed, representation, method))
                 else:
-                    run_single_optimization_task(dataset, method, seed, representation)
+                    run_single_optimization_task(dataset, method, seed, representation, max_iterations=500)
 print(commands[0])
 if RUN_ON_CLUSTER:
     execute_job_array_on_slurm_cluster(commands, cpus=8)

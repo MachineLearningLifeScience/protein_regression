@@ -7,6 +7,7 @@ from algorithms.abstract_algorithm import AbstractAlgorithm
 class RandomForest(AbstractAlgorithm):
     def __init__(self):
         self.model = None
+        self.optimize = False
 
     def get_name(self):
         return "RF"
