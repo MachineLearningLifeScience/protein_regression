@@ -20,13 +20,12 @@ class GPOneHotSequenceSpace(GPonRealSpace):
         assert(Y.shape[1] == 1)
         self.gp = GPR(data=(tf.constant(X.astype(float)), tf.constant(Y.astype(float))), kernel=self.kernel_factory(),
                       mean_function=self.mean_function, noise_variance=self.noise_variance)
-        self.gp.kernel.variance.assign(0.4) #UBQT BRCA: 2
+        self.gp.kernel.variance.assign(0.4)
         if self.gp.kernel.__class__ == gpflow.kernels.SquaredExponential:
-            self.gp.kernel.lengthscales.assign(0.5)  #UBQT BRCA: 1
-        if self.ard:         # use ARD with len per dimension for VAE
-            self.gp.kernel.lengthscales = Parameter(tf.ones(X.shape[1])*0.5, transform=tfp.bijectors.Softplus()) #, prior=tfp.distributions.Gamma(to_default_float(4), to_default_float(4)))
-            self.gp.ard = True 
-        set_trainable(self.gp.likelihood.variance, False)
+            self.gp.kernel.lengthscales = Parameter(0.1, transform=tfp.bijectors.Softplus(), 
+                                prior=tfp.distributions.Uniform(to_default_float(0.001), to_default_float(2)))
+        self.gp.likelihood.variance = Parameter(value=self.noise_variance, transform=tfp.bijectors.Softplus(), 
+                                prior=tfp.distributions.Uniform(to_default_float(0.01), to_default_float(0.2)))
         self._optimize()
 
     def predict(self, X):

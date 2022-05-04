@@ -30,7 +30,7 @@ def plot_metric_for_dataset(metric_values: dict, cvtype: str):
 
 def barplot_metric_comparison(metric_values: dict, cvtype: str, height=0.15):
     c = ['dimgrey', '#661100', '#332288', '#117733']
-    plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype}'
+    plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype}, scaled, GP optimized \n (zero-mean, var=0.4, len=0.1 ∈ [0.001, 2], noise=0.1 ∈ [0.01, 0.2] bounded),'
     filename = 'results/figures/'+'accuracy_of_methods_barplot_'+cvtype
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,5))
     axs = np.ravel(ax)
@@ -55,13 +55,14 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, height=0.15):
                 axs[d].set_yticks(list(range(len(list(metric_values[dataset_key].keys())))))
                 axs[d].set_yticklabels(['' for i in range(len(list(metric_values[dataset_key].keys())))])
                 axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
-                axs[d].set_xlim((-1, 0.75))
+                axs[d].set_xlim((-1, 1))
                 axs[d].tick_params(axis='x', which='both', labelsize=14)
                 axs[d].set_title(dataset_key, size=16)
                 axs[d].set_xlabel('1 minus normalized MSE', size=14)
     handles, labels = axs[-1].get_legend_handles_labels()
     fig.legend(handles[:len(reps)], reps, loc='lower right', prop={'size': 14})
-    plt.suptitle(plot_heading, size=20)
+    plt.suptitle(plot_heading, size=12)
+    plt.tight_layout()
     plt.savefig(filename)
     plt.show()
 
@@ -70,7 +71,7 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
     c = ['dimgrey', '#661100', '#332288', '#117733']
     cc = ['cyan', 'darkorange', 'deeppink', 'royalblue']
     augmentations_string = " ".join(augmentation)
-    plot_heading = f'Augmented models and representations, cv-type: {cvtype}, augmentation {augmentations_string}'
+    plot_heading = f'Augmented models and representations, cv-type: {cvtype}, augmentation {augmentations_string}, OPTIMIZED'
     filename = 'results/figures/'+'accuracy_of_methods_barplot_' + cvtype + "_".join(augmentation)
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,5))
     axs = np.ravel(ax)

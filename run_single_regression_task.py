@@ -15,6 +15,7 @@ from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEV
 from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU
 from util.preprocess import scale_observations
 from gpflow.utilities import print_summary
+from gpflow import kernels
 
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 
@@ -25,9 +26,12 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
     X, Y = load_dataset(dataset, representation=ONE_HOT)
     train_indices, val_indices, test_indices = train_test_splitter.split(X)
     X, Y = load_dataset(dataset, representation=representation)
+    seq_len = X.shape[1]
     
     if representation is ONE_HOT:
         X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
+        # normalize by sequence length
+        X = X / seq_len
 
     tags = {DATASET: dataset, 
             METHOD: method.get_name(), 
@@ -70,10 +74,10 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         mlflow.log_metric(MLL, mll, step=split)
         mlflow.log_metric(SPEARMAN_RHO, r, step=split)
         if "GP" in method.get_name():
-            #mlflow.log_metric(GP_MU, method.gp.mean_function.c.numpy()[0])
             mlflow.log_metric(GP_VAR, float(method.gp.kernel.variance.numpy()), step=split)
             mlflow.log_metric(GP_L_VAR, float(method.gp.likelihood.variance.numpy()), step=split)
-            #mlflow.log_metric(GP_LEN, float(method.gp.kernel.lengthscales.numpy()), step=split)
+            if method.gp.kernel.__class__ == kernels.SquaredExponential:
+                mlflow.log_metric(GP_LEN, float(method.gp.kernel.lengthscales.numpy()), step=split)
         trues, mus, uncs, errs = prep_for_logdict(Y_test, mu, unc, err2, baseline)
         mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
     mlflow.end_run()

@@ -1,4 +1,5 @@
 import os
+from pickletools import optimize
 import sys
 from os.path import join, dirname
 import json
@@ -26,10 +27,10 @@ from typing import List
 
 base_path = join(dirname(__file__), "results")
 datasets = ["1FQG"]
-train_test_splitter = BlockPostionSplitter # BlockPostionSplitter #
+train_test_splitter = RandomSplitter # BlockPostionSplitter # 
 metric = MSE
 last_result_length = None
-reps = [TRANSFORMER]
+reps = [TRANSFORMER, VAE, ONE_HOT]
 augmentations =  [NO_AUGMENT]
 number_quantiles = 10
 algos = [GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), 
@@ -138,7 +139,7 @@ def prep_reliability_diagram(true, preds, uncertainties, number_quantiles):
     return count, perc, ECE, Sharpness
 
 
-def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation=''):
+def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', optimize_flag=False):
     c = ['dimgrey', '#661100', '#332288']
     algos = []
     ECE_list = []
@@ -170,8 +171,8 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                         Sharpness += S / number_splits
                         
                     count = np.mean(np.vstack(count), 0)
-                    axs[j].plot(perc, np.cumsum(count), c=c[i], lw=2, linestyle='-')
-                    axs[j].scatter(perc, np.cumsum(count), c=c[i], s=30-i*5)
+                    axs[j].plot(perc, count, c=c[i], lw=2, linestyle='-')
+                    axs[j].scatter(perc, count, c=c[i], s=30-i*5)
                     axs[j].plot(perc,perc, ls=':', color='k', label='Perfect Calibration')
                     axs[j].set_title(rep)
                     ECE_list.append(ECE)
@@ -186,11 +187,11 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     plt.legend(markers, [A+' ECE: '+str(np.round(E,3))+'\n Sharpness: '+str(np.round(S,3)) for A,E,S in zip(algos, ECE_list, Sharpness_list)], 
     loc="lower right", prop={'size':12})
 
-    plt.savefig(f'results/figures/{cvtype}_reliabilitydiagram_{dataset}_{representation}.png')
+    plt.savefig(f'results/figures/{cvtype}_reliabilitydiagram_{dataset}_{representation}_opt_{optimize_flag}.png')
     plt.show()
 
 
-def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation=''):
+def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', optimize_flag=True):
     c = ['dimgrey', '#661100', '#332288']
     qs = np.linspace(0,1,1+number_quantiles)
     for d in metric_values.keys():
@@ -233,16 +234,16 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
                     axs[i,j].set_title(f"Rep: {rep} Algo: {algo}", size=12)
     plt.legend() 
     plt.suptitle(f"{str(dataset)} Split: {cvtype}")
-    plt.savefig(f'results/figures/{algo}_{cvtype}_confidence_curve_{dataset}_{representation}.png')
+    plt.savefig(f'results/figures/{algo}_{cvtype}_confidence_curve_{dataset}_{representation}_opt_{optimize_flag}.png')
     plt.tight_layout()
     plt.show()
 
 
 
-def plot_uncertainty_eval(datasets: List[str]=["BLAT"], reps = [ONE_HOT, VAE, TRANSFORMER],
+def plot_uncertainty_eval(datasets: List[str]=["1FQG"], reps = [VAE, TRANSFORMER, ONE_HOT],
                                         algos = [GPonRealSpace(kernel_factory= lambda:  SquaredExponential()).get_name(), 
-                                        UncertainRandomForest().get_name()], train_test_splitter=RandomSplitter, 
-                                        augmentations = [NO_AUGMENT], number_quantiles: int = 10):
+                                        UncertainRandomForest().get_name()], train_test_splitter=train_test_splitter, 
+                                        augmentations = [NO_AUGMENT], number_quantiles: int = 10, optimize=True):
     results_dict = {}
     for dataset in datasets:
         algo_results = {}
@@ -252,6 +253,8 @@ def plot_uncertainty_eval(datasets: List[str]=["BLAT"], reps = [ONE_HOT, VAE, TR
                 aug_results = {}
                 for aug in augmentations:
                     filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}' and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}' and tags.{AUGMENTATION} = '{aug}'"
+                    if 'GP' in a:
+                        filter_string += f" and tags.OPTIMIZE = '{optimize}'"
                     exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(dataset)
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
                     assert len(runs) == 1 , rep+a+dataset+str(aug)
@@ -267,11 +270,11 @@ def plot_uncertainty_eval(datasets: List[str]=["BLAT"], reps = [ONE_HOT, VAE, TR
                 a = "GPsqexp"
             algo_results[a] = reps_results
         results_dict[dataset] = algo_results
-    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep)
-    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep)
+    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep, optimize_flag=optimize)
+    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep, optimize_flag=optimize)
 
 
 if __name__ == "__main__":
     plot_uncertainty_eval(datasets=datasets, reps=reps,
                           algos=algos, train_test_splitter=train_test_splitter, 
-                          augmentations = augmentations, number_quantiles=number_quantiles)
+                          augmentations = augmentations, number_quantiles=number_quantiles, optimize=False)
