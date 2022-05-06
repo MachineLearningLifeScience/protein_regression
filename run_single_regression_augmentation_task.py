@@ -24,12 +24,15 @@ def run_single_augmentation_task(dataset: str, representation: str, method_key: 
     if missed_assay_indices is not None and len(A) != len(X):
         X = np.delete(X, missed_assay_indices, axis=0) 
     train_indices, val_indices, test_indices = train_test_splitter.split(X)
+    seq_len = X.shape[1]
 
     X, Y = load_dataset(dataset, representation=representation)
     if missed_assay_indices is not None and len(A) != len(X):
         X = np.delete(X, missed_assay_indices, axis=0) 
     if representation is ONE_HOT:
         X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
+        # normalize by sequence length
+        X = X / seq_len
     
     X = np.concatenate([X, A], axis=1)
     tags = {DATASET: dataset, 

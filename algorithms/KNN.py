@@ -6,6 +6,7 @@ from algorithms.abstract_algorithm import AbstractAlgorithm
 class KNN(AbstractAlgorithm):
     def __init__(self):
         self.model = None
+        self.optimize = False
 
     def get_name(self):
         return "KNN"

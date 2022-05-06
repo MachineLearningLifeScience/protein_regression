@@ -3,3 +3,5 @@ __pycache__
 mlruns/
 bak_mlruns/
 
+*.ipynb
+
