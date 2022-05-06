@@ -8,7 +8,6 @@ from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.random_forest import RandomForest
 from algorithms.uncertain_rf import UncertainRandomForest
 from algorithms.KNN import KNN
-from algorithms.mgp.fusion_scaler import BayesScaler
 from util.mlflow.constants import ONE_HOT
 
 
@@ -20,9 +19,6 @@ def UncertainRFFactory(representation, alphabet):
 
 def KNNFactory(representation, alphabet):
     return KNN()
-
-def BayesRegressorFactory(representation, alphabet):
-    return BayesScaler()
 
 
 optimize = True
