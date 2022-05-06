@@ -28,7 +28,7 @@ def plot_metric_for_dataset(metric_values: dict, cvtype: str):
     plt.savefig('results/figures/'+'accuracy_of_methods_'+cvtype)
     plt.show()
 
-def barplot_metric_comparison(metric_values: dict, cvtype: str, height=0.15):
+def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.15):
     c = ['dimgrey', '#661100', '#332288', '#117733']
     plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype}, scaled, GP optimized \n (zero-mean, var=0.4, len=0.1 ∈ [0.001, 2], noise=0.1 ∈ [0.01, 0.2] bounded),'
     filename = 'results/figures/'+'accuracy_of_methods_barplot_'+cvtype
@@ -43,7 +43,7 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, height=0.15):
             for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
                 if rep not in reps:
                     reps.append(rep)
-                mse_list = metric_values[dataset_key][algo][rep]
+                mse_list = metric_values[dataset_key][algo][rep][None][metric]
                 neg_invert_mse = 1-np.mean(mse_list)
                 error_on_mean = np.std(mse_list, ddof=1)/np.sqrt(len(mse_list))
                 axs[d].barh(i+seps[j], neg_invert_mse, xerr=error_on_mean, height=height, label=rep, color=c[j], 
@@ -67,12 +67,11 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, height=0.15):
     plt.show()
 
 
-def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, augmentation: dict, height=0.3):
+def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, augmentation: dict, metric: str, height=0.3):
     c = ['dimgrey', '#661100', '#332288', '#117733']
     cc = ['cyan', 'darkorange', 'deeppink', 'royalblue']
-    augmentations_string = " ".join(augmentation)
-    plot_heading = f'Augmented models and representations, cv-type: {cvtype}, augmentation {augmentations_string}, OPTIMIZED'
-    filename = 'results/figures/'+'accuracy_of_methods_barplot_' + cvtype + "_".join(augmentation)
+    plot_heading = f'Augmented models and representations, cv-type: {cvtype}, augmentation {str(augmentation)}, OPTIMIZED'
+    filename = 'results/figures/'+'accuracy_of_methods_barplot_' + cvtype + "_" + str(augmentation)
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,5))
     axs = np.ravel(ax)
     representations = []
@@ -89,7 +88,7 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
                     repname = f"{rep}_{aug}"
                     if repname not in representations:
                         representations.append(repname)
-                    mse_list = metric_values[dataset_key][algo][rep][aug]
+                    mse_list = metric_values[dataset_key][algo][rep][aug][metric]
                     neg_invert_mse = 1-np.mean(mse_list)
                     error_on_mean = np.std(mse_list, ddof=1)/np.sqrt(len(mse_list))
                     axs[i].barh(j+seps[idx], neg_invert_mse, xerr=error_on_mean, height=height*0.25, label=repname, color=c[k], 

@@ -24,9 +24,9 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     # load X for CV splitting
     X, Y = load_dataset(dataset, representation=ONE_HOT)
+    seq_len = X.shape[1]
     train_indices, val_indices, test_indices = train_test_splitter.split(X)
     X, Y = load_dataset(dataset, representation=representation)
-    seq_len = X.shape[1]
     
     if representation is ONE_HOT:
         X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
@@ -42,7 +42,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
 
     # record experiments by dataset name and have the tags as logged parameters
     experiment = mlflow.set_experiment(dataset)
-    mlflow.start_run(experiment_id=experiment)
+    mlflow.start_run()
     mlflow.set_tags(tags)
 
     for split in tqdm(range(0, len(train_indices))):
@@ -50,6 +50,8 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         Y_train = Y[train_indices[split], :]
         Y_test = Y[test_indices[split]]
         mean_y, std_y, scaled_y = scale_observations(Y_train)
+        if "GP" in method.get_name():
+            method.init_length = np.max(np.abs(np.subtract(X_train[0], X_train[1])))
         method.train(X_train, scaled_y)
         #print_summary(method.gp)
         _mu, unc = method.predict_f(X[test_indices[split], :])
