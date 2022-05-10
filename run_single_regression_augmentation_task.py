@@ -25,6 +25,7 @@ def run_single_augmentation_task(dataset: str, representation: str, method_key: 
         X = np.delete(X, missed_assay_indices, axis=0) 
     train_indices, val_indices, test_indices = train_test_splitter.split(X)
     seq_len = X.shape[1]
+    A /= seq_len
 
     X, Y = load_dataset(dataset, representation=representation)
     if missed_assay_indices is not None and len(A) != len(X):
@@ -43,7 +44,7 @@ def run_single_augmentation_task(dataset: str, representation: str, method_key: 
             "OPTIMIZE": method.optimize}
     # record experiments by dataset name and have the tags as logged parameters
     experiment = mlflow.set_experiment(dataset)
-    mlflow.start_run(experiment_id=experiment)
+    mlflow.start_run()
     mlflow.set_tags(tags)
     
     for split in tqdm(range(0, len(train_indices))):
