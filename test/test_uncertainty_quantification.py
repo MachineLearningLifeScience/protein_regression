@@ -7,23 +7,44 @@ from uncertainty_quantification.confidence import area_confidence_oracle_error
 
 np.random.seed(1234)
 
-class TestCalibration:
-
-    def test_quantiles(self):
-        pass
-
-    def test_start(self):
-        pass
-
-    def test_end(self):
-        pass
-
-
 n = 1000
 _test_losses_results = np.sort(np.random.normal(loc=1, scale=0.25, size=n))
+_test_mean_predictions = np.random.normal(loc=0, scale=0.75, size=n)
 _uncalibrated_results_uncertainties = np.sort(np.random.normal(loc=0.2, scale=0.1, size=n))[::-1]
 _calibrated_results_uncertainties = np.sort(np.random.normal(loc=0.2, scale=0.1, size=n))
 quantiles = np.arange(0, 1, 1/10)
+
+class TestCalibration:
+    def test_naive_calibration(self):
+        # determine uncertainty quantiles
+        uncertainty_quantiles = []
+        for q in quantiles:
+            uncertainty_quantiles.append(np.quantile(_calibrated_results_uncertainties, q))
+        reference_fractions_in_quantile = []
+        for unc_q in uncertainty_quantiles:
+            predictions_in_quantile = []
+            for y_pred, unc in zip(_test_mean_predictions, _calibrated_results_uncertainties):
+                # test if it falls into the Gaussian, zero-mean
+                if (y_pred + unc) <= unc_q and (y_pred - unc) >= -unc_q:
+                    predictions_in_quantile.append(y_pred)
+            frac = len(predictions_in_quantile)/len(_test_mean_predictions)
+            reference_fractions_in_quantile.append(frac)
+        # assert against modudle function
+        _frac_quantiles = confidence_based_calibration(_test_mean_predictions, _calibrated_results_uncertainties)
+        np.testing.assert_almost_equal(reference_fractions_in_quantile, _frac_quantiles)
+
+    def test_perfect_calibration(self):
+        """Testcase: perfect prediction, 0,0 and 1,1 as diagonal"""
+        diag = np.arange(0, 1, 1/10)
+        frac_quantiles = confidence_based_calibration(_test_mean_predictions, _calibrated_results_uncertainties)
+        np.testing.assert_equal(diag, frac_quantiles)
+
+    def test_random_calibration_flat(self):
+        random_uncertainties = np.random.normal(loc=0.2, scale=0.1, size=n)
+        frac_quantiles = confidence_based_calibration(_test_mean_predictions, random_uncertainties)
+        pass
+
+
 
 class TestConfidence:
 
@@ -84,7 +105,6 @@ class TestConfidence:
         _losses_unc, _losses_oracle = ranking_confidence_curve(example_losses, example_uncertainties)
         np.testing.assert_almost_equal(ref_average_losses, _losses_unc)
         np.testing.assert_almost_equal(ref_average_oracle_loss, _losses_oracle)
-
 
     def test_uncertain_outlier(self):
         """

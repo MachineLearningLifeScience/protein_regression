@@ -53,7 +53,6 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         if "GP" in method.get_name():
             method.init_length = np.max(np.abs(np.subtract(X_train[0], X_train[1])))
         method.train(X_train, scaled_y)
-        #print_summary(method.gp)
         _mu, unc = method.predict_f(X[test_indices[split], :])
         # undo scaling
         mu = _mu*std_y + mean_y
