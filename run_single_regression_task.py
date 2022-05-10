@@ -2,9 +2,12 @@ import os
 from os.path import join
 from statistics import mean
 import numpy as np
+import tensorflow as tf
 import mlflow
 from tqdm import tqdm
 from scipy.stats import spearmanr
+from umap import UMAP
+import warnings
 
 from algorithm_factories import ALGORITHM_REGISTRY
 from data.load_dataset import load_dataset, get_alphabet
@@ -12,7 +15,7 @@ from data.train_test_split import AbstractTrainTestSplitter
 from util.numpy_one_hot import numpy_one_hot_2dmat
 from util.log_uncertainty import prep_for_logdict
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT
-from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU
+from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS
 from util.preprocess import scale_observations
 from gpflow.utilities import print_summary
 from gpflow import kernels
@@ -20,7 +23,7 @@ from gpflow import kernels
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 
 
-def run_single_regression_task(dataset: str, representation: str, method_key: str, train_test_splitter: AbstractTrainTestSplitter, augmentation: str):
+def run_single_regression_task(dataset: str, representation: str, method_key: str, train_test_splitter: AbstractTrainTestSplitter, augmentation: str, dim: int=None):
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     # load X for CV splitting
     X, Y = load_dataset(dataset, representation=ONE_HOT)
@@ -38,7 +41,9 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             REPRESENTATION: representation,
             SPLIT: train_test_splitter.get_name(), 
             AUGMENTATION: augmentation,
-            "OPTIMIZE": method.optimize}
+            "OPTIMIZE": method.optimize,
+            "DIM": dim
+            }
 
     # record experiments by dataset name and have the tags as logged parameters
     experiment = mlflow.set_experiment(dataset)
@@ -48,12 +53,21 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
     for split in tqdm(range(0, len(train_indices))):
         X_train = X[train_indices[split], :]
         Y_train = Y[train_indices[split], :]
+        X_test = X[test_indices[split], :]
         Y_test = Y[test_indices[split]]
         mean_y, std_y, scaled_y = scale_observations(Y_train)
+        if dim and X_train.shape[1] > dim:
+            reducer = UMAP(n_components=dim, random_state=42, transform_seed=42)
+            X_train = reducer.fit_transform(X_train, y=Y_train).astype(np.float64)
+            X_test = reducer.transform(X_test).astype(np.float64)
         if "GP" in method.get_name():
             method.init_length = np.max(np.abs(np.subtract(X_train[0], X_train[1])))
         method.train(X_train, scaled_y)
-        _mu, unc = method.predict_f(X[test_indices[split], :])
+        try:
+            _mu, unc = method.predict_f(X_test)
+        except tf.errors.InvalidArgumentError as _:
+            warnings.warn(f"Experiment: {dataset}, rep: {representation} in d={dim} not stable, prediction failed!")
+            _mu, unc = np.full(Y_test.shape, np.nan), np.full(Y_test.shape, np.nan)
         # undo scaling
         mu = _mu*std_y + mean_y
         assert(mu.shape[1] == 1 == unc.shape[1])
@@ -79,6 +93,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             mlflow.log_metric(GP_L_VAR, float(method.gp.likelihood.variance.numpy()), step=split)
             if method.gp.kernel.__class__ == kernels.SquaredExponential:
                 mlflow.log_metric(GP_LEN, float(method.gp.kernel.lengthscales.numpy()), step=split)
+            mlflow.log_metric(OPT_SUCCESS, float(method.opt_success))
         trues, mus, uncs, errs = prep_for_logdict(Y_test, mu, unc, err2, baseline)
         mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
     mlflow.end_run()

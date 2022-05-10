@@ -5,4 +5,4 @@ def scale_observations(y):
     y -= mean_y
     std_y = np.std(y)
     y /= std_y
-    return mean_y, std_y, y
+    return mean_y.astype(np.float64), std_y.astype(np.float64), y.astype(np.float64)

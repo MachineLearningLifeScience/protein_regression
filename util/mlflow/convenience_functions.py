@@ -5,7 +5,7 @@ from os.path import join
 import mlflow
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
-from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, SPLIT, AUGMENTATION, NO_AUGMENT
+from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, SPLIT, AUGMENTATION, NO_AUGMENT, DIMENSION
 from data.train_test_split import AbstractTrainTestSplitter
 
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
@@ -28,7 +28,7 @@ def find_experiments_by_tags(tags: dict):
     return [e for e in exps if all_tags_match(e)]
 
 
-def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, train_test_splitter: AbstractTrainTestSplitter, augmentation: list=[None]) -> dict:
+def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, train_test_splitter: AbstractTrainTestSplitter, augmentation: list=[None], dim=None) -> dict:
     results_dict = {}
     for dataset in datasets:
         algo_results = {}
@@ -40,6 +40,8 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                     filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}' and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}'"
                     if aug:
                         filter_string += f" and tags.{AUGMENTATION} = '{aug}'"
+                    if dim:
+                        filter_string += f" and tags.{DIMENSION} = '{dim}'"
                     exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(dataset)
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
                     assert len(runs) == 1 , rep+a+dataset+str(augmentation)

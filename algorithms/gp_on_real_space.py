@@ -28,13 +28,14 @@ class GPonRealSpace(AbstractAlgorithm):
         self.mean_function = Zero()
         self.noise_variance = 0.1
         self.init_length = init_length
+        self.opt_success = False
 
     def get_name(self):
         return "GP" + self.kernel_factory().name
 
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
-        self.gp = GPR(data=(tf.constant(X), tf.constant(Y)), kernel=self.kernel_factory(),
+        self.gp = GPR(data=(tf.constant(X, dtype=tf.float64), tf.constant(Y, dtype=tf.float64)), kernel=self.kernel_factory(),
                       mean_function=self.mean_function, noise_variance=self.noise_variance)
         self.gp.kernel.variance.assign(0.4)
         if self.gp.kernel.__class__ == gpflow.kernels.SquaredExponential:
@@ -83,6 +84,7 @@ class GPonRealSpace(AbstractAlgorithm):
             try:
                 opt_logs = opt.minimize(closure=self.gp.training_loss, variables=self.gp.trainable_variables, method="BFGS", 
                                         options=dict(maxiter=ci_niter(500)))
+                self.opt_success = True
             except TypeError as e:
                 warnings.warn("Optimization failed! Exiting...")
             pass
