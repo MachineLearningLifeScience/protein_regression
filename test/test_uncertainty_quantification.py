@@ -23,7 +23,7 @@ n = 1000
 _test_losses_results = np.sort(np.random.normal(loc=1, scale=0.25, size=n))
 _uncalibrated_results_uncertainties = np.sort(np.random.normal(loc=0.2, scale=0.1, size=n))[::-1]
 _calibrated_results_uncertainties = np.sort(np.random.normal(loc=0.2, scale=0.1, size=n))
-quantiles = 10
+quantiles = np.arange(0, 1, 1/10)
 
 class TestConfidence:
 
@@ -51,6 +51,40 @@ class TestConfidence:
         cal_auco = area_confidence_oracle_error(cal_unc, cal_oracle)
         uncal_auco = area_confidence_oracle_error(uncal_unc, uncal_oracle)
         assert cal_auco < uncal_auco
+
+    def test_naive_confidence_curve(self):
+        example_losses = np.random.normal(loc=1, scale=0.25, size=10)
+        example_uncertainties = np.random.normal(loc=0.2, scale=0.1, size=10)
+        # compute quantiles
+        quantiles_uncertainties = []
+        quantiles_losses = []
+        for q in quantiles:
+            quantiles_uncertainties.append(np.quantile(example_uncertainties, q))
+            quantiles_losses.append(np.quantile(example_losses, q))
+        # invert quantiles, starting with largest:
+        quantiles_uncertainties = np.flip(quantiles_uncertainties)
+        quantiles_losses = np.flip(quantiles_losses)
+        # compute mean loss by quantiles
+        ref_average_losses = []
+        for q_u in quantiles_uncertainties:
+            losses = []
+            for l, unc in zip(example_losses, example_uncertainties):
+                if unc <= q_u:
+                    losses.append(l)
+            ref_average_losses.append(np.sum(losses) / len(losses))
+        # oracle is ordered by losses
+        ref_average_oracle_loss = []
+        for q_l in quantiles_losses:
+            losses = []
+            for l, unc in zip(example_losses, example_uncertainties):
+                if l <= q_l:
+                    losses.append(l)
+            ref_average_oracle_loss.append(np.sum(losses) / len(losses))
+        # compare with
+        _losses_unc, _losses_oracle = ranking_confidence_curve(example_losses, example_uncertainties)
+        np.testing.assert_almost_equal(ref_average_losses, _losses_unc)
+        np.testing.assert_almost_equal(ref_average_oracle_loss, _losses_oracle)
+
 
     def test_uncertain_outlier(self):
         """
