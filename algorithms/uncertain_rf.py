@@ -96,6 +96,7 @@ class Uncertain_RandomForestRegressor(RandomForestRegressor):
 class UncertainRandomForest(AbstractAlgorithm):
     def __init__(self):
         self.model = None
+        self.optimize = False
 
     def get_name(self):
         return "uncertainRF"

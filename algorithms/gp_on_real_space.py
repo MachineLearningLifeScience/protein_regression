@@ -16,6 +16,7 @@ from gpflow.models import GPR
 from gpflow.kernels.linears import Linear
 
 from algorithms.abstract_algorithm import AbstractAlgorithm
+
 seed = 42
 np.random.seed(seed)
 tf.random.set_seed(seed)
@@ -72,7 +73,9 @@ class GPonRealSpace(AbstractAlgorithm):
                 def _eval(x):
                     try:
                         loss, grad = _tf_eval(tf.convert_to_tensor(x))
-                        return loss.numpy().astype(np.float64), grad.numpy().astype(np.float64)
+                        loss = np.nan_to_num(loss.numpy().astype(np.float64), nan=np.inf)
+                        grad = np.nan_to_num(grad.numpy().astype(np.float64), nan=np.inf)
+                        return loss, grad
                     except TypeError as e:
                         warnings.warn("The optimizer tried a numerically unstable parameter configuration. Trying to recover optimization...")
                         return np.finfo(np.float64).max, np.ones(x.shape)  # go back
