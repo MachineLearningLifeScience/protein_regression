@@ -1,9 +1,10 @@
 import numpy as np
 import pytest
 from uncertainty_quantification.calibration import confidence_based_calibration
-from uncertainty_quantification.calibration import error_based_calibration
+from uncertainty_quantification.calibration import error_based_calibration, expected_normalized_calibration_error
+from uncertainty_quantification.calibration import expected_calibration_error
 from uncertainty_quantification.confidence import ranking_confidence_curve
-from uncertainty_quantification.confidence import area_confidence_oracle_error
+from uncertainty_quantification.confidence import area_confidence_oracle_error, decreasing_ratio
 
 np.random.seed(1234)
 
@@ -42,8 +43,16 @@ class TestCalibration:
     def test_random_calibration_flat(self):
         random_uncertainties = np.random.normal(loc=0.2, scale=0.1, size=n)
         frac_quantiles = confidence_based_calibration(_test_mean_predictions, random_uncertainties)
-        pass
+        assert False
 
+    def test_mce(self):
+        assert False
+
+    def test_ece(self):
+        assert False
+
+    def test_ence(self):
+        assert False
 
 
 class TestConfidence:
@@ -144,3 +153,19 @@ class TestConfidence:
         random_uncertainties = np.random.rand(n)
         ranked_confidence, _ = ranking_confidence_curve(_test_losses_results, random_uncertainties)
         np.testing.assert_allclose(ranked_confidence[:-1], np.ones(len(ranked_confidence)-1), rtol=0.1)
+
+    def test_decreasing_ratio_calibrated(self):
+        ranked_conf, _ = ranking_confidence_curve(_test_losses_results, _calibrated_results_uncertainties)
+        ratio = decreasing_ratio(ranked_conf)
+        assert ratio == 0.
+
+    def test_decreasing_ratio_uncalibrated(self):
+        ranked_conf, _ = ranking_confidence_curve(_test_losses_results, _uncalibrated_results_uncertainties)
+        ratio = decreasing_ratio(ranked_conf)
+        assert ratio == 1.
+
+    def test_decreasing_ratio_random(self):
+        random_unc = np.random.rand(n)
+        ranked_conf, _ = ranking_confidence_curve(_test_losses_results, random_unc)
+        # TODO: how to test this??
+        assert False

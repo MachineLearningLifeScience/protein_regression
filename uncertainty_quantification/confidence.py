@@ -32,8 +32,17 @@ def area_confidence_oracle_error(uncertainties, oracle_error, quantiles=10):
     return auco
 
 
-def error_drop(h_quantiles):
+def error_drop(h_quantiles: np.ndarray) -> float:
     """
     Equation (7) Scalia et al. difference between first uncertainty quantile and last
     """
     return h_quantiles[0] / h_quantiles[-1]
+
+
+def decreasing_ratio(h_quantiles: np.ndarray) -> float:
+    """
+    Equation (8) fractions of uncertainties larger than the next quantiles uncertainties, to cover monotonicity
+    """
+    # compare uncertainty to next uncertainty and count
+    larger_quantile_set = np.array([int(h_i >= next_h_i) for h_i, next_h_i in zip(h_quantiles[:-1], h_quantiles[1:])])
+    return np.sum(larger_quantile_set) / len(h_quantiles)-1
