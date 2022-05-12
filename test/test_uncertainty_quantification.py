@@ -17,39 +17,56 @@ quantiles = np.arange(0, 1, 1/10)
 
 class TestCalibration:
     def test_naive_calibration(self):
+        pred_mean = 1.
         # determine uncertainty quantiles
         uncertainty_quantiles = []
         for q in quantiles:
             uncertainty_quantiles.append(np.quantile(_calibrated_results_uncertainties, q))
         reference_fractions_in_quantile = []
+        frac_sum = 0.
         for unc_q in uncertainty_quantiles:
             predictions_in_quantile = []
             for y_pred, unc in zip(_test_mean_predictions, _calibrated_results_uncertainties):
                 # test if it falls into the Gaussian, zero-mean
-                if (y_pred + unc) <= unc_q and (y_pred - unc) >= -unc_q:
+                if (y_pred + unc) <= pred_mean+unc_q and (y_pred - unc) >= pred_mean-unc_q:
                     predictions_in_quantile.append(y_pred)
             frac = len(predictions_in_quantile)/len(_test_mean_predictions)
-            reference_fractions_in_quantile.append(frac)
+            frac_sum += frac
+            reference_fractions_in_quantile.append(frac_sum)
         # assert against modudle function
-        _frac_quantiles = confidence_based_calibration(_test_mean_predictions, _calibrated_results_uncertainties)
-        np.testing.assert_almost_equal(reference_fractions_in_quantile, _frac_quantiles)
+        _frac_quantiles, _unc_quantiles = confidence_based_calibration(_test_mean_predictions, _calibrated_results_uncertainties, y_ref_mean=pred_mean)
+        np.testing.assert_equal(reference_fractions_in_quantile, _frac_quantiles)
+        np.testing.assert_equal(uncertainty_quantiles, _unc_quantiles)
 
     def test_perfect_calibration(self):
         """Testcase: perfect prediction, 0,0 and 1,1 as diagonal"""
         diag = np.arange(0, 1, 1/10)
-        frac_quantiles = confidence_based_calibration(_test_mean_predictions, _calibrated_results_uncertainties)
+        frac_quantiles, _unc_quantiles = confidence_based_calibration(_test_mean_predictions, _calibrated_results_uncertainties)
         np.testing.assert_equal(diag, frac_quantiles)
+        np.testing.assert_equal(diag, _unc_quantiles)
 
     def test_random_calibration_flat(self):
         random_uncertainties = np.random.normal(loc=0.2, scale=0.1, size=n)
-        frac_quantiles = confidence_based_calibration(_test_mean_predictions, random_uncertainties)
-        assert False
+        frac_quantiles, unc_quantiles = confidence_based_calibration(_test_mean_predictions, random_uncertainties)
+        np.testing.assert_allclose(frac_quantiles, 0.)
 
     def test_mce(self):
         assert False
 
-    def test_ece(self):
-        assert False
+    def test_ece_calibrated(self):
+        frac_quantiles, unc_quantiles = confidence_based_calibration(_test_mean_predictions, _calibrated_results_uncertainties)
+        ece = expected_calibration_error(frac_quantiles, unc_quantiles)
+        assert ece == 0.
+
+    def test_ece_uncalibrated(self):
+        frac_quantiles, unc_quantiles = confidence_based_calibration(_test_mean_predictions, _uncalibrated_results_uncertainties)
+        ece = expected_calibration_error(frac_quantiles, unc_quantiles)
+        assert ece == 1.
+
+    def test_ece_random(self):
+        frac_quantiles, unc_quantiles = confidence_based_calibration(_test_mean_predictions, _uncalibrated_results_uncertainties)
+        ece = expected_calibration_error(frac_quantiles, unc_quantiles)
+        assert ece == 0.5
 
     def test_ence(self):
         assert False
@@ -157,15 +174,15 @@ class TestConfidence:
     def test_decreasing_ratio_calibrated(self):
         ranked_conf, _ = ranking_confidence_curve(_test_losses_results, _calibrated_results_uncertainties)
         ratio = decreasing_ratio(ranked_conf)
-        assert ratio == 0.
+        np.testing.assert_approx_equal(ratio, 1)
 
     def test_decreasing_ratio_uncalibrated(self):
         ranked_conf, _ = ranking_confidence_curve(_test_losses_results, _uncalibrated_results_uncertainties)
         ratio = decreasing_ratio(ranked_conf)
-        assert ratio == 1.
+        np.testing.assert_almost_equal(ratio, 0.)
 
     def test_decreasing_ratio_random(self):
         random_unc = np.random.rand(n)
         ranked_conf, _ = ranking_confidence_curve(_test_losses_results, random_unc)
-        # TODO: how to test this??
-        assert False
+        ratio = decreasing_ratio(ranked_conf)
+        np.testing.assert_almost_equal(ratio, 0.6, decimal=1)
