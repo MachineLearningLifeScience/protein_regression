@@ -28,7 +28,12 @@ ONE_HOT = "one_hot"
 TRANSFORMER = "transformer"
 VAE = "vae"
 NONSENSE = "nonsense"
+ESM = "esm"
 KNN_name = 'knn'
+
+# dim-reduction
+LINEAR = "pca"
+NON_LINEAR = "umap"
 
 # optimization
 OBSERVED_Y = "OBSERVED_Y"

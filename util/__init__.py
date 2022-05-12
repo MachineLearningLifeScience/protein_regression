@@ -1,0 +1,1 @@
+from .aa2int import map_alphabets
