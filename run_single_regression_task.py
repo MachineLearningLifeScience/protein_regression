@@ -45,7 +45,6 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             SPLIT: train_test_splitter.get_name(), 
             AUGMENTATION: augmentation,
             "OPTIMIZE": method.optimize,
-            "DIM": dim,
             }
 
     # record experiments by dataset name and have the tags as logged parameters
@@ -72,10 +71,13 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
                 except TypeError as _e:
                     print(f"Dim reduction failed for {dataset}, {representation}, {dim} - retrying lower dim...")
                     reducer.n_components = reducer.n_components - dim/10
+                except ValueError as _:
+                    print(f"Dim reduction failed for PCA - retrying lower dim...")
+                    reducer.n_components = int(reducer.n_components - dim/10)
             X_test = reducer.transform(X_test).astype(np.float64)
-            mlflow.set_tag(key="DIM_REDUCTION", value=dim_reduction)
-        if "GP" in method.get_name(): # set initial parameters based on distance in space
-            method.init_length = np.max(np.abs(np.subtract(X_train[0], X_train[1])))
+            mlflow.set_tags({"DIM_REDUCTION": dim_reduction, "DIM": reducer.n_components})
+        if "GP" in method.get_name() and not dim: # set initial parameters based on distance in space if using full latent space
+            method.init_length = np.max(np.abs(np.subtract(X_train[0], X_train[1]))) # if reduced on lower dim this value is too small
         method.train(X_train, scaled_y)
         try:
             _mu, unc = method.predict_f(X_test)
