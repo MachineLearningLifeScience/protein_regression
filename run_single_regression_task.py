@@ -68,11 +68,8 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             while X_train.shape[1] > dim:
                 try:
                     X_train = reducer.fit_transform(X_train, y=Y_train).astype(np.float64)
-                except TypeError as _e:
+                except (TypeError, ValueError, np.linalg.LinAlgError) as _e:
                     print(f"Dim reduction failed for {dataset}, {representation}, {dim} - retrying lower dim...")
-                    reducer.n_components = reducer.n_components - dim/10
-                except ValueError as _:
-                    print(f"Dim reduction failed for PCA - retrying lower dim...")
                     reducer.n_components = int(reducer.n_components - dim/10)
             X_test = reducer.transform(X_test).astype(np.float64)
             mlflow.set_tags({"DIM_REDUCTION": dim_reduction, "DIM": reducer.n_components})
