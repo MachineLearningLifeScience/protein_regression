@@ -47,8 +47,8 @@ def plot_lower_dim_results(datasets: List[str], algorithms: List[str], represent
             ax[i, j].grid(True, color='k', alpha=0.25)
             ax[i, j].set_title(f"{rep}", fontsize=9)
     ax[i, j].legend(bbox_to_anchor=(1.1, 1.05))
-    plt.suptitle(f"Regression in lower dimensions \n on {datasets[0]}")
+    plt.suptitle(f"Regression in lower dimensions {dim_reduction} \n on {datasets[0]}")
     plt.tight_layout()
-    plt.savefig(f"./results/figures/lower_dim{dimensions}_{datasets[0]}_{representations}_{metrics}", bbox_inches='tight')
+    plt.savefig(f"./results/figures/lower_dim{dimensions}_{datasets[0]}_{representations}_{metrics}_{dim_reduction}", bbox_inches='tight')
     plt.show()
 

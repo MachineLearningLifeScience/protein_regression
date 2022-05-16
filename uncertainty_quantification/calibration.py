@@ -14,7 +14,6 @@ def confidence_based_calibration(y_pred: np.array, uncertainties: np.array, y_re
         upper_bound, lower_bound = y_ref_mean + sigma_q, y_ref_mean - sigma_q
         interval_count = np.sum(((y_pred + uncertainties) <= upper_bound) & ((y_pred - uncertainties) >= lower_bound))
         fractions.append(interval_count / N)
-    fractions = np.cumsum(np.array(fractions))
     return np.array(fractions), np.array(unc_quantiles)
     
 
