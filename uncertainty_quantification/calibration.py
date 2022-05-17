@@ -1,8 +1,35 @@
 import numpy as np
 from typing import Tuple
+from scipy import stats
+
+
+## Uncertainty calibration
+# confidence calibration
+def prep_reliability_diagram(true, preds, uncertainties, number_quantiles):
+    """
+    AUTHOR: Jacob KH
+    """
+    true, preds, uncertainties = np.array(true), np.array(preds), np.array(uncertainties)
+
+    # confidence intervals
+    four_sigma = 0.999936657516334
+    perc = np.concatenate([np.linspace(0.1,0.9,number_quantiles-1),[four_sigma]])
+    count_arr = np.vstack([np.abs(true-preds) <= stats.norm.interval(q, loc=np.zeros(len(preds)), scale=uncertainties)[1] for q in perc])
+    count = np.mean(count_arr, axis=1)
+
+    # ECE
+    ECE = np.mean(np.abs(count - perc))
+
+    # Sharpness
+    Sharpness = np.std(uncertainties, ddof=1)/np.mean(uncertainties)
+
+    return count, perc, ECE, Sharpness
+
+
 
 def confidence_based_calibration(y_pred: np.array, uncertainties: np.array, y_ref_mean=0, quantiles=10) -> Tuple[np.array, np.array]:
     """
+    AUTHOR: Richard M
     See scalia et al. pg.2703 prior to Eq. (9), description of confidence based calibration.
     """
     assert len(y_pred) == len(uncertainties)

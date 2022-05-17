@@ -1,7 +1,50 @@
 import numpy as np
+import pandas as pd
+
+
+def quantile_and_oracle_errors(uncertainties, errors, number_quantiles):
+    """
+    AUTHOR: Jacob KH
+    Based on a list of uncertainties, a list of errors 
+    and a number of quantiles this function outputs
+    oracle errors that is the mean of a given percentile when
+    percentiles are sorted by the errors and quantile errors that is
+    the mean error when sorted by their corresponding uncertainty.
+
+    Input:
+        uncertainties: list of uncertainties
+        errors: list of prediction errors
+        number_quantiles: number of percentile bins between 0 and 1
+                          i.e bin size reciprocal of number_quantiles
+    Output:
+        quantile_errs: list of mean errors when percentiles are made
+                        by sorting by uncertainty
+        oracle_errs: list of mean errors when percentiles are made
+                        by sorting by error
+    """
+    quantile_errs = []
+    oracle_errs = []
+    qs = np.linspace(0,1,1+number_quantiles)
+    s = pd.DataFrame({'unc': uncertainties, 'err': errors})
+    for q in qs:
+        idx = (s.sort_values(by='unc',ascending=False).reset_index(drop=True) <= s.quantile(q)).values[:,0]
+
+        quantile_errs.append(np.mean(s.sort_values(by='unc',ascending=False).reset_index(drop=True)[idx]['err'].values))
+
+        idx = (s.sort_values(by='err',ascending=False).reset_index(drop=True) <= s.quantile(q)).values[:,1]
+        oracle_errs.append(np.mean(s.sort_values(by='err',ascending=False).reset_index(drop=True)[idx]['err'].values))
+
+    # normalize to the case where all datapoints are included
+    quantile_errs = quantile_errs/quantile_errs[-1]
+    oracle_errs = oracle_errs/oracle_errs[-1]
+
+    return quantile_errs, oracle_errs
+
+
 
 def ranking_confidence_curve(losses: np.array, uncertainties: np.array, quantiles=10):
     """
+    AUTHOR: Richard M
     Compute confidence curve from provided losses and associated uncertainties.
     Partition uncertainties into losses, by number of quantiles.
     Assess loss after filtering uncertainties by quantiles iteratively.
