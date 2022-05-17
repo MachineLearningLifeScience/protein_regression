@@ -8,7 +8,7 @@ def ranking_confidence_curve(losses: np.array, uncertainties: np.array, quantile
     returns: 
     """
     assert len(losses) == len(uncertainties)
-    quantiles = np.arange(0, 1, 1/quantiles)
+    quantiles = np.arange(0, 1.1, 1/quantiles)
     # sort by uncertainties descending
     sorted_tuples = np.array(sorted(zip(losses, uncertainties), key=lambda x: x[1], reverse=True))
     # quantile highest to lowest by uncertainty

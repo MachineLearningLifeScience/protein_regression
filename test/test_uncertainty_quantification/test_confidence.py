@@ -5,6 +5,8 @@ from uncertainty_quantification.calibration import error_based_calibration, expe
 from uncertainty_quantification.calibration import expected_calibration_error
 from uncertainty_quantification.confidence import ranking_confidence_curve
 from uncertainty_quantification.confidence import area_confidence_oracle_error, decreasing_ratio
+from make_uncertain_plots import prep_reliability_diagram, quantile_and_oracle_errors
+
 
 np.random.seed(1234)
 
@@ -13,78 +15,7 @@ _test_losses_results = np.sort(np.random.normal(loc=1, scale=0.25, size=n))
 _test_mean_predictions = np.sort(np.random.normal(loc=0, scale=0.2, size=n))
 _uncalibrated_results_uncertainties = np.sort(np.random.normal(loc=0.2, scale=0.1, size=n))[::-1]
 _calibrated_results_uncertainties = np.sort(np.random.normal(loc=0.2, scale=0.1, size=n))
-quantiles = np.arange(0, 1, 1/10)
-
-class TestCalibration:
-    def test_naive_calibration(self):
-        pred_mean = 0.
-        # determine uncertainty quantiles
-        uncertainty_quantiles = []
-        for q in quantiles:
-            uncertainty_quantiles.append(np.quantile(_calibrated_results_uncertainties, q))
-        reference_fractions_in_quantile = []
-        for unc_q in uncertainty_quantiles:
-            predictions_in_quantile = []
-            for y_pred, unc in zip(_test_mean_predictions, _calibrated_results_uncertainties):
-                # test if it falls into the Gaussian, zero-mean
-                if (y_pred + unc) <= pred_mean+unc_q and (y_pred - unc) >= pred_mean-unc_q:
-                    predictions_in_quantile.append(y_pred)
-            frac = len(predictions_in_quantile)/len(_test_mean_predictions)
-            reference_fractions_in_quantile.append(frac)
-        # assert against modudle function
-        _frac_quantiles, _unc_quantiles = confidence_based_calibration(_test_mean_predictions, _calibrated_results_uncertainties, y_ref_mean=pred_mean)
-        np.testing.assert_equal(reference_fractions_in_quantile, _frac_quantiles)
-        np.testing.assert_equal(uncertainty_quantiles, _unc_quantiles)
-
-    def test_perfect_calibration(self):
-        """Testcase: perfect prediction, 0,0 and 1,1 as diagonal"""
-        diag = np.arange(0, 1, 1/10)
-        extreme_uncertainties = np.arange(1, 1001, 100)
-        perfect_predictions = np.ones(n)
-        perfect_uncertainties = np.arange(1, n+1)
-        frac_quantiles, _unc_quantiles = confidence_based_calibration(perfect_predictions, perfect_uncertainties)
-        np.testing.assert_almost_equal(diag, frac_quantiles, 1)
-        np.testing.assert_almost_equal(extreme_uncertainties, np.ceil(_unc_quantiles), 1)
-
-    def test_random_calibration_flat(self):
-        random_uncertainties = np.random.normal(loc=0.5, scale=0.2, size=n)
-        frac_quantiles, unc_quantiles = confidence_based_calibration(_test_mean_predictions, random_uncertainties)
-        np.testing.assert_array_less(frac_quantiles[:int(len(frac_quantiles)/2)], 0.25)
-
-    def test_mce(self):
-        frac_quantiles, unc_quantiles = confidence_based_calibration(_test_mean_predictions, _calibrated_results_uncertainties)
-        _max_diff = np.max(np.abs(frac_quantiles - unc_quantiles))
-        mce = max_calibration_error(frac_quantiles, unc_quantiles)
-        assert mce == _max_diff
-
-    def test_ece_calibrated(self):
-        frac_quantiles, unc_quantiles = confidence_based_calibration(_test_mean_predictions, _calibrated_results_uncertainties)
-        ece = expected_calibration_error(frac_quantiles, unc_quantiles)
-        assert ece == 0.
-
-    def test_ece_uncalibrated(self):
-        frac_quantiles, unc_quantiles = confidence_based_calibration(_test_mean_predictions, _uncalibrated_results_uncertainties)
-        ece = expected_calibration_error(frac_quantiles, unc_quantiles)
-        assert ece == 1.
-
-    def test_ece_random(self):
-        frac_quantiles, unc_quantiles = confidence_based_calibration(_test_mean_predictions, _uncalibrated_results_uncertainties)
-        ece = expected_calibration_error(frac_quantiles, unc_quantiles)
-        assert ece == 0.5
-
-    def test_ence_calibrated(self):
-        ence = expected_normalized_calibration_error(_test_losses_results, _calibrated_results_uncertainties)
-        assert ence == 1.
-
-    def test_ence_uncalibrated(self):
-        ence = expected_normalized_calibration_error(_test_losses_results, _uncalibrated_results_uncertainties)
-        assert ence == 0.
-
-    def test_ence_random(self):
-        random_unc = np.random.normal(0.2, 0.1, n)
-        ence = expected_normalized_calibration_error(_test_losses_results, random_unc)
-        assert ence == 0.5
-
+quantiles = np.arange(0, 1.1, 1/10)
 
 class TestConfidence:
 
@@ -114,8 +45,8 @@ class TestConfidence:
         assert cal_auco < uncal_auco
 
     def test_naive_confidence_curve(self):
-        example_losses = np.random.normal(loc=1, scale=0.25, size=10)
-        example_uncertainties = np.random.normal(loc=0.2, scale=0.1, size=10)
+        example_losses = np.random.normal(loc=1, scale=0.25, size=11)
+        example_uncertainties = np.random.normal(loc=0.2, scale=0.1, size=11)
         # compute quantiles
         quantiles_uncertainties = []
         quantiles_losses = []
@@ -173,7 +104,8 @@ class TestConfidence:
         """
         unordered_test_loss = np.random.normal(loc=1, scale=0.25, size=n)
         loss_by_conf, loss_oracle = ranking_confidence_curve(unordered_test_loss, _calibrated_results_uncertainties)
-        np.testing.assert_array_less(loss_oracle, loss_by_conf)
+        # discard starting point because it is equal
+        np.testing.assert_array_less(loss_oracle[1:], loss_by_conf[1:])
 
     def test_random_sampling_constant(self):
         """

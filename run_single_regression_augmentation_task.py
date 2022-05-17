@@ -1,6 +1,11 @@
 import numpy as np
+import tensorflow as tf
 import mlflow
 from tqdm import tqdm
+from umap import UMAP
+import warnings
+from gpflow import kernels
+from sklearn.decomposition import PCA
 from scipy.stats import spearmanr
 from algorithms.abstract_algorithm import AbstractAlgorithm
 from util.preprocess import scale_observations
@@ -10,11 +15,13 @@ from data.load_augmentation import load_augmentation
 from data.train_test_split import AbstractTrainTestSplitter
 from util.log_uncertainty import prep_for_logdict
 from algorithm_factories import ALGORITHM_REGISTRY
-from util.mlflow.constants import DATASET, METHOD, MSE, ROSETTA, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, AUGMENTATION
-from util.mlflow.constants import GP_LEN, GP_VAR, GP_L_VAR, GP_MU
+from util.mlflow.constants import DATASET, METHOD, MSE, ROSETTA, MedSE, SEVar, MLL, SPEARMAN_RHO
+from util.mlflow.constants import REPRESENTATION, SPLIT, ONE_HOT, AUGMENTATION, LINEAR, NON_LINEAR
+from util.mlflow.constants import GP_LEN, GP_VAR, GP_L_VAR, GP_MU, OPT_SUCCESS
 
 
-def run_single_augmentation_task(dataset: str, representation: str, method_key: AbstractAlgorithm, augmentation: str, train_test_splitter: AbstractTrainTestSplitter):
+def run_single_augmentation_task(dataset: str, representation: str, method_key: AbstractAlgorithm, augmentation: str, 
+                                train_test_splitter: AbstractTrainTestSplitter, dim: int, dim_reduction: str):
     if not representation: 
         raise ValueError("Representation required for data loading...")
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
@@ -50,11 +57,32 @@ def run_single_augmentation_task(dataset: str, representation: str, method_key: 
     for split in tqdm(range(0, len(train_indices))):
         X_train = X[train_indices[split], :]
         Y_train = Y[train_indices[split], :]
+        X_test = X[test_indices[split], :]
         Y_test = Y[test_indices[split]]
         mean_y, std_y, scaled_y = scale_observations(Y_train)
+        if dim and X_train.shape[1] > dim:
+            if dim_reduction is NON_LINEAR:
+                reducer = UMAP(n_components=dim, random_state=42, transform_seed=42)
+            elif dim_reduction is LINEAR:
+                reducer = PCA(n_components=dim)
+            else:
+                raise ValueError("Unspecified dimensionality reduction!")
+            while X_train.shape[1] > dim:
+                try:
+                    X_train = reducer.fit_transform(X_train, y=Y_train).astype(np.float64)
+                except (TypeError, ValueError, np.linalg.LinAlgError) as _e:
+                    print(f"Dim reduction failed for {dataset}, {representation}, {dim} - retrying lower dim...")
+                    reducer.n_components = int(reducer.n_components - dim/10)
+            X_test = reducer.transform(X_test).astype(np.float64)
+            mlflow.set_tags({"DIM_REDUCTION": dim_reduction, "DIM": reducer.n_components})
+        if "GP" in method.get_name() and not dim and not ONE_HOT: # set initial parameters based on distance in space if using full latent space
+            method.init_length = np.max(np.abs(np.subtract(X_train[0], X_train[1]))) # if reduced on lower dim this value is too small
         method.train(X_train, scaled_y)
-        #print_summary(method.gp)
-        _mu, unc = method.predict_f(X[test_indices[split], :])
+        try:
+            _mu, unc = method.predict_f(X_test)
+        except tf.errors.InvalidArgumentError as _:
+            warnings.warn(f"Experiment: {dataset}, rep: {representation} in d={dim} not stable, prediction failed!")
+            _mu, unc = np.full(Y_test.shape, np.nan), np.full(Y_test.shape, np.nan)
         # undo scaling
         mu = _mu*std_y + mean_y
         assert(mu.shape[1] == 1 == unc.shape[1])
@@ -77,10 +105,11 @@ def run_single_augmentation_task(dataset: str, representation: str, method_key: 
         mlflow.log_metric(MLL, mll, step=split)
         mlflow.log_metric(SPEARMAN_RHO, r, step=split)
         if "GP" in method.get_name():
-            #mlflow.log_metric(GP_MU, method.gp.mean_function.c.numpy()[0], step=split)
             mlflow.log_metric(GP_VAR, float(method.gp.kernel.variance.numpy()), step=split)
             mlflow.log_metric(GP_L_VAR, float(method.gp.likelihood.variance.numpy()), step=split)
-            #mlflow.log_metric(GP_LEN, float(method.gp.kernel.lengthscales.numpy()), step=split)
+            if method.gp.kernel.__class__ == kernels.SquaredExponential:
+                mlflow.log_metric(GP_LEN, float(method.gp.kernel.lengthscales.numpy()), step=split)
+            mlflow.log_metric(OPT_SUCCESS, float(method.opt_success))
         trues, mus, uncs, errs = prep_for_logdict(Y[test_indices[split], :], mu, unc, err2, baseline)
         mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
     mlflow.end_run()

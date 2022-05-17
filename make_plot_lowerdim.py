@@ -16,4 +16,4 @@ if __name__ == "__main__":
     dim_reduction = LINEAR # LINEAR, NON_LINEAR
     cv_types = [BlockPostionSplitter, RandomSplitter]
     plot_lower_dim_results(datasets=datasets, algorithms=algos, representations=representations, cv_types=cv_types, 
-                        dimensions=dimensions, metrics=metrics, dim_reduction=LINEAR)
+                        dimensions=dimensions, metrics=metrics, dim_reduction=dim_reduction)

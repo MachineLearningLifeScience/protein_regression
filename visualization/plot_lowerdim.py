@@ -21,7 +21,6 @@ def plot_lower_dim_results(datasets: List[str], algorithms: List[str], represent
     # make multiplot row per representation, column per split
     fig, ax = plt.subplots(len(cv_types), len(representations), figsize=(9, 6))
     colors = ['darkred', 'green', 'blue', 'hotpink', 'teal']
-    d_alphas = np.array([1-2/3, 1-1/2, 1-1/3, 1-1/10, 1])
     for i, cv in enumerate(cv_names):
         ax[i, 0].set_ylabel(f"{cv}\n 1-NMSE", rotation=90, fontsize=10)
         for j, rep in enumerate(representations): 
@@ -33,9 +32,10 @@ def plot_lower_dim_results(datasets: List[str], algorithms: List[str], represent
                 rhos = [dim_results[SPEARMAN_RHO][d][cv][datasets[0]][method][rep][None][SPEARMAN_RHO] for d in dimensions]
                 mean_rhos = np.average(rhos, axis=1)
                 std_rhos = np.std(rhos, axis=1)
-                for x, y, std_x, std_y, d_mark in zip(mean_rhos, one_minus_mean_nmses, std_rhos, std_nmses, d_alphas):
-                    ax[i, j].errorbar(x, y, yerr=std_y, xerr=std_x, fmt='o', c=colors[k],
-                                capsize=0.1, ms=2, mew=3, label=f"{method}", alpha=d_mark)
+                for idx, (x, y, std_x, std_y) in enumerate(zip(mean_rhos, one_minus_mean_nmses, std_rhos, std_nmses)):
+                    idx += 1 
+                    ax[i, j].errorbar(x, y, yerr=std_y, xerr=std_x, fmt='D', c=colors[k],
+                                capsize=idx**2/idx, ms=1, mew=1, label=f"{method}")
                 # annotate with dimensions
                 for idx, d in enumerate(dimensions[:-1]):
                     ax[i, j].text(mean_rhos[idx] + 0.05, one_minus_mean_nmses[idx] - 0.05, s=f"{d}", fontsize=7)
