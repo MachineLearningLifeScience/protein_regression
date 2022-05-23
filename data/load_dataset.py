@@ -120,8 +120,8 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
                 X = pickle.load(open(join(base_path, "ubqt_esm_rep.pkl"), "rb"))
             elif name == "TOXI":
                 d = pickle.load(open(join(base_path, "toxi_data_df.pkl", "rb")))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
+                idx = np.logical_not(np.isnan(d["fitness"]))
+                Y = np.vstack(d["fitness"].loc[idx])
                 X = pickle.load(open(join(base_path, "toxi_esm_rep.pkl", "rb")))
             else:
                 raise ValueError("Unknown dataset: %s" % name)
@@ -162,6 +162,9 @@ def get_wildtype(name: str):
     elif name == "UBQT":
         d = pickle.load(open(join(base_path, "ubqt_data_df.pkl"), "rb"))
         wt = d['seqs'][0].astype(np.int64)
+    elif name == "TOXI":
+        d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
+        wt = d[d.mutant=="wt"].encoded_sequence[0].astype(np.int64)
     else:
         raise ValueError("Unknown dataset: %s" % name)
     return wt

@@ -32,6 +32,30 @@ class RandomSplitter(AbstractTrainTestSplitter):
         return train_indices, None, test_indices
 
 
+class BioSplitter(AbstractTrainTestSplitter):
+    def __init__(self, dataset, n_mutations: int=3, fold: int=3, shuffle=True):
+        super().__init__()
+        self.wt = get_wildtype(dataset)
+        self.n_mutations = n_mutations
+        self.fold = fold
+        self.shuffle = shuffle
+    
+    def split(self, X):
+        data_fraction = X.shape[0] / self.fold
+        diff_to_wt = np.sum(self.wt != X, axis=1)
+        X_below_threshold = np.random.shuffle(np.where(diff_to_wt <= self.n_mutations)[0])
+        X_above_threshold = np.random.shuffle(np.where(diff_to_wt > self.n_mutations)[0])
+        train_indices = []
+        test_indices = []
+        for idx in np.arange(0, X.shape[0], data_fraction):
+            train = X_below_threshold[idx:idx+data_fraction]
+            test = X_above_threshold[idx:idx+data_fraction]
+            train_indices.append(train)
+            test_indices.append(test)
+        return train_indices, None, test_indices
+
+
+
 class BlockPostionSplitter(AbstractTrainTestSplitter):
     def __init__(self, dataset):
         super().__init__()
@@ -122,6 +146,8 @@ def pos_per_fold_assigner(name: str):
         pos_per_fold = 47
     elif name.lower() == 'mth3':
         pos_per_fold = 107
+    elif name.lower() == 'toxi':
+        pos_per_fold = 31
     else:
         raise ValueError("Unknown dataset: %s" % name)
     return pos_per_fold
