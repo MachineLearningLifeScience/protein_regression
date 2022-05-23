@@ -22,6 +22,8 @@ GP_MU = "mu"
 GP_LEN = "len"
 GP_VAR = "var"
 GP_L_VAR = "l_var"
+GP_K_PRIOR = "kernel_prior"
+GP_D_PRIOR = "data_prior"
 
 # representations
 ONE_HOT = "one_hot"

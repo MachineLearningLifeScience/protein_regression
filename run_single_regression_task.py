@@ -17,11 +17,10 @@ from util.numpy_one_hot import numpy_one_hot_2dmat
 from util.log_uncertainty import prep_for_logdict
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT
 from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS
-from util.mlflow.constants import NON_LINEAR, LINEAR
+from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR
 from util.preprocess import scale_observations
 from gpflow.utilities import print_summary
 from gpflow import kernels
-
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 
 
@@ -104,9 +103,11 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         if "GP" in method.get_name():
             mlflow.log_metric(GP_VAR, float(method.gp.kernel.variance.numpy()), step=split)
             mlflow.log_metric(GP_L_VAR, float(method.gp.likelihood.variance.numpy()), step=split)
-            if method.gp.kernel.__class__ == kernels.SquaredExponential:
+            if method.gp.kernel.__class__ != kernels.linears.Linear:
                 mlflow.log_metric(GP_LEN, float(method.gp.kernel.lengthscales.numpy()), step=split)
+                mlflow.set_tag(GP_K_PRIOR, method.gp.kernel.lengthscales.prior.name)
             mlflow.log_metric(OPT_SUCCESS, float(method.opt_success))
+            mlflow.set_tag(GP_D_PRIOR, method.gp.likelihood.variance.prior.name)
         trues, mus, uncs, errs = prep_for_logdict(Y_test, mu, unc, err2, baseline)
         mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
     mlflow.end_run()

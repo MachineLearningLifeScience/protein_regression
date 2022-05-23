@@ -24,6 +24,8 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
             X, Y = __load_df(name="timb_data_df", x_column_name="seqs")
         elif name == "UBQT":
             X, Y = __load_df(name="ubqt_data_df", x_column_name="seqs")
+        elif name == "TOXI":
+            X, Y = __load_df(name="toxi_data_df", x_column_name="sequence")
         else:
             raise ValueError("Unknown dataset: %s" % name)
         X = X.astype(np.int64)
@@ -46,6 +48,8 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
                 X, Y = __load_df(name="timb_seq_reps_n_phyla", x_column_name="protbert_mean")
             elif name == "UBQT":
                 X, Y = __load_df(name="ubqt_seq_reps_n_phyla", x_column_name="protbert_mean")
+            elif name == "TOXI":
+                raise NotImplementedError("Feature under implementation")
             else:
                 raise ValueError("Unknown dataset: %s" % name)
         elif representation == VAE:
@@ -79,10 +83,11 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
                 idx = np.logical_not(np.isnan(d["assay"]))
                 Y = np.vstack(d["assay"].loc[idx])
                 X = pickle.load(open(join(base_path, "ubqt_VAE_reps.pkl"), "rb"))
+            elif name == "TOXI":
+                raise NotImplementedError("Feature under implementation")
             else:
                 raise ValueError("Unknown dataset: %s" % name)
         elif representation == ESM:
-            # TODO: take average over the sequence
             if name == "1FQG":
                 d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
                 idx = np.logical_not(np.isnan(d["assay"]))
@@ -113,6 +118,11 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
                 idx = np.logical_not(np.isnan(d["assay"]))
                 Y = np.vstack(d["assay"].loc[idx])
                 X = pickle.load(open(join(base_path, "ubqt_esm_rep.pkl"), "rb"))
+            elif name == "TOXI":
+                d = pickle.load(open(join(base_path, "toxi_data_df.pkl", "rb")))
+                idx = np.logical_not(np.isnan(d["assay"]))
+                Y = np.vstack(d["assay"].loc[idx])
+                X = pickle.load(open(join(base_path, "toxi_esm_rep.pkl", "rb")))
             else:
                 raise ValueError("Unknown dataset: %s" % name)
         elif representation == NONSENSE:

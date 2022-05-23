@@ -1,6 +1,8 @@
 import numpy as np
 from typing import Tuple
 from scipy import stats
+from sklearn.preprocessing import scale
+from util.preprocess import scale_observations
 
 
 ## Uncertainty calibration
@@ -12,8 +14,9 @@ def prep_reliability_diagram(true, preds, uncertainties, number_quantiles):
     true, preds, uncertainties = np.array(true), np.array(preds), np.array(uncertainties)
 
     # confidence intervals
-    four_sigma = 0.999936657516334
-    perc = np.concatenate([np.linspace(0.1,0.9,number_quantiles-1),[four_sigma]])
+    #four_sigma = 0.999936657516334
+    #perc = np.concatenate([np.linspace(0.1,0.9,number_quantiles-1),[four_sigma]])
+    perc = np.arange(0, 1.1, 1/number_quantiles)
     count_arr = np.vstack([np.abs(true-preds) <= stats.norm.interval(q, loc=np.zeros(len(preds)), scale=uncertainties)[1] for q in perc])
     count = np.mean(count_arr, axis=1)
 
@@ -31,6 +34,8 @@ def confidence_based_calibration(y_pred: np.array, uncertainties: np.array, y_re
     """
     AUTHOR: Richard M
     See scalia et al. pg.2703 prior to Eq. (9), description of confidence based calibration.
+
+    Assumed standardized values... TODO
     """
     assert len(y_pred) == len(uncertainties)
     N = len(y_pred)

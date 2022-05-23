@@ -49,11 +49,11 @@ def experiment(dimensions: np.array, models: list, random_seeds=[17, 42, 73]):
 
 if __name__ == "__main__":
     #dimensions = np.arange(2, 1000, 200)
-    dimensions=[2, 3, 5, 10, 20, 100]
+    dimensions=[2, 5, 10, 20, 100, 250]
     lin_gp = GPonRealSpace(kernel_factory= lambda: Linear(), optimize=True)
     mat52_gp = GPonRealSpace(kernel_factory= lambda: Matern52(), optimize=True)
     squareexp_gp = GPonRealSpace(kernel_factory= lambda: SquaredExponential(), optimize=True)
-    method_set = [lin_gp, mat52_gp, squareexp_gp]
+    method_set = [mat52_gp, squareexp_gp]
     results = experiment(dimensions=dimensions, models=method_set)
     # plot results
     df = pd.DataFrame(columns=["d", "method", "r", "mse", "mll", "unc"])
