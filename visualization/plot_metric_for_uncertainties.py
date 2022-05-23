@@ -13,7 +13,7 @@ import mlflow
 from mlflow.entities import ViewType
 from util.mlflow.constants import MSE, NO_AUGMENT, DATASET, AUGMENTATION, METHOD, REPRESENTATION, SPLIT, VAE
 from uncertainty_quantification.confidence import quantile_and_oracle_errors
-from uncertainty_quantification.calibration import prep_reliability_diagram
+from uncertainty_quantification.calibration import prep_reliability_diagram, confidence_based_calibration
 
 # MLFLOW CODE ONLY WORKS WITH THE BELOW LINE:
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
@@ -87,7 +87,13 @@ def plot_polygon(ax, poly, **kwargs):
 
 
 def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', optimize_flag=False, dim=None, dim_reduction=None):
+    """
+    Plotting calibration Curves.
+    AUTHOR: Jacob KH, 
+    LAST CHANGES: Richard M
+    """
     c = ['dimgrey', '#661100', '#332288']
+    markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
     algos = []
     ECE_list = []
     Sharpness_list = []
@@ -95,7 +101,7 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     for d in metric_values.keys():
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
-    fig, axs = plt.subplots(1, n_reps, figsize=(15,5))
+    fig, axs = plt.subplots(2, n_reps, figsize=(15,5), gridspec_kw={'height_ratios': [4, 1]})
     for d, dataset_key in enumerate(metric_values.keys()):
         for i, algo in enumerate(metric_values[dataset_key].keys()):           
             for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
@@ -104,6 +110,7 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     if algo not in algos:
                         algos.append(algo)
                     count = []
+                    uncertainties_list = [] # point of investigation
                     ECE = 0
                     Sharpness = 0
                     for s in metric_values[dataset_key][algo][rep][aug].keys():
@@ -113,27 +120,32 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                         
                         # confidence calibration
                         C, perc, E, S = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
+                        #C, perc = confidence_based_calibration(preds, uncertainties, y_ref_mean=np.mean(trues))
                         count.append(C)
+                        uncertainties_list.append(np.array(uncertainties))
                         ECE += E
                         Sharpness += S / number_splits
-                        
-                    count = np.mean(np.vstack(count), 0)
-                    axs[j].plot(perc, count, c=c[i], lw=2, linestyle='-')
-                    axs[j].scatter(perc, count, c=c[i], s=30-i*5)
-                    axs[j].plot(perc,perc, ls=':', color='k', label='Perfect Calibration')
-                    axs[j].set_title(rep)
+                    count = np.mean(np.vstack(count), axis=0)
+                    uncertainties = np.concatenate(uncertainties_list)
+                    axs[0, j].plot(perc, count, c=c[i], lw=2, linestyle='-')
+                    axs[0, j].scatter(perc, count, c=c[i], s=30-i*5)
+                    axs[0, j].plot(perc,perc, ls=':', color='k', label='Perfect Calibration')
+                    axs[0, j].set_title(rep)
+                    axs[1, j].hist(uncertainties, 100, label=f"{algo}; {rep}", alpha=0.7, color=c[i])
+                    axs[0, j].set_xlabel('percentile', size=12)
+                    axs[1, j].set_xlabel('std', size=12)
+                    #axs[1, j].set_xlim(0, 1.2)
+                    #axs[1, j].legend()
                     ECE_list.append(ECE)
                     Sharpness_list.append(Sharpness)
+    plt.legend(markers, [A+' ECE: '+str(np.round(E,3))+'\n Sharpness: '+str(np.round(S,3)) for A,E,S in zip(algos, ECE_list, Sharpness_list)], 
+    loc="lower right", prop={'size':5})
     plt.suptitle(f"{str(dataset)} Calibration Split: {cvtype}, d={dim} {dim_reduction}")
-    plt.ylabel('Cumulative confidence', size=14)
-    plt.xlabel('Percentile', size=14)
+    axs[0, 0].set_ylabel('Cumulative confidence', size=12)
+    axs[1, 0].set_ylabel('count', size=12)
     plt.xticks(size=14)
     plt.yticks(size=14)
-
-    markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
-    plt.legend(markers, [A+' ECE: '+str(np.round(E,3))+'\n Sharpness: '+str(np.round(S,3)) for A,E,S in zip(algos, ECE_list, Sharpness_list)], 
-    loc="lower right", prop={'size':12})
-
+    plt.tight_layout()
     plt.savefig(f'results/figures/{cvtype}_reliabilitydiagram_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}{dim_reduction}.png')
     plt.show()
 
@@ -216,6 +228,6 @@ def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str]
                 a = "GPsqexp"
             algo_results[a] = reps_results
         results_dict[dataset] = algo_results
-    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    #confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
     reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
 

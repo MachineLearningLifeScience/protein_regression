@@ -11,7 +11,7 @@ if __name__ == "__main__":
     datasets = ["1FQG"]
     algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), RandomForest().get_name()]
     metrics = [MSE, SPEARMAN_RHO]
-    representations = [ONE_HOT, VAE, TRANSFORMER]
+    representations = [ONE_HOT, VAE, TRANSFORMER, ESM]
     dimensions = [2, 10, 100, 1000, None]
     dim_reduction = LINEAR # LINEAR, NON_LINEAR
     cv_types = [BlockPostionSplitter, RandomSplitter]
