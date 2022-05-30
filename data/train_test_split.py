@@ -33,26 +33,32 @@ class RandomSplitter(AbstractTrainTestSplitter):
 
 
 class BioSplitter(AbstractTrainTestSplitter):
-    def __init__(self, dataset, n_mutations: int=3, fold: int=3, shuffle=True):
+    def __init__(self, dataset, n_mutations_threshold: int=4, inverse=False):
         super().__init__()
         self.wt = get_wildtype(dataset)
-        self.n_mutations = n_mutations
-        self.fold = fold
-        self.shuffle = shuffle
+        self.n_mutations = n_mutations_threshold
+        self.inverse = inverse
     
     def split(self, X):
-        data_fraction = X.shape[0] / self.fold
+        """
+        Splits input data by mutational threshold, such that below threshold is training
+        and above threshold is testing.
+        In case of 'inverse' the opposite is the case.
+        w.r.t. CV protocol this is effectively one split.
+        TODO: internal multiple CV steps
+        """
         diff_to_wt = np.sum(self.wt != X, axis=1)
-        X_below_threshold = np.random.shuffle(np.where(diff_to_wt <= self.n_mutations)[0])
-        X_above_threshold = np.random.shuffle(np.where(diff_to_wt > self.n_mutations)[0])
-        train_indices = []
-        test_indices = []
-        for idx in np.arange(0, X.shape[0], data_fraction):
-            train = X_below_threshold[idx:idx+data_fraction]
-            test = X_above_threshold[idx:idx+data_fraction]
-            train_indices.append(train)
-            test_indices.append(test)
+        X_idx_below_threshold = np.where(diff_to_wt < self.n_mutations)[0]
+        X_idx_above_equal_threshold = np.where(diff_to_wt >= self.n_mutations)[0]
+        train_indices = X_idx_below_threshold[np.newaxis, :]
+        test_indices = X_idx_above_equal_threshold[np.newaxis, :]
+        if self.inverse:
+            test_indices, None, train_indices
         return train_indices, None, test_indices
+    
+    def get_name(self):
+        splitter_name = self.name if not self.inverse else "Inverse"+self.name
+        return splitter_name
 
 
 
@@ -62,7 +68,7 @@ class BlockPostionSplitter(AbstractTrainTestSplitter):
         self.wt = get_wildtype(dataset)
         self.pos_per_fold = pos_per_fold_assigner(dataset)
 
-    def split(self, X):
+    def split(self, X): # TODO broken for TOXI
         return positional_splitter(X, self.wt, val=False, offset=4, pos_per_fold=self.pos_per_fold)
 
 

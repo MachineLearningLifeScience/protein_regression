@@ -25,7 +25,7 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
         elif name == "UBQT":
             X, Y = __load_df(name="ubqt_data_df", x_column_name="seqs")
         elif name == "TOXI":
-            X, Y = __load_df(name="toxi_data_df", x_column_name="sequence")
+            X, Y = __load_df(name="toxi_data_df", x_column_name="encoded_sequence")
         else:
             raise ValueError("Unknown dataset: %s" % name)
         X = X.astype(np.int64)
@@ -49,7 +49,11 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
             elif name == "UBQT":
                 X, Y = __load_df(name="ubqt_seq_reps_n_phyla", x_column_name="protbert_mean")
             elif name == "TOXI":
-                raise NotImplementedError("Feature under implementation")
+                d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
+                idx = np.logical_not(np.isnan(d["assay"]))
+                Y = np.vstack(d["assay"].loc[idx])
+                X = pickle.load(open(join(base_path, "ProtBert_toxi_labelled_seqs.pkl"), "rb"))
+                X = np.vstack(X)
             else:
                 raise ValueError("Unknown dataset: %s" % name)
         elif representation == VAE:
@@ -84,7 +88,10 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
                 Y = np.vstack(d["assay"].loc[idx])
                 X = pickle.load(open(join(base_path, "ubqt_VAE_reps.pkl"), "rb"))
             elif name == "TOXI":
-                raise NotImplementedError("Feature under implementation")
+                d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
+                idx = np.logical_not(np.isnan(d["assay"]))
+                Y = np.vstack(d["assay"].loc[idx])
+                X = np.load(join(base_path, "toxi_VAE_reps.npy"))[idx]
             else:
                 raise ValueError("Unknown dataset: %s" % name)
         elif representation == ESM:
@@ -119,10 +126,10 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
                 Y = np.vstack(d["assay"].loc[idx])
                 X = pickle.load(open(join(base_path, "ubqt_esm_rep.pkl"), "rb"))
             elif name == "TOXI":
-                d = pickle.load(open(join(base_path, "toxi_data_df.pkl", "rb")))
-                idx = np.logical_not(np.isnan(d["fitness"]))
-                Y = np.vstack(d["fitness"].loc[idx])
-                X = pickle.load(open(join(base_path, "toxi_esm_rep.pkl", "rb")))
+                d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
+                idx = np.logical_not(np.isnan(d["assay"]))
+                Y = np.vstack(d["assay"].loc[idx])
+                X = pickle.load(open(join(base_path, "toxi_esm_rep.pkl"), "rb"))
             else:
                 raise ValueError("Unknown dataset: %s" % name)
         elif representation == NONSENSE:
@@ -164,14 +171,14 @@ def get_wildtype(name: str):
         wt = d['seqs'][0].astype(np.int64)
     elif name == "TOXI":
         d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
-        wt = d[d.mutant=="wt"].encoded_sequence[0].astype(np.int64)
+        wt = np.array(d[d.mutant=="wt"].encoded_sequence.values[0]).astype(np.int64)
     else:
         raise ValueError("Unknown dataset: %s" % name)
     return wt
 
 
 def get_alphabet(name: str):
-    if name in ["1FQG", "BLAT", "BRCA", "CALM", "MTH3", "TIMB", "UBQT"]:
+    if name in ["1FQG", "BLAT", "BRCA", "CALM", "MTH3", "TIMB", "UBQT", "TOXI"]:
         data_alphabet = list(enumerate([
             "A",
             "C",
