@@ -3,7 +3,9 @@
 # BASH >=4. can be used as well - default OSX bash 3.2 breaks for associative arrays!!
 
 # create key-value pair of dataset with associated alignments
-declare -A ALIGNMENTS_ARRAY=( ["CALM"]="CALM1_HUMAN_1_b0.5" ["MTH3"]="MTH3_HAEAESTABILIZED_1_b0.5" ["BLAT"]="BLAT_ECOLX_1_b0.5" ["UBQT"]="RL401_YEAST_1_b0.5" ["BRCA"]="BRCA1_HUMAN_1_b0.5" ["TIMB"]="TRPC_THEMA_1_b0.5" ["TOXI"]="parEparD_3")
+declare -A ALIGNMENTS_ARRAY=( ["CALM"]="CALM1_HUMAN_1_b0.5" ["MTH3"]="MTH3_HAEAESTABILIZED_1_b0.5" ["BLAT"]="BLAT_ECOLX_hmmerbit_plmc_n5_m30_f50_t0.2_r24-286_id100_b105" ["UBQT"]="RL401_YEAST_1_b0.5" ["BRCA"]="BRCA1_HUMAN_1_b0.5" ["TIMB"]="TRPC_THEMA_1_b0.5" ["TOXI"]="parEparD_3")
+
+# NOT the alignment used in BLAT_df: ["BLAT"]="BLAT_ECOLX_1_b0.5"
 
 # check if mmseq exists
 type mmseqs >/dev/null 2>&1 || { echo >&2 "MMseqs2 required but it's not installed! Exiting..."; exit 1; }
@@ -54,6 +56,6 @@ run_mmseq
 echo "Succesfully clustered dataset alignments!"
 
 # cleaning up tmp dir
-rmdir "${TEMP_DIR}"
+rm -rf "${TEMP_DIR}"
 
 exit 0
