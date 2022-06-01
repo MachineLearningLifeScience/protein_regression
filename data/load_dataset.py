@@ -242,10 +242,11 @@ def make_debug_se_dataset():
     return X, Y
 
 
-def parse_alignment_clusters(filename: str, base_path=None):
+def parse_alignment_clusters(filename: str, base_path=None, order_alignment_file=None):
     """
     Parses mmseq cluster sequence fasta files.
     Each double Protein ID identifies cluster
+    Impose order from original alignment file.
     """
     # load mmseq2 fasta output for clusters
     filepath = join(base_path, filename) if base_path else filename
@@ -271,4 +272,9 @@ def parse_alignment_clusters(filename: str, base_path=None):
                                       alignment_cluster_df[identifier_mask].Sequence.reset_index(drop=True),
                                       alignment_cluster_df[sequence_mask].Sequence.reset_index(drop=True)], axis=1)
     formatted_cluster_df.columns=["Cluster", "ID", "Sequence"]
+    if order_alignment_file: # impose order by merging with orginal alignment order
+        with open("./BLAT_ECOLX_hmmerbit_plmc_n5_m30_f50_t0.2_r24-286_id100_b105.a2m", "r") as infile:
+            msa_alignment_ids = pd.DataFrame([entry.replace("\n", "") for entry in infile.readlines() if entry.startswith(">")], columns=["ID"])
+        assert len(msa_alignment_ids) == len(formatted_cluster_df)
+        formatted_cluster_df = msa_alignment_ids.merge(formatted_cluster_df, on="ID")
     return formatted_cluster_df
