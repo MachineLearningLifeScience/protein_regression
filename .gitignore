@@ -1,7 +1,19 @@
+# IDE caching
 .idea/*
+# Pychaching
 __pycache__
+
+# mmseq temp directory
+data/tmp/*
+
+#Mlflow output
 mlruns/
 bak_mlruns/
 
+# any Jupyter notebooks
 *.ipynb
+
+# local caching
+.DS_Store
+data/.DS_Store
 

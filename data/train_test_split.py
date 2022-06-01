@@ -53,7 +53,7 @@ class BioSplitter(AbstractTrainTestSplitter):
         train_indices = X_idx_below_threshold[np.newaxis, :]
         test_indices = X_idx_above_equal_threshold[np.newaxis, :]
         if self.inverse:
-            test_indices, None, train_indices
+            return test_indices, None, train_indices
         return train_indices, None, test_indices
     
     def get_name(self):

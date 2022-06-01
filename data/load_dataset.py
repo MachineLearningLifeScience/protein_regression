@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pickle
 from os.path import join, dirname
 from util.aa2int import map_alphabets
@@ -239,3 +240,35 @@ def make_debug_se_dataset():
     Y = L @ np.random.randn(X.shape[0], 1)
     np.random.seed(restore_seed)
     return X, Y
+
+
+def parse_alignment_clusters(filename: str, base_path=None):
+    """
+    Parses mmseq cluster sequence fasta files.
+    Each double Protein ID identifies cluster
+    """
+    # load mmseq2 fasta output for clusters
+    filepath = join(base_path, filename) if base_path else filename
+    alignment_cluster_df = pd.read_csv(filepath, sep='\t', header=None)
+    alignment_cluster_df.columns = ["Sequence"]
+
+    cluster_list = []
+    k = 0
+    for i, entry in enumerate(alignment_cluster_df.Sequence[:-1]):
+        cluster = f"cluster-{k}"
+        cluster_list.append(cluster)
+        # rename cluster identifiers from protein ID to cluster enumeration
+        if entry == alignment_cluster_df.Sequence[i+1]:
+            alignment_cluster_df.Sequence[i] = cluster # mark as cluster identifier
+            k += 1
+    cluster_list.append(cluster)
+    cluster_mask = alignment_cluster_df.Sequence.str.startswith("cluster-")
+    identifier_mask = alignment_cluster_df.Sequence.str.startswith(">")
+    sequence_mask = ~(cluster_mask + identifier_mask)
+    assert len(alignment_cluster_df[sequence_mask]) == len(alignment_cluster_df[identifier_mask]) == len(np.array(cluster_list)[sequence_mask])
+    # print(f"Seq: {len(alignment_cluster_df[sequence_mask])} ; identifiers: {len(alignment_cluster_df[identifier_mask])} ; cluster_ids: {len(np.array(cluster_list)[sequence_mask])}" )
+    formatted_cluster_df = pd.concat([pd.Series(np.array(cluster_list)[sequence_mask]),
+                                      alignment_cluster_df[identifier_mask].Sequence.reset_index(drop=True),
+                                      alignment_cluster_df[sequence_mask].Sequence.reset_index(drop=True)], axis=1)
+    formatted_cluster_df.columns=["Cluster", "ID", "Sequence"]
+    return formatted_cluster_df
