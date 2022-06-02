@@ -2,8 +2,9 @@ import enum
 import numpy as np
 import matplotlib.pyplot as plt
 from data.load_dataset import load_dataset
+from util.mlflow.constants import LINEAR
 
-def plot_metric_for_dataset(metric_values: dict, cvtype: str):
+def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
     c = ['darkred', 'dimgray', 'blue', 'darkorange', 'k', 'lightblue', 'green', 'purple', 'chocolate', 'red', 'lightgreen', 'indigo', 'orange', 'darkblue', 'cyan', 'olive', 'brown', 'pink']
     plt.figure(figsize=(15,10))
     reps = []
@@ -17,7 +18,7 @@ def plot_metric_for_dataset(metric_values: dict, cvtype: str):
             mse = np.mean(mse_list)
             std = np.std(mse_list, ddof=1)/np.sqrt(len(mse))
             plt.errorbar(i+seps[j], mse, yerr = std, fmt='o', capsize=4, capthick=2, color=c[j], label=rep_key)
-    plt.title('Accuracy of protein regression methods using '+ cvtype, size=20)
+    plt.title(f'Accuracy of regression methods using {cvtype} on d={dim}', size=20)
     markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
     plt.legend(markers, reps, bbox_to_anchor=(1, 1), numpoints=1, prop={'size':16})
     plt.xticks(list(range(len(metric_values.keys()))), metric_values.keys(), size=16)
@@ -25,20 +26,20 @@ def plot_metric_for_dataset(metric_values: dict, cvtype: str):
     plt.xlabel('Protein data set', size=20)
     plt.ylabel('MSE', size=20)
     plt.tight_layout()
-    plt.savefig('results/figures/'+'accuracy_of_methods_'+cvtype)
+    plt.savefig('results/figures/'+f'accuracy_of_methods_d={dim}_cv_{cvtype}')
     plt.show()
 
-def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.15):
+def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.075):
     c = ['dimgrey', '#661100', '#332288', '#117733']
-    plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype}, scaled, GP optimized \n (zero-mean, var=0.4, len=0.1 ∈ [0.001, 2], noise=0.1 ∈ [0.01, 0.2] bounded),'
-    filename = 'results/figures/'+'accuracy_of_methods_barplot_'+cvtype
-    fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,5))
+    plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype}, scaled, GP optimized \n (zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 0.2] (Uniform) bounded),'
+    filename = 'results/figures/benchmark/'+'accuracy_of_methods_barplot_'+cvtype
+    fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,6))
     axs = np.ravel(ax)
     reps = []
     for d, dataset_key in enumerate(metric_values.keys()):
         for i, algo in enumerate(metric_values[dataset_key].keys()):
-            seps = np.linspace(-height*0.25*len(metric_values[dataset_key].keys()), 
-                               height*0.25*len(metric_values[dataset_key].keys()), 
+            seps = np.linspace(-height*0.5*len(metric_values[dataset_key].keys()), 
+                               height*0.5*len(metric_values[dataset_key].keys()), 
                                len(metric_values[dataset_key][algo].keys()))
             for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
                 if rep not in reps:
@@ -56,6 +57,7 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
                 axs[d].set_yticklabels(['' for i in range(len(list(metric_values[dataset_key].keys())))])
                 axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
                 axs[d].set_xlim((-1, 1))
+                #axs[d].set_xlim((-4, 1.1))
                 axs[d].tick_params(axis='x', which='both', labelsize=14)
                 axs[d].set_title(dataset_key, size=16)
                 axs[d].set_xlabel('1 minus normalized MSE', size=14)
@@ -67,11 +69,11 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.show()
 
 
-def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, augmentation: dict, metric: str, height=0.3):
+def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, augmentation: dict, metric: str, height=0.3, dim=None, dim_reduction=LINEAR):
     c = ['dimgrey', '#661100', '#332288', '#117733']
     cc = ['cyan', 'darkorange', 'deeppink', 'royalblue']
-    plot_heading = f'Augmented models and representations, cv-type: {cvtype}, augmentation {str(augmentation)}, OPTIMIZED'
-    filename = 'results/figures/'+'accuracy_of_methods_barplot_' + cvtype + "_" + str(augmentation)
+    plot_heading = f'Augmented models and representations, cv-type: {cvtype}, augmentation {str(augmentation)} \n d={dim} {dim_reduction}'
+    filename = 'results/figures/augmentation/'+'accuracy_of_methods_barplot_' + cvtype + "_" + str(augmentation)
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,5))
     axs = np.ravel(ax)
     representations = []
@@ -141,5 +143,5 @@ def plot_optimization_task(metric_values: dict, name: str, max_iterations=500):
     markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
     plt.legend(markers, algos, loc="lower right", numpoints=1, prop={'size':12})
     plt.tight_layout()
-    plt.savefig('results/figures/'+name+'_optimization_plot')
+    plt.savefig('results/figures/optim/'+name+'_optimization_plot')
     plt.show()

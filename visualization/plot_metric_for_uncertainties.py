@@ -92,7 +92,7 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     AUTHOR: Jacob KH, 
     LAST CHANGES: Richard M
     """
-    c = ['dimgrey', '#661100', '#332288']
+    c = ['dimgrey', '#661100', '#332288', 'teal']
     markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
     algos = []
     ECE_list = []
@@ -150,7 +150,8 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     plt.show()
 
 
-def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', optimize_flag=True, dim=None, dim_reduction=None):
+def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', 
+                    optimize_flag=True, dim=None, dim_reduction=None):
     c = ['dimgrey', '#661100', '#332288']
     qs = np.linspace(0,1,1+number_quantiles)
     for d in metric_values.keys():
@@ -169,7 +170,6 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
                     for s in metric_values[dataset_key][algo][rep][aug].keys():
                         uncertainties = np.sqrt(metric_values[dataset_key][algo][rep][aug][s]['unc'])
                         errors = metric_values[dataset_key][algo][rep][aug][s]['mse']
-                        
                         # Ranking-based calibration
                         qe, oe = quantile_and_oracle_errors(uncertainties, errors, number_quantiles)
                         quantile_errs.append(qe)
@@ -193,13 +193,14 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
                     axs[i,j].set_title(f"Rep: {rep} Algo: {algo}", size=12)
     plt.legend() 
     plt.suptitle(f"{str(dataset)} Split: {cvtype} , d={dim} {dim_reduction}")
-    plt.savefig(f'results/figures/{algo}_{cvtype}_confidence_curve_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}_{dim_reduction}.png')
+    plt.savefig(f'results/figures/uncertainties/{algo}_{cvtype}_confidence_curve_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}_{dim_reduction}.png')
     plt.tight_layout()
     plt.show()
 
 
 def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str], 
-                        train_test_splitter,  augmentations = [NO_AUGMENT], number_quantiles: int = 10, optimize=True, d=None, dim_reduction=None):
+                        train_test_splitter,  augmentations = [NO_AUGMENT], number_quantiles: int = 10, 
+                        optimize=True, d=None, dim_reduction=None):
     results_dict = {}
     for dataset in datasets:
         algo_results = {}
@@ -208,7 +209,7 @@ def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str]
             for rep in reps:
                 aug_results = {}
                 for aug in augmentations:
-                    filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}' and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}' and tags.{AUGMENTATION} = '{aug}'"
+                    filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}' and tags.{SPLIT} = '{train_test_splitter.get_name()}' and tags.{AUGMENTATION} = '{aug}'"
                     if 'GP' in a:
                         filter_string += f" and tags.OPTIMIZE = '{optimize}'"
                     if d and not (rep==VAE and d >= 30):
@@ -228,6 +229,6 @@ def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str]
                 a = "GPsqexp"
             algo_results[a] = reps_results
         results_dict[dataset] = algo_results
-    #confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
-    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=dataset, representation=rep, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
 

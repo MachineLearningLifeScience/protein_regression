@@ -1,6 +1,7 @@
 import mlflow
 import numpy as np
 from gpflow.kernels import SquaredExponential, Matern52
+from gpflow.kernels.linears import Linear
 from mlflow.entities import ViewType
 from data.train_test_split import BlockPostionSplitter, RandomSplitter
 from algorithms.gp_on_real_space import GPonRealSpace
@@ -21,6 +22,7 @@ seeds = [123, 54, 2345, 987, 6538, 78543, 3465, 43245]
 #seeds = [11]
 
 algos = [GPonRealSpace(kernel_factory=lambda: SquaredExponential()).get_name(), 
+        GPonRealSpace(kernel_factory=lambda: Linear()).get_name(), 
         UncertainRandomForest().get_name()]
 #   
 
