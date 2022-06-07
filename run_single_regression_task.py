@@ -9,6 +9,7 @@ from tqdm import tqdm
 from scipy.stats import spearmanr
 from umap import UMAP
 import warnings
+from typing import Tuple
 
 from algorithm_factories import ALGORITHM_REGISTRY
 from data.load_dataset import load_dataset, get_alphabet
@@ -24,13 +25,33 @@ from gpflow import kernels
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 
 
+def _dim_reduce_X(dim: int, dim_reduction: str, X_train: np.ndarray, Y_train: np.ndarray) -> Tuple[np.ndarray, object]:
+    """
+    Dimensionality reduction on training split.
+    Returns reduced training data and fitted dim_reduction.
+    """
+    if dim_reduction is NON_LINEAR:
+        reducer = UMAP(n_components=dim, random_state=42, transform_seed=42)
+    elif dim_reduction is LINEAR:
+        reducer = PCA(n_components=dim)
+    else:
+        raise ValueError("Unspecified dimensionality reduction!")
+    while X_train.shape[1] > dim:
+        try:
+            X_train = reducer.fit_transform(X_train, y=Y_train).astype(np.float64)
+        except (TypeError, ValueError, np.linalg.LinAlgError) as _e:
+            print(f"Dim reduction failed {dim} - retrying lower dim...")
+            reducer.n_components = int(reducer.n_components - dim/10)
+    return X_train, reducer
+
+
 def run_single_regression_task(dataset: str, representation: str, method_key: str, train_test_splitter: AbstractTrainTestSplitter, augmentation: str, 
                                 dim: int=None, dim_reduction=NON_LINEAR):
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     # load X for CV splitting
     X, Y = load_dataset(dataset, representation=ONE_HOT)
     seq_len = X.shape[1]
-    train_indices, val_indices, test_indices = train_test_splitter.split(X)
+    train_indices, _, test_indices = train_test_splitter.split(X)
     X, Y = load_dataset(dataset, representation=representation)
     
     if representation is ONE_HOT:
@@ -47,7 +68,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             }
 
     # record experiments by dataset name and have the tags as logged parameters
-    experiment = mlflow.set_experiment(dataset)
+    _experiment = mlflow.set_experiment(dataset)
     mlflow.start_run()
     mlflow.set_tags(tags)
 
@@ -58,18 +79,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         Y_test = Y[test_indices[split]]
         mean_y, std_y, scaled_y = scale_observations(Y_train)
         if dim and X_train.shape[1] > dim:
-            if dim_reduction is NON_LINEAR:
-                reducer = UMAP(n_components=dim, random_state=42, transform_seed=42)
-            elif dim_reduction is LINEAR:
-                reducer = PCA(n_components=dim)
-            else:
-                raise ValueError("Unspecified dimensionality reduction!")
-            while X_train.shape[1] > dim:
-                try:
-                    X_train = reducer.fit_transform(X_train, y=Y_train).astype(np.float64)
-                except (TypeError, ValueError, np.linalg.LinAlgError) as _e:
-                    print(f"Dim reduction failed for {dataset}, {representation}, {dim} - retrying lower dim...")
-                    reducer.n_components = int(reducer.n_components - dim/10)
+            X_train, reducer = _dim_reduce_X(dim=dim, dim_reduction=dim_reduction, X_train=X_train, Y_train=Y_train)
             X_test = reducer.transform(X_test).astype(np.float64)
             mlflow.set_tags({"DIM_REDUCTION": dim_reduction, "DIM": reducer.n_components})
         if "GP" in method.get_name() and not dim: # set initial parameters based on distance in space if using full latent space
