@@ -1,4 +1,4 @@
-import mlflow
+import re
 import os
 import warnings
 from os.path import join
@@ -31,6 +31,7 @@ def find_experiments_by_tags(tags: dict):
 def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, train_test_splitter: AbstractTrainTestSplitter, augmentation: list=[None], dim=None, dim_reduction=NON_LINEAR) -> dict:
     results_dict = {}
     for dataset in datasets:
+        exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(dataset)
         algo_results = {}
         for a in algos:
             reps_results = {}
@@ -42,8 +43,12 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                         filter_string += f" and tags.{AUGMENTATION} = '{aug}'"
                     if dim and not (rep==VAE and dim >= 30):
                         filter_string += f" and tags.{DIMENSION} = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'"
-                    exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(dataset)
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
+                    while len(runs) != 1 and dim >= 1:
+                        _dim = int(re.search(r'\d+', filter_string).group())
+                        lower_dim = _dim - int(dim/10)
+                        filter_string = filter_string.replace(f"tags.{DIMENSION} = '{_dim}'", f"tags.{DIMENSION} = '{lower_dim}'")
+                        runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
                     assert len(runs) == 1 , rep+a+dataset+str(augmentation)
                     metric_results = {metric: [] for metric in metrics}     
                     for id in runs['run_id'].to_list():
