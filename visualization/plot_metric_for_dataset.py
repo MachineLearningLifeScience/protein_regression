@@ -69,11 +69,12 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.show()
 
 
-def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, augmentation: dict, metric: str, height=0.3, dim=None, dim_reduction=LINEAR):
+def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, augmentation: dict, metric: str, height=0.3, 
+                                        dim=None, dim_reduction=LINEAR, reference_values: dict=None):
     c = ['dimgrey', '#661100', '#332288', '#117733']
     cc = ['cyan', 'darkorange', 'deeppink', 'royalblue']
     plot_heading = f'Augmented models and representations, cv-type: {cvtype}, augmentation {str(augmentation)} \n d={dim} {dim_reduction}'
-    filename = 'results/figures/augmentation/'+'accuracy_of_methods_barplot_' + cvtype + "_" + str(augmentation)
+    filename = f'results/figures/augmentation/accuracy_of_methods_barplot_{cvtype}_{str(augmentation)}_d={dim}_{dim_reduction}'
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,5))
     axs = np.ravel(ax)
     representations = []
@@ -93,19 +94,23 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
                     mse_list = metric_values[dataset_key][algo][rep][aug][metric]
                     neg_invert_mse = 1-np.mean(mse_list)
                     error_on_mean = np.std(mse_list, ddof=1)/np.sqrt(len(mse_list))
-                    axs[i].barh(j+seps[idx], neg_invert_mse, xerr=error_on_mean, height=height*0.25, label=repname, color=c[k], 
+                    if reference_values: # overlay by mean reference benchmark
+                        neg_reference_mse = 1-np.mean(reference_values[dataset_key][algo][rep][None][metric])
+                        axs[i].barh(j+seps[idx], neg_reference_mse-neg_invert_mse, left=neg_reference_mse, xerr=error_on_mean, height=height*0.25, color=c[k], alpha=0.8,
+                                    facecolor=c[k], edgecolor=cc[l], ecolor='black', capsize=5, hatch='/', linewidth=2)
+                    else:
+                        axs[i].barh(j+seps[idx], neg_invert_mse, xerr=error_on_mean, height=height*0.25, label=repname, color=c[k], 
                             facecolor=c[k], edgecolor=cc[l], ecolor='black', capsize=5, hatch='/', linewidth=2)
                     axs[i].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
                     axs[i].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
                     axs[i].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
                     axs[i].axvline(-0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
-                    axs[i].set_yticks(list(range(len(list(metric_values[dataset_key].keys())))))
-                    axs[i].set_yticklabels(['' for i in range(len(list(metric_values[dataset_key].keys())))])
+                    axs[i].set_yticks(np.arange(0, len(list(metric_values[dataset_key].keys())))-0.5, ['' for i in range(len(list(metric_values[dataset_key].keys())))])
                     axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
-                    axs[i].set_xlim((-1, 0.75))
-                    axs[i].tick_params(axis='x', which='both', labelsize=14)
-                    axs[i].set_title(dataset_key, size=16)
-                    axs[i].set_xlabel('1 minus normalized MSE', size=14)
+                    axs[i].set_xlim((-1, 1.))
+                    axs[i].tick_params(axis='x', which='both', labelsize=12)
+                    axs[i].set_title(dataset_key, size=12)
+                    axs[i].set_xlabel('1 minus normalized MSE', size=12)
                     idx += 1
     handles, labels = axs[-1].get_legend_handles_labels()
     fig.legend(handles[:len(representations)], representations, loc='lower right', prop={'size': 14})
