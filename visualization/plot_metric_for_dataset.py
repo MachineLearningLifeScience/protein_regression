@@ -1,8 +1,9 @@
+from distutils.log import error
 import enum
 import numpy as np
 import matplotlib.pyplot as plt
 from data.load_dataset import load_dataset
-from util.mlflow.constants import LINEAR
+from util.mlflow.constants import LINEAR, VAE, VAE_DENSITY
 
 def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
     c = ['darkred', 'dimgray', 'blue', 'darkorange', 'k', 'lightblue', 'green', 'purple', 'chocolate', 'red', 'lightgreen', 'indigo', 'orange', 'darkblue', 'cyan', 'olive', 'brown', 'pink']
@@ -30,8 +31,8 @@ def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
     plt.show()
 
 def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.075):
-    c = ['dimgrey', '#661100', '#332288', '#117733']
-    plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype}, scaled, GP optimized \n (zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 0.2] (Uniform) bounded),'
+    c = ['dimgrey', '#661100', '#332288', '#117733', "purple", "tan", "orangered"]
+    plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 0.2] (Uniform)'
     filename = 'results/figures/benchmark/'+'accuracy_of_methods_barplot_'+cvtype
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,6))
     axs = np.ravel(ax)
@@ -47,20 +48,24 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
                 mse_list = metric_values[dataset_key][algo][rep][None][metric]
                 neg_invert_mse = 1-np.mean(mse_list)
                 error_on_mean = np.std(mse_list, ddof=1)/np.sqrt(len(mse_list))
-                axs[d].barh(i+seps[j], neg_invert_mse, xerr=error_on_mean, height=height, label=rep, color=c[j], 
-                            facecolor=c[j], edgecolor=c[j], ecolor='black', capsize=5, hatch='//')
-                axs[d].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
-                axs[d].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
-                axs[d].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
-                axs[d].axvline(-0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
-                axs[d].set_yticks(list(range(len(list(metric_values[dataset_key].keys())))))
-                axs[d].set_yticklabels(['' for i in range(len(list(metric_values[dataset_key].keys())))])
-                axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
-                axs[d].set_xlim((-1, 1))
-                #axs[d].set_xlim((-4, 1.1))
-                axs[d].tick_params(axis='x', which='both', labelsize=14)
-                axs[d].set_title(dataset_key, size=16)
-                axs[d].set_xlabel('1 minus normalized MSE', size=14)
+                if rep == VAE_DENSITY: # overlay VAE density as reference on VAE row
+                    pos = list(metric_values[dataset_key][algo].keys()).index(VAE)
+                    axs[d].boxplot(np.ones(len(mse_list)) - mse_list, positions=[i+seps[pos]], widths=[height], vert=False)
+                else:
+                    axs[d].barh(i+seps[j], neg_invert_mse, xerr=error_on_mean, height=height, label=rep, color=c[j], 
+                                facecolor=c[j], edgecolor=c[j], ecolor='black', capsize=5, hatch='//')
+        axs[d].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
+        axs[d].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
+        axs[d].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[d].axvline(-0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[d].set_yticks(list(range(len(list(metric_values[dataset_key].keys())))))
+        axs[d].set_yticklabels(['' for i in range(len(list(metric_values[dataset_key].keys())))])
+        axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
+        axs[d].set_xlim((-1, 1))
+        #axs[d].set_xlim((-4, 1.1))
+        axs[d].tick_params(axis='x', which='both', labelsize=14)
+        axs[d].set_title(dataset_key, size=16)
+        axs[d].set_xlabel('1 minus normalized MSE', size=14)
     handles, labels = axs[-1].get_legend_handles_labels()
     fig.legend(handles[:len(reps)], reps, loc='lower right', prop={'size': 14})
     plt.suptitle(plot_heading, size=12)

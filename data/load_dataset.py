@@ -2,8 +2,10 @@ import numpy as np
 import pandas as pd
 import pickle
 from os.path import join, dirname
+from data.get_alphabet import get_alphabet
+from data.load_augmentation import load_augmentation
 from util.aa2int import map_alphabets
-from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM
+from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM, VAE_DENSITY
 
 base_path = join(dirname(__file__), "files")
 
@@ -11,7 +13,6 @@ base_path = join(dirname(__file__), "files")
 def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
     if desired_alphabet is not None and representation is not ONE_HOT:
         raise ValueError("Desired alphabet can only have a value when representation is one hot!")
-
     if representation is ONE_HOT:
         if name == "1FQG":  # beta-lactamase
             X, Y = __load_df(name="blat_data_df", x_column_name="seqs")
@@ -133,6 +134,11 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
                 X = pickle.load(open(join(base_path, "toxi_esm_rep.pkl"), "rb"))
             else:
                 raise ValueError("Unknown dataset: %s" % name)
+        elif representation == VAE_DENSITY:
+            if name not in ["1FQG", "BRCA", "CALM", "MTH3", "TIMB", "UBQT", "TOXI"]:
+                raise ValueError(f"Unknown dataset: {name}")
+            X, Y, _ = load_augmentation(name=name, augmentation=VAE_DENSITY)
+
         elif representation == NONSENSE:
             _, Y = load_dataset(name, representation=ONE_HOT)
             restore_seed = np.random.randint(12345)
@@ -178,39 +184,6 @@ def get_wildtype(name: str):
     return wt
 
 
-def get_alphabet(name: str):
-    if name in ["1FQG", "BLAT", "BRCA", "CALM", "MTH3", "TIMB", "UBQT", "TOXI"]:
-        data_alphabet = list(enumerate([
-            "A",
-            "C",
-            "D",
-            "E",
-            "F",
-            "G",
-            "H",
-            "I",
-            "K",
-            "L",
-            "M",
-            "N",
-            "P",
-            "Q",
-            "R",
-            "S",
-            "T",
-            "V",
-            "W",
-            "X",
-            "Y",
-            "Z",
-            "<mask>",
-            'B'
-        ]))
-        data_alphabet = {a: i for (i, a) in data_alphabet}
-        return data_alphabet
-    raise ValueError("Unknown dataset: %s" % name)
-
-
 def __load_df(name: str, x_column_name: str):
     """
     Function to load X, Y columns from Jacob's dataframes.
@@ -240,3 +213,4 @@ def make_debug_se_dataset():
     Y = L @ np.random.randn(X.shape[0], 1)
     np.random.seed(restore_seed)
     return X, Y
+

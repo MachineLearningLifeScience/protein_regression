@@ -2,7 +2,7 @@ import pickle
 from os.path import join, dirname
 import numpy as np
 import pandas as pd
-from data import get_alphabet
+from data.get_alphabet import get_alphabet
 from util.mlflow.constants import VAE_DENSITY, ROSETTA
 
 base_path = join(dirname(__file__), "files")

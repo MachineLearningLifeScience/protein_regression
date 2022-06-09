@@ -74,7 +74,7 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                     if seed:
                         filter_string += f" and tags.{SEED} = '{seed}'"
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
-                    while len(runs) != 1 and dim >= 1: # for lower-dimensional experiments, if not exists: take next smaller in steps of 10:
+                    while len(runs) != 1 and dim and dim >= 1: # for lower-dimensional experiments, if not exists: take next smaller in steps of 10:
                         _dim = int(re.search(r'\d+', filter_string).group())
                         lower_dim = _dim - int(dim/10)
                         filter_string = filter_string.replace(f"tags.{DIMENSION} = '{_dim}'", f"tags.{DIMENSION} = '{lower_dim}'")

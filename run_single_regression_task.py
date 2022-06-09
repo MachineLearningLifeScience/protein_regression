@@ -12,16 +12,18 @@ import warnings
 from typing import Tuple
 
 from algorithm_factories import ALGORITHM_REGISTRY
+from data.load_augmentation import load_augmentation
 from data.load_dataset import load_dataset, get_alphabet
 from data.train_test_split import AbstractTrainTestSplitter
 from util.numpy_one_hot import numpy_one_hot_2dmat
 from util.log_uncertainty import prep_for_logdict
-from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT
+from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, VAE_DENSITY
 from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS
 from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR
 from util.preprocess import scale_observations
 from gpflow.utilities import print_summary
 from gpflow import kernels
+from visualization.plot_training import plot_mid_training
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 
 
@@ -104,6 +106,8 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         mse_var = np.var(err2)
         mll = np.mean(err2 / unc / 2 + np.log(2 * np.pi * unc) / 2)
         r = spearmanr(Y_test, mu)[0]  # we do not care about the p-value
+        if split == 1:
+            plot_mid_training(X_test, Y_test, mu, unc, method_key)
 
         mlflow.log_metric(MSE, mse, step=split)
         mlflow.log_metric(MedSE, medse, step=split)

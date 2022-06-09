@@ -8,10 +8,10 @@ from visualization.plot_lowerdim import plot_lower_dim_results
 
 
 if __name__ == "__main__":
-    datasets = ["1FQG"]
-    algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), RandomForest().get_name()]
-    metrics = [MSE, MLL]
-    representations = [ONE_HOT, VAE, TRANSFORMER, ESM]
+    datasets = ["MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA"]
+    algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name()] # RandomForest().get_name()
+    metrics = [MSE, SPEARMAN_RHO]
+    representations = [TRANSFORMER, VAE, ONE_HOT, ESM]
     dimensions = [2, 10, 100, 1000, None]
     dim_reduction = LINEAR # LINEAR, NON_LINEAR
     cv_types = [BlockPostionSplitter, RandomSplitter]
