@@ -108,25 +108,26 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
             for rep in reps:
                 aug_results = {}
                 for aug in augmentation:
-                    filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}' and tags.{AUGMENTATION} = '{aug}'"
+                    filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}' and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}' and tags.{AUGMENTATION} = '{aug}'"
                     if 'GP' in a:
                         filter_string += f" and tags.OPTIMIZE = '{optimize}'"
-                    if train_test_splitter:
-                        filter_string += f" and tags.{SPLIT} = '{train_test_splitter.get_name()}'"
                     if dim and not (rep==VAE and dim >= 30):
                         filter_string += f" and tags.DIM = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'"
-                    if seed:
-                        filter_string += f" and tags.{SEED} = '{seed}'"
                     exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(dataset)
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
                     assert len(runs) == 1 , rep+a+dataset+str(aug)
                     for id in runs['run_id'].to_list():
-                        # query result content from mlruns dictionaries
                         PATH = f"/Users/rcml/protein_regression/results/mlruns/{exps.experiment_id}/{id}" + "/" + "artifacts"
                         split_dict = {}
                         for s, split in enumerate(mlflow.tracking.MlflowClient().list_artifacts(id)):
                             with open(PATH+ "//" + split.path +'/output.json') as infile:
                                 split_dict[s] = json.load(infile)
+                        for metric in metrics:
+                            try:
+                                for s, r in enumerate(mlflow.tracking.MlflowClient().get_metric_history(id, metric)):
+                                    split_dict[s][metric] = r.value
+                            except MlflowException as e:
+                                continue
                     aug_results[aug] = split_dict
                 reps_results[rep] = aug_results
             if a == 'GPsquared_exponential':

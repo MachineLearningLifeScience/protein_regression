@@ -17,6 +17,10 @@ MLL = "MLL"
 SPEARMAN_RHO = "rho"
 OPT_SUCCESS = "opt_success"
 
+# scaling
+MEAN_Y = "mean_y_train"
+STD_Y = "std_y_train"
+
 # GP metrics
 GP_MU = "mu"
 GP_LEN = "len"
