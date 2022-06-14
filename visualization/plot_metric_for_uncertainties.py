@@ -12,7 +12,7 @@ from shapely.geometry import Polygon
 import mlflow
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
-from util.mlflow.constants import MSE, NO_AUGMENT, DATASET, AUGMENTATION, METHOD, REPRESENTATION, SPLIT, VAE, GP_L_VAR
+from util.mlflow.constants import MSE, NO_AUGMENT, DATASET, AUGMENTATION, METHOD, REPRESENTATION, SPLIT, VAE, GP_L_VAR, OBSERVED_Y
 from util.mlflow.convenience_functions import get_mlflow_results_artifacts
 from uncertainty_quantification.confidence import quantile_and_oracle_errors
 from uncertainty_quantification.calibration import prep_reliability_diagram, confidence_based_calibration
@@ -314,7 +314,7 @@ def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str]
                         optimize=True, d=None, dim_reduction=None, metrics=[GP_L_VAR]):
     results_dict = get_mlflow_results_artifacts(datasets=datasets, reps=reps, metrics=metrics, algos=algos, train_test_splitter=train_test_splitter, augmentation=augmentations,
                                                 dim=d, dim_reduction=dim_reduction, optimize=optimize)
-    # confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
     reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
 
 
@@ -324,6 +324,50 @@ def plot_uncertainty_eval_across_dimensions(datasets: List[str], reps: List[str]
     for d in dimensions:
         dim_results_dict[d] = get_mlflow_results_artifacts(datasets=datasets, reps=reps, metrics=metrics, train_test_splitter=train_test_splitter, algos=algos, augmentation=augmentation,
                                                             dim=d, dim_reduction=dim_reduction, optimize=optimize)
-    # multi_dim_confidencecurve(dim_results_dict, number_quantiles, cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim_reduction=dim_reduction)
+    multi_dim_confidencecurve(dim_results_dict, number_quantiles, cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim_reduction=dim_reduction)
     multi_dim_reliabilitydiagram(dim_results_dict, number_quantiles=number_quantiles, cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim_reduction=dim_reduction)
+
+
+def plot_uncertainty_optimization(dataset: str, rep: str, seeds: List[int], algos: List[str], number_quantiles: int, optimize=False, stepsize=10, max_iterations=500):
+    # Note: optimize is set to false, as mlflow query is different for optimization experiments vs. regression tasks, no optimize flag is set for optimization tasks
+    steps = np.arange(0, max_iterations, stepsize)
+    c = ['dimgrey', '#661100', '#332288']
+    results_dict = {}
+    for s in seeds:
+        experiment_ids = [dataset+"_optimization"]
+        results_dict[s] = get_mlflow_results_artifacts(datasets=[dataset], algos=algos, reps=[rep], seed=s, optimize=optimize, experiment_ids=experiment_ids, metrics=[OBSERVED_Y, GP_L_VAR], train_test_splitter=None)
+    _recorded_algos = list(results_dict[seeds[0]][dataset].keys())
+    for step in steps:
+        fig, ax = plt.subplots(2, len(algos), figsize=(15,5), gridspec_kw={'height_ratios': [4, 1]})
+        for seed in seeds: # TODO: average uncertainties and percentiles over seeds
+            # get artifacts at stepsize, make calibration plot
+            for k, algo in enumerate(_recorded_algos):
+                count = []
+                uncertainties_list = []
+                _results = results_dict[seed][dataset][algo][rep][None][step]
+                trues = _results['trues']
+                preds = _results['pred']
+                uncertainties = np.sqrt(_results['unc'])
+                data_uncertainties = results_dict[seed][dataset][algo][rep][None][step*10].get(GP_L_VAR) # NOTE: GP_L_VAR is collected every iteration, hence position *10, artifacts are only collected every 10 steps
+                # TODO: fix this!
+                if 'GP' in algo and not data_uncertainties:
+                    data_uncertainties = 0.199
+                if data_uncertainties: # in case of GP include data-noise
+                    uncertainties += data_uncertainties
+                # confidence calibration
+                C, perc, E, S = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
+                #C, perc = confidence_based_calibration(preds, uncertainties, y_ref_mean=np.mean(trues))
+                count.append(C)
+                uncertainties_list.append(np.array(uncertainties))
+                count = np.mean(np.vstack(count), axis=0)
+                uncertainties = np.concatenate(uncertainties_list)
+                ax[0, k].plot(perc, count, c=c[k], lw=2, linestyle='-', label=f"{algo}")
+                ax[0, k].scatter(perc, count, c=c[k], s=30)
+                ax[0, k].plot(perc,perc, ls=':', color='k', label='Perfect Calibration')
+                ax[0, k].set_title(f"{algo} on {rep} \n @ step {step}")
+                ax[1, k].hist(uncertainties, 100, alpha=0.7, color=c[k])
+                ax[0, k].set_xlabel('percentile', size=12)
+                ax[1, k].set_xlabel('std', size=12)
+        plt.legend()
+        plt.show()
 
