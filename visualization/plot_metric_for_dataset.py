@@ -62,7 +62,6 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
         axs[d].set_yticklabels(['' for i in range(len(list(metric_values[dataset_key].keys())))])
         axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
         axs[d].set_xlim((-1, 1))
-        #axs[d].set_xlim((-4, 1.1))
         axs[d].tick_params(axis='x', which='both', labelsize=14)
         axs[d].set_title(dataset_key, size=16)
         axs[d].set_xlabel('1 minus normalized MSE', size=14)

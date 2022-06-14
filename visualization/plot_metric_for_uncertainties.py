@@ -11,7 +11,9 @@ from typing import List
 from shapely.geometry import Polygon
 import mlflow
 from mlflow.entities import ViewType
-from util.mlflow.constants import MSE, NO_AUGMENT, DATASET, AUGMENTATION, METHOD, REPRESENTATION, SPLIT, VAE
+from mlflow.exceptions import MlflowException
+from util.mlflow.constants import MSE, NO_AUGMENT, DATASET, AUGMENTATION, METHOD, REPRESENTATION, SPLIT, VAE, GP_L_VAR
+from util.mlflow.convenience_functions import get_mlflow_results_artifacts
 from uncertainty_quantification.confidence import quantile_and_oracle_errors
 from uncertainty_quantification.calibration import prep_reliability_diagram, confidence_based_calibration
 
@@ -84,7 +86,7 @@ def plot_polygon(ax, poly, **kwargs):
     ax.add_collection(collection, autolim=True)
     ax.autoscale_view()
     return collection
-
+    
 
 def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', optimize_flag=False, dim=None, dim_reduction=None):
     """
@@ -117,7 +119,9 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                         trues = metric_values[dataset_key][algo][rep][aug][s]['trues']
                         preds = metric_values[dataset_key][algo][rep][aug][s]['pred']
                         uncertainties = np.sqrt(metric_values[dataset_key][algo][rep][aug][s]['unc'])
-                        
+                        data_uncertainties = metric_values[dataset_key][algo][rep][aug][s].get(GP_L_VAR)
+                        if data_uncertainties: # in case of GP include data-noise
+                            uncertainties += data_uncertainties
                         # confidence calibration
                         C, perc, E, S = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
                         #C, perc = confidence_based_calibration(preds, uncertainties, y_ref_mean=np.mean(trues))
@@ -146,7 +150,66 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     plt.xticks(size=14)
     plt.yticks(size=14)
     plt.tight_layout()
-    plt.savefig(f'results/figures/{cvtype}_reliabilitydiagram_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}{dim_reduction}.png')
+    plt.savefig(f'results/figures/uncertainties/{cvtype}_reliabilitydiagram_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}{dim_reduction}.png')
+    plt.show()
+
+
+def multi_dim_reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str='', dataset='', representation='', optimize_flag=True, dim_reduction=None):
+    """
+    Plotting calibration Curves including results from lower dimensions.
+    AUTHOR: Richard M with utility functions from JAKA H
+    """
+    c = ['dimgrey', '#661100', '#332288', 'teal']
+    markers = [plt.Line2D([0,0],[0,0], color=color, marker='o', linestyle='') for color in c]
+    algos = []
+    dim = list(metric_values.keys())[0]
+    data = list(metric_values[dim].keys())[0]
+    alg = list(metric_values[dim][data].keys())[0]
+    n_algs = len(metric_values[dim][data].keys())
+    n_reps = len(metric_values[dim][data][alg].keys())
+    fig, axs = plt.subplots(n_algs*2, n_reps, figsize=(17,7), gridspec_kw={'height_ratios': [4, 1]*n_algs})
+    dimensions = list(metric_values.keys())[:-1] + [1128]
+    shade = np.arange(0.2, 1.1, step=1/len(dimensions))
+    for d_idx, (dim, _results) in enumerate(metric_values.items()):
+        for d, dataset_key in enumerate(_results.keys()):
+            row_idx = 0
+            for i, algo in enumerate(_results[dataset_key].keys()):      
+                for j, rep in enumerate(_results[dataset_key][algo].keys()):
+                    for aug in _results[dataset_key][algo][rep].keys():
+                        if f"d={str(dim)} {str(algo)}" not in algos:
+                            algos.append(f"d={str(dim)} {str(algo)}")
+                        count = []
+                        uncertainties_list = [] # point of investigation
+                        for s in _results[dataset_key][algo][rep][aug].keys():
+                            trues = _results[dataset_key][algo][rep][aug][s]['trues']
+                            preds = _results[dataset_key][algo][rep][aug][s]['pred']
+                            uncertainties = np.sqrt(_results[dataset_key][algo][rep][aug][s]['unc'])
+                            data_uncertainties = _results[dataset_key][algo][rep][aug][s].get(GP_L_VAR)
+                            if data_uncertainties: # in case of GP include data-noise
+                                uncertainties += data_uncertainties
+                            # confidence calibration
+                            C, perc, E, S = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
+                            count.append(C)
+                            uncertainties_list.append(np.array(uncertainties))
+                        count = np.mean(np.vstack(count), axis=0)
+                        uncertainties = np.concatenate(uncertainties_list)
+                        axs[row_idx, j].plot(perc, count, c=c[i], lw=2, linestyle='-', alpha=shade[d_idx])
+                        axs[row_idx, j].plot(perc, count, color=c[i], marker="o", alpha=shade[d_idx], markersize=5+2*shade[d_idx], label=f"d={str(dim)} {str(algo)}")
+                        if d_idx == 0:
+                            axs[row_idx, j].plot(perc, perc, ls=':', color='k', label='Perfect Calibration')
+                            axs[row_idx, 0].set_ylabel('cm. confidence', size=9)
+                            axs[row_idx+1, 0].set_ylabel('count', size=9)
+                        axs[row_idx, j].set_title(f"{algo} on {rep}")
+                        axs[row_idx+1, j].hist(uncertainties, 100, label=f"{algo}; {rep}", alpha=shade[d_idx], color=c[i])
+                        axs[row_idx, j].set_xlabel('percentile', size=12)
+                        axs[row_idx+1, j].set_xlabel('std', size=12)
+                row_idx += 2
+    plt.legend(loc="lower right", prop={'size':5})
+    plt.suptitle(f"{str(dataset)} Calibration Split: {cvtype}, {dim_reduction}")
+    plt.xticks(size=14)
+    plt.yticks(size=14)
+    plt.tight_layout()
+    plt.savefig(f'results/figures/uncertainties/dim_{str(list(metric_values.keys()))}_{cvtype}_reliabilitydiagram_{dataset}_{representation}_opt_{optimize_flag}_d_{str(dimensions)}{dim_reduction}.png')
     plt.show()
 
 
@@ -169,6 +232,9 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
                     quantile_errs, oracle_errs = [], []
                     for s in metric_values[dataset_key][algo][rep][aug].keys():
                         uncertainties = np.sqrt(metric_values[dataset_key][algo][rep][aug][s]['unc'])
+                        data_uncertainties = metric_values[dataset_key][algo][rep][aug][s].get(GP_L_VAR)
+                        if data_uncertainties: # in case of GP include data-noise
+                            uncertainties += data_uncertainties
                         errors = metric_values[dataset_key][algo][rep][aug][s]['mse']
                         # Ranking-based calibration
                         qe, oe = quantile_and_oracle_errors(uncertainties, errors, number_quantiles)
@@ -198,37 +264,66 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
     plt.show()
 
 
+def multi_dim_confidencecurve(metric_values: dict, number_quantiles: int, cvtype: str='', dataset='', representation='', optimize_flag=True, dim_reduction=None):
+    c = ['dimgrey', '#661100', '#332288']
+    qs = np.linspace(0,1,1+number_quantiles)
+    dim = list(metric_values.keys())[0]
+    data = list(metric_values[dim].keys())[0]
+    rep = list(metric_values[dim][data].keys())[0]
+    n_algo = len(metric_values[dim][data].keys())
+    n_reps = len(metric_values[dim][data][rep].keys())
+    fig, axs = plt.subplots(n_algo, n_reps, figsize=(15,5))
+    dimensions = list(metric_values.keys())[:-1] + [1128]
+    shade = np.arange(0.2, 1.1, step=1/len(dimensions))
+    for d_idx, (dim, _results) in enumerate(metric_values.items()):
+        for d, dataset_key in enumerate(_results.keys()):
+            for i, algo in enumerate(_results[dataset_key].keys()):          
+                for j, rep in enumerate(_results[dataset_key][algo].keys()):
+                    for aug in _results[dataset_key][algo][rep].keys():
+                        quantile_errs, oracle_errs = [], []
+                        for s in _results[dataset_key][algo][rep][aug].keys():
+                            uncertainties = np.sqrt(_results[dataset_key][algo][rep][aug][s]['unc'])
+                            data_uncertainties = _results[dataset_key][algo][rep][aug][s].get(GP_L_VAR)
+                            if data_uncertainties: # in case of GP include data-noise
+                                uncertainties += data_uncertainties
+                            errors = _results[dataset_key][algo][rep][aug][s]['mse']
+                            # Ranking-based calibration
+                            qe, oe = quantile_and_oracle_errors(uncertainties, errors, number_quantiles)
+                            quantile_errs.append(qe)
+                            oracle_errs.append(oe)
+                        quantile_errs = np.mean(np.vstack(quantile_errs), 0)
+                        oracle_errs = np.mean(np.vstack(oracle_errs), 0)
+                        axs[i,j].plot(qs, np.flip(quantile_errs), lw=2, alpha=shade[d_idx], color="k",
+                                    label=f'd={dim}')
+                        if d_idx == 0: # TODO investigate / correct oracle errors
+                            axs[i,j].plot(qs, np.flip(oracle_errs), "k--", lw=2, label='Oracle') 
+                        axs[i,j].set_ylabel('NMSE', size=11)
+                        axs[i,j].set_xlabel('Percentile', size=11)
+                        axs[i,j].set_title(f"Rep: {rep} Algo: {algo}", size=12)
+                        axs[i,j].set_ylim([0, 1.75])
+    plt.legend() 
+    plt.suptitle(f"{str(dataset)} Split: {cvtype} ; {dim_reduction}")
+    plt.savefig(f'results/figures/uncertainties/{algo}_{cvtype}_confidence_curve_{dataset}_{representation}_opt_{optimize_flag}_d_{str(dimensions)}_{dim_reduction}.png')
+    plt.tight_layout()
+    plt.show()
+
+
+
 def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str], 
                         train_test_splitter,  augmentations = [NO_AUGMENT], number_quantiles: int = 10, 
-                        optimize=True, d=None, dim_reduction=None):
-    results_dict = {}
-    for dataset in datasets:
-        algo_results = {}
-        for a in algos:
-            reps_results = {}
-            for rep in reps:
-                aug_results = {}
-                for aug in augmentations:
-                    filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}' and tags.{SPLIT} = '{train_test_splitter.get_name()}' and tags.{AUGMENTATION} = '{aug}'"
-                    if 'GP' in a:
-                        filter_string += f" and tags.OPTIMIZE = '{optimize}'"
-                    if d and not (rep==VAE and d >= 30):
-                        filter_string += f" and tags.DIM = '{d}' and tags.DIM_REDUCTION = '{dim_reduction}'"
-                    exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(dataset)
-                    runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
-                    assert len(runs) == 1 , rep+a+dataset+str(aug)
-                    for id in runs['run_id'].to_list():
-                        PATH = f"/Users/rcml/protein_regression/results/mlruns/{exps.experiment_id}/{id}" + "/" + "artifacts"
-                        split_dict = {}
-                        for s, split in enumerate(mlflow.tracking.MlflowClient().list_artifacts(id)):
-                            with open(PATH+ "//" + split.path +'/output.json') as infile:
-                                split_dict[s] = json.load(infile)
-                    aug_results[aug] = split_dict
-                reps_results[rep] = aug_results
-            if a == 'GPsquared_exponential':
-                a = "GPsqexp"
-            algo_results[a] = reps_results
-        results_dict[dataset] = algo_results
-    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(dataset).get_name(), dataset=dataset, representation=rep, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
-    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=dataset, representation=rep, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+                        optimize=True, d=None, dim_reduction=None, metrics=[GP_L_VAR]):
+    results_dict = get_mlflow_results_artifacts(datasets=datasets, reps=reps, metrics=metrics, algos=algos, train_test_splitter=train_test_splitter, augmentation=augmentations,
+                                                dim=d, dim_reduction=dim_reduction, optimize=optimize)
+    # confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+
+
+def plot_uncertainty_eval_across_dimensions(datasets: List[str], reps: List[str], algos: List[str], train_test_splitter, dimensions: List[int], augmentation = [NO_AUGMENT], number_quantiles=10,
+                                            optimize=True, dim_reduction=None, metrics=[GP_L_VAR]):
+    dim_results_dict = {}
+    for d in dimensions:
+        dim_results_dict[d] = get_mlflow_results_artifacts(datasets=datasets, reps=reps, metrics=metrics, train_test_splitter=train_test_splitter, algos=algos, augmentation=augmentation,
+                                                            dim=d, dim_reduction=dim_reduction, optimize=optimize)
+    # multi_dim_confidencecurve(dim_results_dict, number_quantiles, cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim_reduction=dim_reduction)
+    multi_dim_reliabilitydiagram(dim_results_dict, number_quantiles=number_quantiles, cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim_reduction=dim_reduction)
 

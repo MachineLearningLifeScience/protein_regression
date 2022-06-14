@@ -7,5 +7,5 @@ def plot_mid_training(X_test, y_test, predictions, unc, method):
     plt.xlabel("dELBO")
     plt.ylabel("observations (Y)")
     plt.legend()
-    plt.savefig(f"./results/figures/test_data_overview_{method}")
+    plt.savefig(f"./results/figures/test_data_overview_{method.get_name()}.png")
     plt.show()
