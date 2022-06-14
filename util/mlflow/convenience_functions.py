@@ -54,10 +54,11 @@ def check_results(result_list: list, fill_with_na=True) -> Tuple[list, bool]:
 
 
 def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, train_test_splitter: AbstractTrainTestSplitter, 
-                    augmentation: list=[None], dim=None, dim_reduction=NON_LINEAR, seed=None, artifacts=False) -> dict:
+                    augmentation: list=[None], dim=None, dim_reduction=NON_LINEAR, seed=None, artifacts=False, experiment_ids=None) -> dict:
+    experiment_ids = datasets if not experiment_ids else experiment_ids
     results_dict = {}
-    for dataset in datasets:
-        exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(dataset)
+    for i, dataset in enumerate(datasets):
+        exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(experiment_ids[i])
         algo_results = {}
         for a in algos:
             reps_results = {}
@@ -99,21 +100,28 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
 
 # TODO: Refactor mlflow functions such that there is a string builder for queries, a query function which returns experiment and a artifact function which uses these experiments/runs
 def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metrics: list, train_test_splitter: AbstractTrainTestSplitter, 
-                    augmentation: list=[None], dim=None, dim_reduction=NON_LINEAR, seed=None, optimize=True) -> dict:
+                    augmentation: list=[None], dim=None, dim_reduction=NON_LINEAR, seed=None, optimize=True, experiment_ids=None) -> dict:
+    experiment_ids = datasets if not experiment_ids else experiment_ids
     results_dict = {}
-    for dataset in datasets:
+    for i, dataset in enumerate(datasets):
         algo_results = {}
         for a in algos:
             reps_results = {}
             for rep in reps:
                 aug_results = {}
                 for aug in augmentation:
-                    filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}' and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}' and tags.{AUGMENTATION} = '{aug}'"
-                    if 'GP' in a:
+                    filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}'"
+                    if train_test_splitter:
+                        filter_string += f" and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}'"
+                    if 'GP' in a and not 'optimization' in experiment_ids[0]:
                         filter_string += f" and tags.OPTIMIZE = '{optimize}'"
                     if dim and not (rep==VAE and dim >= 30):
                         filter_string += f" and tags.DIM = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'"
-                    exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(dataset)
+                    if aug:
+                        filter_string += f" and tags.{AUGMENTATION} = '{aug}'"
+                    if seed:
+                        filter_string += f" and tags.{SEED} = '{seed}'"
+                    exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(experiment_ids[i])
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
                     assert len(runs) == 1 , rep+a+dataset+str(aug)
                     for id in runs['run_id'].to_list():
@@ -123,8 +131,10 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
                             with open(PATH+ "//" + split.path +'/output.json') as infile:
                                 split_dict[s] = json.load(infile)
                         for metric in metrics:
-                            try:
+                            try: # NOTE: artifacts are NOT always in alignment with metric, e.g. 500 observations BUT only 50 artifacts
                                 for s, r in enumerate(mlflow.tracking.MlflowClient().get_metric_history(id, metric)):
+                                    if not s in split_dict.keys():
+                                        split_dict[s] = {}
                                     split_dict[s][metric] = r.value
                             except MlflowException as e:
                                 continue
@@ -137,11 +147,13 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
     return results_dict
 
 
-def get_mlflow_results_optimization(datasets: list, algos: list, reps: list, metrics: list, augmentation: list=None, dim: int=None, dim_reduction: str=None, seeds: List[int]=None):
+def get_mlflow_results_optimization(datasets: list, algos: list, reps: list, metrics: list, augmentation: list=[None], dim: int=None, dim_reduction: str=None, seeds: List[int]=None):
+    experiment_ids = [d + '_optimization' for d in datasets]
     if seeds:
             results_dict = {seed: get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, 
-                                                    train_test_splitter=None, augmentation=augmentation, dim=dim, dim_reduction=dim_reduction, seed=seed) 
+                                                    train_test_splitter=None, augmentation=augmentation, dim=dim, dim_reduction=dim_reduction, seed=seed, experiment_ids=experiment_ids) 
                             for seed in seeds}
     else:
-        results_dict = get_mlflow_results(datasets=datasets, algos=algos, metrics=metrics, train_test_splitter=None, augmentation=augmentation, dim=dim, dim_reduction=dim_reduction)
+        results_dict = get_mlflow_results(datasets=datasets, algos=algos, metrics=metrics, train_test_splitter=None, augmentation=augmentation, dim=dim, 
+                                        dim_reduction=dim_reduction, experiment_ids=experiment_ids)
     return results_dict
