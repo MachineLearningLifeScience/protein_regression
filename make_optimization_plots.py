@@ -11,21 +11,22 @@ from algorithms.random_forest import RandomForest
 from algorithms.KNN import KNN
 from util.mlflow.constants import DATASET, METHOD, MSE, REPRESENTATION, TRANSFORMER, VAE, SPLIT, ONE_HOT, NONSENSE, KNN_name, SEED, OPTIMIZATION,\
      EXPERIMENT_TYPE, OBSERVED_Y
-from util.mlflow.convenience_functions import find_experiments_by_tags
+from util.mlflow.convenience_functions import get_mlflow_results_optimization
 from data.load_dataset import load_dataset
 from visualization.plot_metric_for_dataset import plot_optimization_task
+from visualization.plot_metric_for_uncertainties import plot_uncertainty_optimization
 
 # gathers all our results and saves them into a numpy array
 datasets = ["1FQG"]
 representations = [TRANSFORMER]
-seeds = [123, 54, 2345, 987, 6538, 78543, 3465, 43245]
+seeds = [11, 42, 123] # 11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245
 #seeds = [11]
 
 algos = [GPonRealSpace(kernel_factory=lambda: SquaredExponential()).get_name(), 
         GPonRealSpace(kernel_factory=lambda: Linear()).get_name(), 
-        UncertainRandomForest().get_name()]
-#   
+        UncertainRandomForest().get_name()]  
 
+results = get_mlflow_results_optimization(datasets=datasets, algos=algos, reps=representations, metrics=[OBSERVED_Y], seeds=seeds)
 minObs_dict = {}
 regret_dict = {}
 meanObs_dict = {}
@@ -40,55 +41,41 @@ for dataset in datasets:
         reps_regret = {}
         reps_meanObs = {}
         reps_lastObs = {}
+        if a == 'GPsquared_exponential':
+            a = "GPsqexp"
         for rep in representations:
             seed_minObs = []
             seed_regret = []
             seed_meanObs = []
             seed_lastObs = []
             for seed in seeds:
-                exps = find_experiments_by_tags({EXPERIMENT_TYPE: OPTIMIZATION,
-                                                DATASET: dataset, 
-                                                METHOD: a, 
-                                                REPRESENTATION: rep,
-                                                SEED: str(seed)})
-                assert len(exps) == 1, rep+a+dataset
-                runs = mlflow.search_runs(experiment_ids=[exps[0].experiment_id], run_view_type=ViewType.ACTIVE_ONLY)
-                results = []
-                for id in runs['run_id'].to_list():
-                    for r in mlflow.tracking.MlflowClient().get_metric_history(id, OBSERVED_Y):
-                        results.append(r.value)
-
-                min_observed = [min(results[:i]) for i in range(1,len(results)+1)]
+                _results = results[seed][dataset][a][rep][None][OBSERVED_Y]
+                min_observed = [min(_results[:i]) for i in range(1,len(_results)+1)]
                 seed_minObs.append(min_observed)
-
-                mean_observed = [np.mean(results[:i]) for i in range(1,len(results)+1)]
+                mean_observed = [np.mean(_results[:i]) for i in range(1,len(_results)+1)]
                 seed_meanObs.append(mean_observed)
-
-                last_observed = [results[i] for i in range(0,len(results)-1)]
+                last_observed = [_results[i] for i in range(0,len(_results)-1)]
                 seed_lastObs.append(last_observed)
-
                 _, Y = load_dataset(dataset, representation=rep)
-                regret = [np.sum(results[:i])-np.min(Y) for i in range(1,len(results)+1)]
+                regret = [np.sum(_results[:i])-np.min(Y) for i in range(1,len(_results)+1)]
                 seed_regret.append(regret)
-
             reps_minObs[rep] = seed_minObs
             reps_regret[rep] = seed_regret
             reps_meanObs[rep] = seed_meanObs
             reps_lastObs[rep] = seed_lastObs
-
-        if a == 'GPsquared_exponential':
-            a = "GPsqexp"
         algo_minObs[a] = reps_minObs
         algo_regret[a] = reps_regret
         algo_meanObs[a] = reps_meanObs
         algo_lastObs[a] = reps_lastObs
-
     minObs_dict[dataset] = algo_minObs
     regret_dict[dataset] = algo_regret 
     meanObs_dict[dataset] = algo_meanObs
-    lastObs_dict[dataset] = algo_lastObs        
-
+    lastObs_dict[dataset] = algo_lastObs
+       
 plot_optimization_task(metric_values=minObs_dict, name=f'Best_observed_{representations}_{datasets}')
 plot_optimization_task(metric_values=regret_dict, name=f'Regret_{representations}_{datasets}')
 plot_optimization_task(metric_values=meanObs_dict, name=f'Mean_observed_{representations}_{datasets}')
 plot_optimization_task(metric_values=lastObs_dict, name=f'Last_observed_{representations}_{datasets}')
+
+plot_uncertainty_optimization(dataset="1FQG", algos=[GPonRealSpace(kernel_factory=lambda: SquaredExponential()).get_name(), UncertainRandomForest().get_name()], 
+                                rep=TRANSFORMER, seeds=[11, 41, 123], number_quantiles=10, optimize=True)
