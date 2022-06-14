@@ -19,7 +19,7 @@ from util.numpy_one_hot import numpy_one_hot_2dmat
 from util.log_uncertainty import prep_for_logdict
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, VAE_DENSITY
 from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS
-from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR
+from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR, MEAN_Y, STD_Y
 from util.preprocess import scale_observations
 from gpflow.utilities import print_summary
 from gpflow import kernels
@@ -88,12 +88,13 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             method.init_length = np.max(np.abs(np.subtract(X_train[0], X_train[1]))) # if reduced on lower dim this value is too small
         method.train(X_train, scaled_y)
         try:
-            _mu, unc = method.predict_f(X_test)
+            _mu, _unc = method.predict_f(X_test)
         except tf.errors.InvalidArgumentError as _:
             warnings.warn(f"Experiment: {dataset}, rep: {representation} in d={dim} not stable, prediction failed!")
-            _mu, unc = np.full(Y_test.shape, np.nan), np.full(Y_test.shape, np.nan)
+            _mu, _unc = np.full(Y_test.shape, np.nan), np.full(Y_test.shape, np.nan)
         # undo scaling
         mu = _mu*std_y + mean_y
+        unc = _unc * std_y
         assert(mu.shape[1] == 1 == unc.shape[1])
         assert(mu.shape[0] == unc.shape[0] == len(test_indices[split]))
         # record mean and median smse and nll and spearman correlation
@@ -106,14 +107,19 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         mse_var = np.var(err2)
         mll = np.mean(err2 / unc / 2 + np.log(2 * np.pi * unc) / 2)
         r = spearmanr(Y_test, mu)[0]  # we do not care about the p-value
+
         if split == 1:
-            plot_mid_training(X_test, Y_test, mu, unc, method_key)
+            if "GP" in method.get_name():
+                unc += method.gp.likelihood.variance.numpy()
+            plot_mid_training(X_test, Y_test, mu, unc, method)
 
         mlflow.log_metric(MSE, mse, step=split)
         mlflow.log_metric(MedSE, medse, step=split)
         mlflow.log_metric(SEVar, mse_var, step=split)
         mlflow.log_metric(MLL, mll, step=split)
         mlflow.log_metric(SPEARMAN_RHO, r, step=split)
+        mlflow.log_metric(MEAN_Y, mean_y, step=split)  # record scaling information 
+        mlflow.log_metric(STD_Y, std_y, step=split)
         if "GP" in method.get_name():
             mlflow.log_metric(GP_VAR, float(method.gp.kernel.variance.numpy()), step=split)
             mlflow.log_metric(GP_L_VAR, float(method.gp.likelihood.variance.numpy()), step=split)

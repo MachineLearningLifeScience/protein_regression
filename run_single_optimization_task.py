@@ -59,35 +59,42 @@ def run_single_optimization_task(dataset: str, method_key: str, seed: int, repre
         mlflow.log_metric(OBSERVED_Y, np.squeeze(Y[next, :]).sum(), step=i)
         X_observed = X[selected_X, :]
         Y_observed = Y[selected_X, :]
+        # if enough data, scale observations
+        if len(selected_X) > 1:
+            mean_y, std_y, Y_observed = scale_observations(Y_observed) # outputs scaled_y as Y_observed
         method.train(X_observed, Y_observed)
         remaining_X = np.setdiff1d(np.arange(X.shape[0]), selected_X, assume_unique=True)
         remaining_Y = Y[remaining_X, :]
         candidates = X[remaining_X, :]
-        mu, unc = method.predict_f(candidates)
-        assert(mu.shape[1] == 1 == unc.shape[1])
-        assert(mu.shape[0] == unc.shape[0] == candidates.shape[0])
+        _mu, _unc = method.predict_f(candidates)
+        assert(_mu.shape[1] == 1 == _unc.shape[1])
+        assert(_mu.shape[0] == _unc.shape[0] == candidates.shape[0])
         # we are minimizing
         eta = np.min(Y_observed, axis=0)
-        scoring = _expected_improvement(mu, unc, eta)
+        scoring = _expected_improvement(_mu, _unc, eta)
         # the acquisition function we maximize
         best_candidate = np.argmax(scoring, axis=0)[0]
         next = remaining_X[best_candidate]
 
-        Sharpness = np.std(unc, ddof=1)/np.mean(unc)
+        Sharpness = np.std(_unc, ddof=1)/np.mean(_unc)
         mlflow.log_metric('Sharpness', Sharpness, step=i)
         EI_y_corr = stats.spearmanr(scoring,remaining_Y)[0]
         #print_summary(method.gp)
         mlflow.log_metric('EI_y_corr', EI_y_corr, step=i)
         if i in log_interval:
-            _log_optimization_metrics_to_mlflow(method=method, remaining_Y=remaining_Y, mean_y=np.mean(Y_observed), 
-                                                mu=mu, unc=unc, step=i)
+            _log_optimization_metrics_to_mlflow(method=method, remaining_Y=remaining_Y, mean_y=mean_y, std_y=std_y,
+                                                _mu=_mu, _unc=_unc, step=i)
     mlflow.end_run()
 
 
-def _log_optimization_metrics_to_mlflow(method, remaining_Y, mean_y, mu, unc, step) -> None:
+def _log_optimization_metrics_to_mlflow(method, remaining_Y, mean_y, std_y, _mu, _unc, step) -> None:
     """
     Compute metrics and write to registered mlflow experiment.
     """
+    # undo scaling
+    mu = _mu*std_y + mean_y
+    unc = _unc * std_y
+    # compute metrics
     baseline = np.mean(np.square(remaining_Y - np.repeat(mean_y, len(remaining_Y)).reshape(-1,1)))
     err2 = np.square(remaining_Y - mu)
     mse = np.mean(err2)/baseline
@@ -95,7 +102,6 @@ def _log_optimization_metrics_to_mlflow(method, remaining_Y, mean_y, mu, unc, st
     mse_var = np.var(err2)
     mll = np.mean(err2 / unc / 2 + np.log(2 * np.pi * unc) / 2)
     r = spearmanr(remaining_Y, mu)[0]  # we do not care about the p-value
-
     mlflow.log_metric(MSE, mse, step=step)
     mlflow.log_metric(MedSE, medse, step=step)
     mlflow.log_metric(SEVar, mse_var, step=step)
