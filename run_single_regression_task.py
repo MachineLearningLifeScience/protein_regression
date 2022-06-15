@@ -108,10 +108,10 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         mll = np.mean(err2 / unc / 2 + np.log(2 * np.pi * unc) / 2)
         r = spearmanr(Y_test, mu)[0]  # we do not care about the p-value
 
-        if split == 1:
-            if "GP" in method.get_name():
-                unc += method.gp.likelihood.variance.numpy()
-            plot_mid_training(X_test, Y_test, mu, unc, method)
+        # if split == 1:
+        #     if "GP" in method.get_name():
+        #         unc += method.gp.likelihood.variance.numpy()
+        #     plot_mid_training(X_test, Y_test, mu, unc, method)
 
         mlflow.log_metric(MSE, mse, step=split)
         mlflow.log_metric(MedSE, medse, step=split)

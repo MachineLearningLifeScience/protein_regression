@@ -100,7 +100,7 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
                     error_on_mean = np.std(mse_list, ddof=1)/np.sqrt(len(mse_list))
                     if reference_values: # overlay by mean reference benchmark
                         neg_reference_mse = 1-np.mean(reference_values[dataset_key][algo][rep][None][metric])
-                        axs[i].barh(j+seps[idx], neg_reference_mse-neg_invert_mse, left=neg_reference_mse, xerr=error_on_mean, height=height*0.25, color=c[k], alpha=0.8,
+                        axs[i].barh(j+seps[idx], neg_reference_mse-neg_invert_mse, label=repname, xerr=error_on_mean, height=height*0.25, color=c[k], alpha=0.8,
                                     facecolor=c[k], edgecolor=cc[l], ecolor='black', capsize=5, hatch='/', linewidth=2)
                     else:
                         axs[i].barh(j+seps[idx], neg_invert_mse, xerr=error_on_mean, height=height*0.25, label=repname, color=c[k], 
@@ -117,10 +117,10 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
                     axs[i].set_xlabel('1 minus normalized MSE', size=12)
                     idx += 1
     handles, labels = axs[-1].get_legend_handles_labels()
-    fig.legend(handles[:len(representations)], representations, loc='lower right', prop={'size': 14})
+    fig.legend(handles[:len(representations)], representations, loc='lower right', ncol=2, prop={'size': 10})
     plt.suptitle(plot_heading, size=20)
-    plt.savefig(filename)
     plt.tight_layout()
+    plt.savefig(filename)
     plt.show()
 
 
@@ -133,22 +133,21 @@ def plot_optimization_task(metric_values: dict, name: str, max_iterations=500):
             for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
                 if algo not in algos:
                     algos.append(algo)
-                # TODO: the way these results are collected is very messy.
-                # TODO each experiment should be distinct and partial runs not be recorded, all should have the same len
                 observations = np.vstack(metric_values[dataset_key][algo][rep][-max_iterations:])
                 means = np.mean(observations, axis=0)
                 stds = np.std(observations, ddof=1, axis=0)/np.sqrt(observations.shape[0])
                 plt.plot(means, color=c[i], label=algo, linewidth=2)
                 plt.fill_between(list(range(len(means))), means-stds, means+stds, color=c[i], alpha=0.5)
-                if name == 'Best observed':
+                if 'best' in name.lower():
                     _, Y = load_dataset(dataset_key, representation=rep)
                     plt.hlines(min(Y), 0, len(means), linestyles='--', colors='dimgrey')
-
     plt.xlabel('Iterations', size=16)
-    plt.ylabel(name, size=16)
+    plt.ylabel('observed value', size=16)
+    if 'regret' in name.lower():
+        plt.ylabel('cumulative regret')
     plt.xticks(size=14)
     plt.yticks(size=14)
-
+    plt.title(' '.join(name.split("_")))
     markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in c]
     plt.legend(markers, algos, loc="lower right", numpoints=1, prop={'size':12})
     plt.tight_layout()

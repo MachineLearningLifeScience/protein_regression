@@ -15,7 +15,7 @@ from util.mlflow.constants import NO_AUGMENT, ROSETTA, TRANSFORMER, VAE, SPLIT, 
 from visualization.plot_metric_for_uncertainties import plot_uncertainty_eval, plot_uncertainty_eval_across_dimensions
 
 datasets = ["1FQG"]
-train_test_splitter = BlockPostionSplitter # RandomSplitter # BlockPostionSplitter # BioSplitter
+train_test_splitter = RandomSplitter # BlockPostionSplitter # BioSplitter
 metric = MSE
 reps = [TRANSFORMER, ESM, VAE, ONE_HOT]
 augmentations =  [NO_AUGMENT]
@@ -23,7 +23,7 @@ number_quantiles = 10
 algos = [GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(), 
         GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), 
         UncertainRandomForest().get_name(), GPonRealSpace().get_name()]
-d = 10 # 2, 10, 100, 1000, None
+d = None # 2, 10, 100, 1000, None
 dim_reduction = LINEAR # LINEAR # NON_LINEAR
 
 

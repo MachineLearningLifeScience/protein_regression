@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 from matplotlib.collections import PatchCollection
+import imageio
 from typing import List
 from shapely.geometry import Polygon
 import mlflow
@@ -328,46 +329,84 @@ def plot_uncertainty_eval_across_dimensions(datasets: List[str], reps: List[str]
     multi_dim_reliabilitydiagram(dim_results_dict, number_quantiles=number_quantiles, cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim_reduction=dim_reduction)
 
 
-def plot_uncertainty_optimization(dataset: str, rep: str, seeds: List[int], algos: List[str], number_quantiles: int, optimize=False, stepsize=10, max_iterations=500):
+def plot_uncertainty_optimization(dataset: str, rep: str, seeds: List[int], algos: List[str], number_quantiles: int,
+                                    min_obs_metrics: dict, regret_metrics=dict, optimize=False, stepsize=10, max_iterations=500):
     # Note: optimize is set to false, as mlflow query is different for optimization experiments vs. regression tasks, no optimize flag is set for optimization tasks
-    steps = np.arange(0, max_iterations, stepsize)
+    gif_filename = f'results/figures/optim/gif/optimization_experiment_calibration_{dataset}_{rep}.gif'
     c = ['dimgrey', '#661100', '#332288']
+    gif_files_list = []
     results_dict = {}
     for s in seeds:
         experiment_ids = [dataset+"_optimization"]
         results_dict[s] = get_mlflow_results_artifacts(datasets=[dataset], algos=algos, reps=[rep], seed=s, optimize=optimize, experiment_ids=experiment_ids, metrics=[OBSERVED_Y, GP_L_VAR], train_test_splitter=None)
     _recorded_algos = list(results_dict[seeds[0]][dataset].keys())
-    for step in steps:
-        fig, ax = plt.subplots(2, len(algos), figsize=(15,5), gridspec_kw={'height_ratios': [4, 1]})
-        for seed in seeds: # TODO: average uncertainties and percentiles over seeds
+    for val_step in range(int(max_iterations/stepsize)-1):
+        step = 10+val_step*stepsize
+        filename = f'results/figures/optim/gif/optimization_experiment_{dataset}_{rep}_{val_step}.png'
+        fig, ax = plt.subplots(3, len(algos), figsize=(15,7), gridspec_kw={'height_ratios': [4, 1, 2]})
+        for k, algo in enumerate(_recorded_algos):
+            count_list = []
+            uncertainties_list = []
+            best_observed_list = []
+            regret_list = []
             # get artifacts at stepsize, make calibration plot
-            for k, algo in enumerate(_recorded_algos):
-                count = []
-                uncertainties_list = []
-                _results = results_dict[seed][dataset][algo][rep][None][step]
+            for s_idx, seed in enumerate(seeds):
+                _results = results_dict[seed][dataset][algo][rep][None][val_step]
                 trues = _results['trues']
                 preds = _results['pred']
                 uncertainties = np.sqrt(_results['unc'])
-                data_uncertainties = results_dict[seed][dataset][algo][rep][None][step*10].get(GP_L_VAR) # NOTE: GP_L_VAR is collected every iteration, hence position *10, artifacts are only collected every 10 steps
-                # TODO: fix this!
-                if 'GP' in algo and not data_uncertainties:
-                    data_uncertainties = 0.199
+                data_uncertainties = results_dict[seed][dataset][algo][rep][None][val_step].get(GP_L_VAR)
                 if data_uncertainties: # in case of GP include data-noise
                     uncertainties += data_uncertainties
                 # confidence calibration
                 C, perc, E, S = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
                 #C, perc = confidence_based_calibration(preds, uncertainties, y_ref_mean=np.mean(trues))
-                count.append(C)
+                count_list.append(C)
                 uncertainties_list.append(np.array(uncertainties))
-                count = np.mean(np.vstack(count), axis=0)
-                uncertainties = np.concatenate(uncertainties_list)
-                ax[0, k].plot(perc, count, c=c[k], lw=2, linestyle='-', label=f"{algo}")
-                ax[0, k].scatter(perc, count, c=c[k], s=30)
-                ax[0, k].plot(perc,perc, ls=':', color='k', label='Perfect Calibration')
-                ax[0, k].set_title(f"{algo} on {rep} \n @ step {step}")
-                ax[1, k].hist(uncertainties, 100, alpha=0.7, color=c[k])
-                ax[0, k].set_xlabel('percentile', size=12)
-                ax[1, k].set_xlabel('std', size=12)
-        plt.legend()
-        plt.show()
+                best_observed_list.append(min_obs_metrics[dataset][algo][rep][s_idx][:step])
+                regret_list.append(regret_metrics[dataset][algo][rep][s_idx][:step]) # TODO
+            count = np.mean(np.vstack(count_list), axis=0)
+            std_count = np.std(np.vstack(count_list), axis=0)
+            uncertainties = np.concatenate(uncertainties_list)
+            ax[0, k].plot(perc, count, c=c[k], lw=2, linestyle='-', label=f"{algo}")
+            ax[0, k].errorbar(perc, count, std_count, linestyle=None, c=c[k], marker="o", ms=7)
+            ax[0, k].plot(perc, perc, ls=':', color='k', label='Perfect Calibration')
+            ax[0, k].set_title(f"{algo}")
+            ax[1, k].hist(uncertainties, 100, alpha=0.7, color=c[k])
+            ax[1, k].set_xlim([0., 1.6])
+            # ax[1, k].set_ylim([0, 750])
+            ax[1, k].set_ylim([0, 1700])
+            ax[0, k].set_xlabel('percentile', size=12)
+            ax[1, k].set_xlabel('std', size=12)
+            mean_best_observed_values = np.mean(np.vstack(best_observed_list), axis=0)
+            std_observed_values = np.std(best_observed_list, ddof=1, axis=0)/np.sqrt(mean_best_observed_values.shape[0])
+            mean_regret_values = np.mean(np.vstack(regret_list), axis=0)
+            std_regret_values = np.std(regret_list, ddof=1, axis=0)/np.sqrt(std_observed_values.shape[0])
+            ax[2, 0].plot(mean_best_observed_values, color=c[k], label=algo, linewidth=2) # best observed values over steps
+            ax[2, 0].fill_between(list(range(len(mean_best_observed_values))), mean_best_observed_values-std_observed_values, 
+                                            mean_best_observed_values+std_observed_values, color=c[k], alpha=0.5)
+            ax[2, 1].plot(mean_regret_values, color=c[k], label=algo, linewidth=2) # regret over steps
+            ax[2, 1].fill_between(list(range(len(mean_regret_values))), mean_regret_values-std_regret_values, 
+                                            mean_regret_values+std_regret_values, color=c[k], alpha=0.5)
+        ax[2, 0].set_xlabel('Iterations', size=16)
+        ax[2, 1].set_xlabel('Iterations', size=16)
+        ax[0, 0].set_ylabel('confidence', size=9)
+        ax[1, 0].set_ylabel('count', size=9)
+        ax[2, 0].set_ylabel('observed value', size=9)
+        ax[2, 0].set_title('Best observed value')
+        ax[2, 1].set_title('Regret values')
+        markers = [plt.Line2D([0,0],[0,0], color=color, marker='o', linestyle='') for color in c]
+        ax[2, 1].legend(markers, algos, loc="lower right", numpoints=1, prop={'size':12})
+        gif_files_list.append(filename)
+        plt.suptitle(f"Calibration on {rep}\n @ step {step}")
+        plt.tight_layout()
+        plt.savefig(filename)
+        plt.close()
+    # make gif
+    with imageio.get_writer(gif_filename, mode="I") as writer:
+        for filename in gif_files_list:
+            image = imageio.imread(filename)
+            writer.append_data(image)
+    for filename in set(gif_files_list[1:-1]):
+        os.remove(filename)
 

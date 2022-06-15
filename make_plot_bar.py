@@ -46,15 +46,13 @@ def plot_metric_augmentation_comparison(datasets: List[str]=["UBQT", "CALM", "1F
                                     dim=dim, dim_reduction=dim_reduction, reference_values=ref_results_dict)      
 
 if __name__ == "__main__":
-    datasets = ["UBQT", "1FQG"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
+    datasets = ["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
     algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(),
              RandomForest().get_name(), KNN().get_name()]
     metrics = [MSE]
-    representations = [ONE_HOT, VAE, VAE+"_clusterval", TRANSFORMER, ESM] # SPECIAL CASE: VAE+"_clusterval"
+    representations = [ONE_HOT, VAE, TRANSFORMER, ESM] # # SPECIAL CASE [UBQT, BLAT]: VAE+"_clusterval" 
     dim = None
     dim_reduction = LINEAR # LINEAR, NON_LINEAR
-    # for dim in [10, 100, 1000]:
-    #     plot_metric_comparison(datasets=datasets, algos=algos, metrics=metrics, reps=representations, dimension=dim, dim_reduction=dim_reduction)
     
     plot_metric_comparison(datasets=datasets, algos=algos, metrics=metrics, reps=representations, dimension=dim, dim_reduction=dim_reduction)
-    #plot_metric_augmentation_comparison(dim=None)
+    plot_metric_augmentation_comparison(dim=None)
