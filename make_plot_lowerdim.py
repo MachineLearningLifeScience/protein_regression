@@ -8,10 +8,10 @@ from visualization.plot_lowerdim import plot_lower_dim_results
 
 
 if __name__ == "__main__":
-    datasets = ["MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA"]
-    algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name()] # RandomForest().get_name()
+    datasets = ["1FQG", "UBQT"] # "TIMB", "CALM", "1FQG", "UBQT", "BRCA"
+    algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), RandomForest().get_name()] # 
     metrics = [MSE, SPEARMAN_RHO]
-    representations = [TRANSFORMER, VAE, ONE_HOT, ESM]
+    representations = [TRANSFORMER, ESM, ONE_HOT] # TODO: curve fitting for VAE broken? DEBUG!
     dimensions = [2, 10, 100, 1000, None]
     dim_reduction = LINEAR # LINEAR, NON_LINEAR
     cv_types = [BlockPostionSplitter, RandomSplitter]
