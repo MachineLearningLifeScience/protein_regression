@@ -15,7 +15,7 @@ from util.mlflow.constants import NO_AUGMENT, ROSETTA, TRANSFORMER, VAE, SPLIT, 
 from visualization.plot_metric_for_uncertainties import plot_uncertainty_eval, plot_uncertainty_eval_across_dimensions
 
 datasets = ["1FQG"]
-train_test_splitter = RandomSplitter # BlockPostionSplitter # BioSplitter
+train_test_splitter = BlockPostionSplitter # RandomSplitter # BlockPostionSplitter # BioSplitter
 metric = MSE
 reps = [TRANSFORMER, ESM, VAE, ONE_HOT]
 augmentations =  [NO_AUGMENT]
@@ -35,4 +35,4 @@ if __name__ == "__main__":
         plot_uncertainty_eval_across_dimensions(datasets=datasets, reps=reps,
                           algos=algos, train_test_splitter=train_test_splitter,
                           augmentation = augmentations, number_quantiles=number_quantiles, optimize=True,
-                          dimensions=[2, 10, 100, None], dim_reduction=dim_reduction)
+                          dimensions=[2, 10, 100, 1000, None], dim_reduction=dim_reduction)

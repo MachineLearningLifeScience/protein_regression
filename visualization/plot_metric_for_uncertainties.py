@@ -122,7 +122,7 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                         uncertainties = np.sqrt(metric_values[dataset_key][algo][rep][aug][s]['unc'])
                         data_uncertainties = metric_values[dataset_key][algo][rep][aug][s].get(GP_L_VAR)
                         if data_uncertainties: # in case of GP include data-noise
-                            uncertainties += data_uncertainties
+                            uncertainties += np.sqrt(data_uncertainties)
                         # confidence calibration
                         C, perc, E, S = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
                         #C, perc = confidence_based_calibration(preds, uncertainties, y_ref_mean=np.mean(trues))
@@ -187,7 +187,7 @@ def multi_dim_reliabilitydiagram(metric_values: dict, number_quantiles: int, cvt
                             uncertainties = np.sqrt(_results[dataset_key][algo][rep][aug][s]['unc'])
                             data_uncertainties = _results[dataset_key][algo][rep][aug][s].get(GP_L_VAR)
                             if data_uncertainties: # in case of GP include data-noise
-                                uncertainties += data_uncertainties
+                                uncertainties += np.sqrt(data_uncertainties)
                             # confidence calibration
                             C, perc, E, S = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
                             count.append(C)
@@ -235,7 +235,7 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
                         uncertainties = np.sqrt(metric_values[dataset_key][algo][rep][aug][s]['unc'])
                         data_uncertainties = metric_values[dataset_key][algo][rep][aug][s].get(GP_L_VAR)
                         if data_uncertainties: # in case of GP include data-noise
-                            uncertainties += data_uncertainties
+                            uncertainties += np.sqrt(data_uncertainties)
                         errors = metric_values[dataset_key][algo][rep][aug][s]['mse']
                         # Ranking-based calibration
                         qe, oe = quantile_and_oracle_errors(uncertainties, errors, number_quantiles)
@@ -286,7 +286,7 @@ def multi_dim_confidencecurve(metric_values: dict, number_quantiles: int, cvtype
                             uncertainties = np.sqrt(_results[dataset_key][algo][rep][aug][s]['unc'])
                             data_uncertainties = _results[dataset_key][algo][rep][aug][s].get(GP_L_VAR)
                             if data_uncertainties: # in case of GP include data-noise
-                                uncertainties += data_uncertainties
+                                uncertainties += np.sqrt(data_uncertainties)
                             errors = _results[dataset_key][algo][rep][aug][s]['mse']
                             # Ranking-based calibration
                             qe, oe = quantile_and_oracle_errors(uncertainties, errors, number_quantiles)
@@ -357,7 +357,7 @@ def plot_uncertainty_optimization(dataset: str, rep: str, seeds: List[int], algo
                 uncertainties = np.sqrt(_results['unc'])
                 data_uncertainties = results_dict[seed][dataset][algo][rep][None][val_step].get(GP_L_VAR)
                 if data_uncertainties: # in case of GP include data-noise
-                    uncertainties += data_uncertainties
+                    uncertainties += np.sqrt(data_uncertainties)
                 # confidence calibration
                 C, perc, E, S = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
                 #C, perc = confidence_based_calibration(preds, uncertainties, y_ref_mean=np.mean(trues))
