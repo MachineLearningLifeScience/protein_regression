@@ -28,7 +28,7 @@ class GPonRealSpace(AbstractAlgorithm):
         self.kernel_factory = kernel_factory
         self.optimize = optimize
         self.mean_function = Zero()
-        self.noise_variance = 0.1
+        self.noise_variance = 0.2
         self.kernel_variance = 0.4
         self.init_length = init_length
         self.opt_success = False
@@ -43,7 +43,7 @@ class GPonRealSpace(AbstractAlgorithm):
         if self.gp.kernel.__class__ != Linear:
             self.gp.kernel.lengthscales = Parameter(self.init_length, transform=tfp.bijectors.Softplus(), prior=tfp.distributions.InverseGamma(to_default_float(3.0), to_default_float(3.0)))
         self.gp.kernel.variance = Parameter(self.kernel_variance, transform=tfp.bijectors.Softplus(), prior=tfp.distributions.InverseGamma(to_default_float(3.0), to_default_float(3.0)))
-        self.gp.likelihood.variance = Parameter(value=self.noise_variance, transform=tfp.bijectors.Softplus(), prior=tfp.distributions.Uniform(to_default_float(0.01), to_default_float(0.2)))
+        self.gp.likelihood.variance = Parameter(value=self.noise_variance, transform=tfp.bijectors.Softplus(), prior=tfp.distributions.Uniform(to_default_float(0.01), to_default_float(1.0)))
         self._optimize()
 
     def predict(self, X):
