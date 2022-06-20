@@ -23,7 +23,7 @@ from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR, ME
 from util.preprocess import scale_observations
 from gpflow.utilities import print_summary
 from gpflow import kernels
-from visualization.plot_training import plot_mid_training
+from visualization.plot_training import plot_prediction_CV
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 
 
@@ -48,7 +48,7 @@ def _dim_reduce_X(dim: int, dim_reduction: str, X_train: np.ndarray, Y_train: np
 
 
 def run_single_regression_task(dataset: str, representation: str, method_key: str, train_test_splitter: AbstractTrainTestSplitter, augmentation: str, 
-                                dim: int=None, dim_reduction=NON_LINEAR):
+                                dim: int=None, dim_reduction=NON_LINEAR, plot_cv=False):
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     # load X for CV splitting
     X, Y = load_dataset(dataset, representation=ONE_HOT)
@@ -108,10 +108,10 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         mll = np.mean(err2 / unc / 2 + np.log(2 * np.pi * unc) / 2)
         r = spearmanr(Y_test, mu)[0]  # we do not care about the p-value
 
-        # if split == 1:
-        #     if "GP" in method.get_name():
-        #         unc += method.gp.likelihood.variance.numpy()
-        #     plot_mid_training(X_test, Y_test, mu, unc, method)
+        if split == 1 and plot_cv:
+            if "GP" in method.get_name():
+                unc += np.sqrt(method.gp.likelihood.variance.numpy())
+            plot_prediction_CV(X_test, Y_test, mu, unc, method, representation, dim_reduction)
 
         mlflow.log_metric(MSE, mse, step=split)
         mlflow.log_metric(MedSE, medse, step=split)

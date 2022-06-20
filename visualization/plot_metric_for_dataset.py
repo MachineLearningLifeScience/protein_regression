@@ -33,7 +33,7 @@ def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
 def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.075):
     c = ['dimgrey', '#661100', '#332288', '#117733', "purple", "tan", "orangered"]
     plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 0.2] (Uniform)'
-    filename = 'results/figures/benchmark/'+'accuracy_of_methods_barplot_'+cvtype
+    filename = 'results/figures/benchmark/'+'accuracy_of_methods_barplot_'+cvtype+str(list(metric_values.keys()))
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,6))
     axs = np.ravel(ax)
     reps = []

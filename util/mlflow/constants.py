@@ -33,6 +33,7 @@ GP_D_PRIOR = "data_prior"
 ONE_HOT = "one_hot"
 TRANSFORMER = "transformer"
 VAE = "vae"
+VAE_AUX = "vae_aux"
 NONSENSE = "nonsense"
 ESM = "esm"
 KNN_name = 'knn'
