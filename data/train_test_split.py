@@ -61,6 +61,23 @@ class BioSplitter(AbstractTrainTestSplitter):
         return splitter_name
 
 
+class PositionSplitter(AbstractTrainTestSplitter):
+    """
+    Granular splitter, that splits by given positions range
+    """
+    def __init__(self, dataset: str, positions: int):
+        super().__init__()
+        self.wt = get_wildtype(dataset)
+        self.dataset = dataset
+        self.positions = positions
+
+    def split(self, X):
+        return positional_splitter(X, self.wt, val=False, offset=4, pos_per_fold=self.positions)
+    
+    def get_name(self):
+        splitter_name = f"{self.name}_p{self.positions}"
+        return splitter_name
+
 
 class BlockPostionSplitter(AbstractTrainTestSplitter):
     def __init__(self, dataset):
@@ -117,7 +134,7 @@ def positional_splitter(seqs, query_seq, val, offset, pos_per_fold):
             buffer_idx = np.hstack([np.where(mut_pos==pos)[0] for pos in buffer_mut])
         else:
             buffer_idx = []
-        
+
         if val:
             val_idx = np.hstack([np.where(mut_pos==pos)[0] for pos in val_mut[i]])
         else:
