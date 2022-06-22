@@ -32,7 +32,7 @@ def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
 
 def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.075):
     c = ['dimgrey', '#661100', '#332288', '#117733', "purple", "tan", "orangered"]
-    plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 0.2] (Uniform)'
+    plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
     filename = 'results/figures/benchmark/'+'accuracy_of_methods_barplot_'+cvtype+str(list(metric_values.keys()))
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,6))
     axs = np.ravel(ax)
@@ -65,6 +65,43 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
         axs[d].tick_params(axis='x', which='both', labelsize=14)
         axs[d].set_title(dataset_key, size=16)
         axs[d].set_xlabel('1 minus normalized MSE', size=14)
+    handles, labels = axs[-1].get_legend_handles_labels()
+    fig.legend(handles[:len(reps)], reps, loc='lower right', prop={'size': 14})
+    plt.suptitle(plot_heading, size=12)
+    plt.tight_layout()
+    plt.savefig(filename)
+    plt.show()
+
+def errorplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.075):
+    c = ['dimgrey', '#661100', '#332288', '#117733', "purple", "tan", "orangered"]
+    plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ U[0.01, 1.0]'
+    filename = 'results/figures/benchmark/'+'correlation_of_methods_errorbar_'+cvtype+str(list(metric_values.keys()))
+    fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,6))
+    axs = np.ravel(ax)
+    reps = []
+    for d, dataset_key in enumerate(metric_values.keys()):
+        for i, algo in enumerate(metric_values[dataset_key].keys()):
+            seps = np.linspace(-height*0.5*len(metric_values[dataset_key].keys()), 
+                               height*0.5*len(metric_values[dataset_key].keys()), 
+                               len(metric_values[dataset_key][algo].keys()))
+            for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
+                if rep not in reps:
+                    reps.append(rep)
+                rho_list = metric_values[dataset_key][algo][rep][None][metric]
+                rho_mean = np.mean(rho_list)
+                error_on_mean = np.std(rho_list, ddof=1)/np.sqrt(len(rho_list))
+                axs[d].errorbar(rho_mean, i+seps[j], xerr=error_on_mean, label=rep, color=c[j], mec='black', ms=8, capsize=5)
+        axs[d].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
+        axs[d].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
+        axs[d].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[d].axvline(-0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[d].set_yticks(list(range(len(list(metric_values[dataset_key].keys())))))
+        axs[d].set_yticklabels(['' for i in range(len(list(metric_values[dataset_key].keys())))])
+        axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
+        axs[d].set_xlim((-1, 1))
+        axs[d].tick_params(axis='x', which='both', labelsize=14)
+        axs[d].set_title(dataset_key, size=16)
+        axs[d].set_xlabel('spearman r', size=14)
     handles, labels = axs[-1].get_legend_handles_labels()
     fig.legend(handles[:len(reps)], reps, loc='lower right', prop={'size': 14})
     plt.suptitle(plot_heading, size=12)
