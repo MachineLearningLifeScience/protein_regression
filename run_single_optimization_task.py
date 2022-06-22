@@ -10,7 +10,7 @@ from util.preprocess import scale_observations
 from util.log_uncertainty import prep_for_logdict
 from algorithm_factories import ALGORITHM_REGISTRY
 from data.load_dataset import load_dataset, get_alphabet
-from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, SEED, OPTIMIZATION, EXPERIMENT_TYPE, OBSERVED_Y, OPTIMIZATION
+from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, SEED, OPTIMIZATION, EXPERIMENT_TYPE, OBSERVED_Y, OPTIMIZATION, VAE_DENSITY
 from util.mlflow.constants import GP_LEN, GP_L_VAR, GP_VAR, GP_D_PRIOR, GP_K_PRIOR, OPT_SUCCESS
 from util.mlflow.constants import MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, MEAN_Y, STD_Y
 from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
@@ -29,7 +29,7 @@ def _expected_improvement(mean, variance, eta):
     return s * (gamma * normal.cdf(gamma) + normal.pdf(gamma))
 
 
-def run_single_optimization_task(dataset: str, method_key: str, seed: int, representation: str, max_iterations: int, log_interval: int=10):
+def run_single_optimization_task(dataset: str, method_key: str, seed: int, representation: str, max_iterations: int, log_interval: int=10, reference_ranks=False):
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     X, Y = load_dataset(dataset, representation=representation)
     np.random.seed(seed)
@@ -93,7 +93,7 @@ def _log_optimization_metrics_to_mlflow(method, remaining_Y, mean_y, std_y, _mu,
     """
     # undo scaling
     mu = _mu*std_y + mean_y
-    unc = _unc * std_y
+    unc = _unc*std_y
     # compute metrics
     baseline = np.mean(np.square(remaining_Y - np.repeat(mean_y, len(remaining_Y)).reshape(-1,1)))
     err2 = np.square(remaining_Y - mu)
@@ -120,6 +120,31 @@ def _log_optimization_metrics_to_mlflow(method, remaining_Y, mean_y, std_y, _mu,
     trues, mus, uncs, errs = prep_for_logdict(remaining_Y, mu, unc, err2, baseline)
     mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(step)+'/output.json')
 
+def run_ranked_reference_task(dataset, max_iterations=500, log_interval=1):
+    """
+    Reference task to optimize / rank by dELBO density score.
+    No EI computation, but simple best scores ranking
+    """
+    X, Y = load_dataset(dataset, representation=VAE_DENSITY)
+    tags = {EXPERIMENT_TYPE: OPTIMIZATION, 
+            DATASET: dataset, 
+            METHOD: VAE_DENSITY,
+            OPTIMIZATION: False,}
+    # sort by dELBO densities
+    sorted_idx = np.argsort(-X, axis=0)
+    X = X[sorted_idx, :]
+    Y = Y[sorted_idx, :]
+    # record experiments by dataset name and have the tags as logged parameters
+    experiment_name = dataset + "_optimization"
+    __experiment = mlflow.set_experiment(experiment_name)
+    mlflow.start_run()
+    mlflow.set_tags(tags)
+    # walk over ranked data and observe Ys
+    for i in tqdm(range(1, max_iterations+1)):
+        # the .sum() is a hack to get a float value--mlflow complains about numpy arrays
+        mlflow.log_metric(OBSERVED_Y, np.squeeze(Y[i-1, :]).sum(), step=i)
+    mlflow.end_run()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
@@ -128,6 +153,5 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--seed", type=int)
     parser.add_argument("-r", "--representation", type=str)
     parser.add_argument("-i", "--max_iterations", type=int, default=500)
-
     args = parser.parse_args()
     run_single_optimization_task(**vars(args))
