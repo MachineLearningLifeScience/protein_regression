@@ -12,7 +12,7 @@ from algorithm_factories import ALGORITHM_REGISTRY
 from data.load_dataset import load_dataset, get_alphabet
 from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, SEED, OPTIMIZATION, EXPERIMENT_TYPE, OBSERVED_Y, OPTIMIZATION
 from util.mlflow.constants import GP_LEN, GP_L_VAR, GP_VAR, GP_D_PRIOR, GP_K_PRIOR, OPT_SUCCESS
-from util.mlflow.constants import MSE, MedSE, SEVar, MLL, SPEARMAN_RHO
+from util.mlflow.constants import MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, MEAN_Y, STD_Y
 from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
 from scipy import stats
 from gpflow.utilities import print_summary
@@ -29,7 +29,7 @@ def _expected_improvement(mean, variance, eta):
     return s * (gamma * normal.cdf(gamma) + normal.pdf(gamma))
 
 
-def run_single_optimization_task(dataset: str, method_key: str, seed: int, representation: str, max_iterations: int):
+def run_single_optimization_task(dataset: str, method_key: str, seed: int, representation: str, max_iterations: int, log_interval: int=10):
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     X, Y = load_dataset(dataset, representation=representation)
     np.random.seed(seed)
@@ -52,7 +52,7 @@ def run_single_optimization_task(dataset: str, method_key: str, seed: int, repre
 
     next = 0
     selected_X = []
-    log_interval = np.arange(0, max_iterations, 10)
+    log_interval = np.arange(2, max_iterations, log_interval)
     for i in tqdm(range(1, max_iterations+1)):
         selected_X.append(next)
         # the .sum() is a hack to get a float value--mlflow complains about numpy arrays
@@ -107,6 +107,8 @@ def _log_optimization_metrics_to_mlflow(method, remaining_Y, mean_y, std_y, _mu,
     mlflow.log_metric(SEVar, mse_var, step=step)
     mlflow.log_metric(MLL, mll, step=step)
     mlflow.log_metric(SPEARMAN_RHO, r, step=step)
+    mlflow.log_metric(MEAN_Y, mean_y, step=step)  # record scaling information 
+    mlflow.log_metric(STD_Y, std_y, step=step)
     if "GP" in method.get_name():
         mlflow.log_metric(GP_VAR, float(method.gp.kernel.variance.numpy()), step=step)
         mlflow.log_metric(GP_L_VAR, float(method.gp.likelihood.variance.numpy()), step=step)
