@@ -324,7 +324,7 @@ def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str]
 
 
 def plot_uncertainty_eval_across_dimensions(datasets: List[str], reps: List[str], algos: List[str], train_test_splitter, dimensions: List[int], augmentation = [NO_AUGMENT], number_quantiles=10,
-                                            optimize=True, dim_reduction=None, metrics=[GP_L_VAR]):
+                                            optimize=True, dim_reduction=None, metrics=[GP_L_VAR, STD_Y]):
     dim_results_dict = {}
     for d in dimensions:
         dim_results_dict[d] = get_mlflow_results_artifacts(datasets=datasets, reps=reps, metrics=metrics, train_test_splitter=train_test_splitter, algos=algos, augmentation=augmentation,
@@ -342,7 +342,7 @@ def plot_uncertainty_optimization(dataset: str, rep: str, seeds: List[int], algo
     results_dict = {}
     for s in seeds:
         experiment_ids = [dataset+"_optimization"]
-        results_dict[s] = get_mlflow_results_artifacts(datasets=[dataset], algos=algos, reps=[rep], seed=s, optimize=optimize, experiment_ids=experiment_ids, metrics=[OBSERVED_Y, GP_L_VAR], train_test_splitter=None)
+        results_dict[s] = get_mlflow_results_artifacts(datasets=[dataset], algos=algos, reps=[rep], seed=s, optimize=optimize, experiment_ids=experiment_ids, metrics=[OBSERVED_Y, GP_L_VAR, STD_Y], train_test_splitter=None)
     _recorded_algos = list(results_dict[seeds[0]][dataset].keys())
     for val_step in range(int(max_iterations/stepsize)-1):
         step = 10+val_step*stepsize
@@ -394,6 +394,7 @@ def plot_uncertainty_optimization(dataset: str, rep: str, seeds: List[int], algo
             ax[2, 1].fill_between(list(range(len(mean_regret_values))), mean_regret_values-std_regret_values, 
                                             mean_regret_values+std_regret_values, color=c[k], alpha=0.5)
         ax[2, 0].set_xlabel('Iterations', size=16)
+        ax[2, 0].set_ylim([-0.41, 1.1])
         ax[2, 1].set_xlabel('Iterations', size=16)
         ax[0, 0].set_ylabel('confidence', size=9)
         ax[1, 0].set_ylabel('count', size=9)
