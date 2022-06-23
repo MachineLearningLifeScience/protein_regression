@@ -412,7 +412,11 @@ def plot_uncertainty_optimization(dataset: str, rep: str, seeds: List[int], algo
     with imageio.get_writer(gif_filename, mode="I") as writer:
         for filename in gif_files_list:
             image = imageio.imread(filename)
-            writer.append_data(image)
-    for filename in set(gif_files_list[1:-1]):
+            for _ in range(3):
+                writer.append_data(image)
+    keep_files_idx = [0, 1, 2, 3, 4, 9, 19, 49, 99]
+    for i, filename in enumerate(set(gif_files_list[:-1])):
+        if i in keep_files_idx:
+            continue
         os.remove(filename)
 

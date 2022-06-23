@@ -65,7 +65,9 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
             for rep in reps:
                 aug_results = {}
                 for aug in augmentation:
-                    filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}'"
+                    filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}'"
+                    if rep:
+                        filter_string += f" and tags.{REPRESENTATION} = '{rep}'"
                     if train_test_splitter:
                         filter_string += f" and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}'"
                     if aug:
@@ -147,13 +149,9 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
     return results_dict
 
 
-def get_mlflow_results_optimization(datasets: list, algos: list, reps: list, metrics: list, augmentation: list=[None], dim: int=None, dim_reduction: str=None, seeds: List[int]=None):
+def get_mlflow_results_optimization(datasets: list, algos: list, reps: list, metrics: list, augmentation: list=[None], dim: int=None, dim_reduction: str=None, seeds: List[int]=[None]):
     experiment_ids = [d + '_optimization' for d in datasets]
-    if seeds:
-            results_dict = {seed: get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, 
-                                                    train_test_splitter=None, augmentation=augmentation, dim=dim, dim_reduction=dim_reduction, seed=seed, experiment_ids=experiment_ids) 
-                            for seed in seeds}
-    else:
-        results_dict = get_mlflow_results(datasets=datasets, algos=algos, metrics=metrics, train_test_splitter=None, augmentation=augmentation, dim=dim, 
-                                        dim_reduction=dim_reduction, experiment_ids=experiment_ids)
+    results_dict = {seed: get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, 
+                                            train_test_splitter=None, augmentation=augmentation, dim=dim, dim_reduction=dim_reduction, seed=seed, experiment_ids=experiment_ids) 
+                    for seed in seeds} # in reference case / or if seed unset -> key=None
     return results_dict
