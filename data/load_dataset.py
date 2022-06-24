@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import pickle
+from typing import Tuple
 from os.path import join, dirname
 from data.get_alphabet import get_alphabet
 from data.load_augmentation import load_augmentation
@@ -10,170 +11,198 @@ from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM, VAE_
 base_path = join(dirname(__file__), "files")
 
 
+def load_one_hot(name: str, desired_alphabet=None) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Load OneHot encoding and observations for input name protein.
+    Returns representation and observation vector.
+    """
+    if name == "1FQG":  # beta-lactamase
+        X, Y = __load_df(name="blat_data_df", x_column_name="seqs")
+    elif name == "BRCA":
+        X, Y = __load_df(name="brca_data_df", x_column_name="seqs")
+    elif name == "CALM":
+        X, Y = __load_df(name="calm_data_df", x_column_name="seqs")
+    elif name == "MTH3":
+        X, Y = __load_df(name="mth3_data_df", x_column_name="seqs")
+    elif name == "TIMB":
+        X, Y = __load_df(name="timb_data_df", x_column_name="seqs")
+    elif name == "UBQT":
+        X, Y = __load_df(name="ubqt_data_df", x_column_name="seqs")
+    elif name == "TOXI":
+        X, Y = __load_df(name="toxi_data_df", x_column_name="encoded_sequence")
+    else:
+        raise ValueError("Unknown dataset: %s" % name)
+    X = X.astype(np.int64)
+    if desired_alphabet is not None:
+        alphabet_map = map_alphabets(get_alphabet(name), desired_alphabet)
+        for i in range(X.shape[0]):
+            for j in range(X.shape[1]):
+                X[i, j] = alphabet_map[X[i, j]]
+    return X, Y
+
+
+def load_transformer(name: str, desired_alphabet=None) -> Tuple[np.ndarray, np.ndarray]:
+    if name == "1FQG":
+        X, Y = __load_df(name="blat_seq_reps_n_phyla", x_column_name="protbert_mean")
+    elif name == "BRCA":
+        X, Y = __load_df(name="brca_seq_reps_n_phyla", x_column_name="protbert_mean")
+    elif name == "CALM":
+        X, Y = __load_df(name="calm_seq_reps_n_phyla", x_column_name="protbert_mean")
+    elif name == "MTH3":
+        X, Y = __load_df(name="mth3_seq_reps_n_phyla", x_column_name="protbert_mean")
+    elif name == "TIMB":
+        X, Y = __load_df(name="timb_seq_reps_n_phyla", x_column_name="protbert_mean")
+    elif name == "UBQT":
+        X, Y = __load_df(name="ubqt_seq_reps_n_phyla", x_column_name="protbert_mean")
+    elif name == "TOXI":
+        d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "ProtBert_toxi_labelled_seqs.pkl"), "rb"))
+        X = np.vstack(X)
+    else:
+        raise ValueError("Unknown dataset: %s" % name)
+    return X, Y
+
+
+def load_vae(name: str) -> Tuple[np.ndarray, np.ndarray]:
+    if name == "1FQG":
+        d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "blat_VAE_reps.pkl"), "rb"))
+    elif name == "BRCA":
+        d = pickle.load(open(join(base_path, "brca_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "brca_VAE_reps.pkl"), "rb"))
+    elif name == "CALM":
+        d = pickle.load(open(join(base_path, "calm_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "calm_VAE_reps.pkl"), "rb"))
+    elif name == "MTH3":
+        d = pickle.load(open(join(base_path, "mth3_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "mth3_VAE_reps.pkl"), "rb"))
+    elif name == "TIMB":
+        d = pickle.load(open(join(base_path, "timb_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "timb_VAE_reps.pkl"), "rb"))
+    elif name == "UBQT":
+        d = pickle.load(open(join(base_path, "ubqt_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "ubqt_VAE_reps.pkl"), "rb"))
+    elif name == "TOXI":
+        d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = np.load(join(base_path, "toxi_VAE_reps.npy"))[idx]
+    else:
+        raise ValueError("Unknown dataset: %s" % name)
+    return X, Y
+
+
+def load_aux_vae(name: str) -> Tuple[np.ndarray, np.ndarray]:
+    if name == "1FQG":
+        d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "blat_VAE_reps_RANDOM_VAL.pkl"), "rb"))
+        X = X[idx[idx==True].index]
+    elif name == "CALM":
+        d = pickle.load(open(join(base_path, "calm_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "calm_VAE_reps_RANDOM_VAL.pkl"), "rb"))
+        X = X[idx[idx==True].index]
+    elif name == "UBQT":
+        d = pickle.load(open(join(base_path, "ubqt_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "ubqt_VAE_reps_RANDOM_VAL.pkl"), "rb"))
+        X = X[idx[idx==True].index]
+    else:
+        raise ValueError("Unknown dataset: %s" % name)
+    return X, Y
+
+
+def load_esm(name: str) -> Tuple[np.ndarray, np.ndarray]:
+    if name == "1FQG":
+        d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "blat_esm_rep.pkl"), "rb"))
+    elif name == "BRCA":
+        d = pickle.load(open(join(base_path, "brca_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "brca_esm_rep.pkl"), "rb"))
+    elif name == "CALM":
+        d = pickle.load(open(join(base_path, "calm_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "calm_esm_rep.pkl"), "rb"))
+    elif name == "MTH3":
+        d = pickle.load(open(join(base_path, "mth3_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "mth3_esm_rep.pkl"), "rb"))
+    elif name == "TIMB":
+        d = pickle.load(open(join(base_path, "timb_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "timb_esm_rep.pkl"), "rb"))
+    elif name == "UBQT":
+        d = pickle.load(open(join(base_path, "ubqt_seq_reps_n_phyla.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "ubqt_esm_rep.pkl"), "rb"))
+    elif name == "TOXI":
+        d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
+        idx = np.logical_not(np.isnan(d["assay"]))
+        Y = np.vstack(d["assay"].loc[idx])
+        X = pickle.load(open(join(base_path, "toxi_esm_rep.pkl"), "rb"))
+    else:
+        raise ValueError("Unknown dataset: %s" % name)
+    return X, Y
+
+
+def load_nonsense(name) -> Tuple[np.ndarray, np.ndarray]:
+    _, Y = load_dataset(name, representation=ONE_HOT)
+    restore_seed = np.random.randint(12345)
+    np.random.seed(0)
+    X = np.random.randn(Y.shape[0], 2)
+    np.random.seed(restore_seed)
+    return X, Y
+
+
 def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
     if desired_alphabet is not None and representation is not ONE_HOT:
         raise ValueError("Desired alphabet can only have a value when representation is one hot!")
     if representation is ONE_HOT:
-        if name == "1FQG":  # beta-lactamase
-            X, Y = __load_df(name="blat_data_df", x_column_name="seqs")
-        elif name == "BRCA":
-            X, Y = __load_df(name="brca_data_df", x_column_name="seqs")
-        elif name == "CALM":
-            X, Y = __load_df(name="calm_data_df", x_column_name="seqs")
-        elif name == "MTH3":
-            X, Y = __load_df(name="mth3_data_df", x_column_name="seqs")
-        elif name == "TIMB":
-            X, Y = __load_df(name="timb_data_df", x_column_name="seqs")
-        elif name == "UBQT":
-            X, Y = __load_df(name="ubqt_data_df", x_column_name="seqs")
-        elif name == "TOXI":
-            X, Y = __load_df(name="toxi_data_df", x_column_name="encoded_sequence")
-        else:
-            raise ValueError("Unknown dataset: %s" % name)
-        X = X.astype(np.int64)
-        if desired_alphabet is not None:
-            alphabet_map = map_alphabets(get_alphabet(name), desired_alphabet)
-            for i in range(X.shape[0]):
-                for j in range(X.shape[1]):
-                    X[i, j] = alphabet_map[X[i, j]]
+        X, Y = load_one_hot(name, desired_alphabet=desired_alphabet)
     else:
         if representation == TRANSFORMER:
-            if name == "1FQG":
-                X, Y = __load_df(name="blat_seq_reps_n_phyla", x_column_name="protbert_mean")
-            elif name == "BRCA":
-                X, Y = __load_df(name="brca_seq_reps_n_phyla", x_column_name="protbert_mean")
-            elif name == "CALM":
-                X, Y = __load_df(name="calm_seq_reps_n_phyla", x_column_name="protbert_mean")
-            elif name == "MTH3":
-                X, Y = __load_df(name="mth3_seq_reps_n_phyla", x_column_name="protbert_mean")
-            elif name == "TIMB":
-                X, Y = __load_df(name="timb_seq_reps_n_phyla", x_column_name="protbert_mean")
-            elif name == "UBQT":
-                X, Y = __load_df(name="ubqt_seq_reps_n_phyla", x_column_name="protbert_mean")
-            elif name == "TOXI":
-                d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "ProtBert_toxi_labelled_seqs.pkl"), "rb"))
-                X = np.vstack(X)
-            else:
-                raise ValueError("Unknown dataset: %s" % name)
+            X, Y = load_transformer(name)
         elif representation == VAE:
-            if name == "1FQG":
-                d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "blat_VAE_reps.pkl"), "rb"))
-                #X = pickle.load(open(join(base_path, "blat_VAE_reps_CLUSTER_VAL.pkl"), "rb"))
-                #X = X[idx[idx==True].index]
-            elif name == "BRCA":
-                d = pickle.load(open(join(base_path, "brca_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "brca_VAE_reps.pkl"), "rb"))
-            elif name == "CALM":
-                d = pickle.load(open(join(base_path, "calm_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "calm_VAE_reps.pkl"), "rb"))
-            elif name == "MTH3":
-                d = pickle.load(open(join(base_path, "mth3_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "mth3_VAE_reps.pkl"), "rb"))
-            elif name == "TIMB":
-                d = pickle.load(open(join(base_path, "timb_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "timb_VAE_reps.pkl"), "rb"))
-            elif name == "UBQT":
-                d = pickle.load(open(join(base_path, "ubqt_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "ubqt_VAE_reps.pkl"), "rb"))
-                #X = pickle.load(open(join(base_path, "ubqt_VAE_reps_CLUSTER_VAL.pkl"), "rb"))
-                #X = X[idx[idx==True].index]
-            elif name == "TOXI":
-                d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = np.load(join(base_path, "toxi_VAE_reps.npy"))[idx]
-            else:
-                raise ValueError("Unknown dataset: %s" % name)
+            X, Y = load_vae(name)
         elif representation == VAE_AUX:
-            if name == "1FQG":
-                d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "blat_VAE_reps_RANDOM_VAL.pkl"), "rb"))
-                X = X[idx[idx==True].index]
-            elif name == "CALM":
-                d = pickle.load(open(join(base_path, "calm_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "calm_VAE_reps_RANDOM_VAL.pkl"), "rb"))
-                X = X[idx[idx==True].index]
-            elif name == "UBQT":
-                d = pickle.load(open(join(base_path, "ubqt_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "ubqt_VAE_reps_RANDOM_VAL.pkl"), "rb"))
-                X = X[idx[idx==True].index]
-            else:
-                raise ValueError("Unknown dataset: %s" % name)
+            X, Y = load_aux_vae(name)
         elif representation == ESM:
-            if name == "1FQG":
-                d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "blat_esm_rep.pkl"), "rb"))
-            elif name == "BRCA":
-                d = pickle.load(open(join(base_path, "brca_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "brca_esm_rep.pkl"), "rb"))
-            elif name == "CALM":
-                d = pickle.load(open(join(base_path, "calm_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "calm_esm_rep.pkl"), "rb"))
-            elif name == "MTH3":
-                d = pickle.load(open(join(base_path, "mth3_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "mth3_esm_rep.pkl"), "rb"))
-            elif name == "TIMB":
-                d = pickle.load(open(join(base_path, "timb_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "timb_esm_rep.pkl"), "rb"))
-            elif name == "UBQT":
-                d = pickle.load(open(join(base_path, "ubqt_seq_reps_n_phyla.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "ubqt_esm_rep.pkl"), "rb"))
-            elif name == "TOXI":
-                d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
-                idx = np.logical_not(np.isnan(d["assay"]))
-                Y = np.vstack(d["assay"].loc[idx])
-                X = pickle.load(open(join(base_path, "toxi_esm_rep.pkl"), "rb"))
-            else:
-                raise ValueError("Unknown dataset: %s" % name)
+            X, Y = load_esm(name)
         elif representation == VAE_DENSITY:
             if name not in ["1FQG", "BRCA", "CALM", "MTH3", "TIMB", "UBQT", "TOXI"]:
                 raise ValueError(f"Unknown dataset: {name}")
             X, Y, _ = load_augmentation(name=name, augmentation=VAE_DENSITY)
-
         elif representation == NONSENSE:
-            _, Y = load_dataset(name, representation=ONE_HOT)
-            restore_seed = np.random.randint(12345)
-            np.random.seed(0)
-            X = np.random.randn(Y.shape[0], 2)
-            np.random.seed(restore_seed)
+            X, Y = load_nonsense(name)
         else:
             raise ValueError("Unknown value for representation: %s" % representation)
         X = X.astype(np.float64)  # in the one-hot case we want int64, that's why the cast is in this position
-
     Y = Y.astype(np.float64)
     assert(X.shape[0] == Y.shape[0])
     assert(Y.shape[1] == 1)
