@@ -16,22 +16,12 @@ def load_one_hot(name: str, desired_alphabet=None) -> Tuple[np.ndarray, np.ndarr
     Load OneHot encoding and observations for input name protein.
     Returns representation and observation vector.
     """
-    if name == "1FQG":  # beta-lactamase
-        X, Y = __load_df(name="blat_data_df", x_column_name="seqs")
-    elif name == "BRCA":
-        X, Y = __load_df(name="brca_data_df", x_column_name="seqs")
-    elif name == "CALM":
-        X, Y = __load_df(name="calm_data_df", x_column_name="seqs")
-    elif name == "MTH3":
-        X, Y = __load_df(name="mth3_data_df", x_column_name="seqs")
-    elif name == "TIMB":
-        X, Y = __load_df(name="timb_data_df", x_column_name="seqs")
-    elif name == "UBQT":
-        X, Y = __load_df(name="ubqt_data_df", x_column_name="seqs")
-    elif name == "TOXI":
-        X, Y = __load_df(name="toxi_data_df", x_column_name="encoded_sequence")
-    else:
+    if name not in ["1FQG", "BRCA", "CALM", "MTH3", "TIMB", "UBQT", "TOXI"]:
         raise ValueError("Unknown dataset: %s" % name)
+    if name == "1FQG":  # beta-lactamase
+        name = "blat"
+    df_name = f"{name.lower()}_data_df"
+    X, Y = __load_df(name=df_name, x_column_name="seqs")
     X = X.astype(np.int64)
     if desired_alphabet is not None:
         alphabet_map = map_alphabets(get_alphabet(name), desired_alphabet)
