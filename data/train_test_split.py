@@ -32,6 +32,27 @@ class RandomSplitter(AbstractTrainTestSplitter):
         return train_indices, None, test_indices
 
 
+class FractionalRandomSplitter(AbstractTrainTestSplitter):
+    def __init__(self, fraction: float, seed: int = 42):
+        super().__init__()
+        self.seed = seed
+        self.fraction = fraction
+
+    def split(self, X):
+        n_sequences = np.ceil(X.shape[0] * self.fraction)
+        train_indices = []
+        test_indices = []
+        kf = KFold(n_splits=10, random_state=self.seed, shuffle=True)
+        for train, test in kf.split(X):
+            train_indices.append(train[:int(n_sequences)])
+            test_indices.append(test[:int(n_sequences)])
+        return train_indices, None, test_indices
+    
+    def get_name(self):
+        splitter_name = f"{self.name}_{str(np.round(self.fraction, 3))}"
+        return splitter_name
+
+
 class BioSplitter(AbstractTrainTestSplitter):
     def __init__(self, dataset, n_mutations_threshold: int=4, inverse=False):
         super().__init__()
@@ -65,7 +86,7 @@ class PositionSplitter(AbstractTrainTestSplitter):
     """
     Granular splitter, that splits by given positions range
     """
-    def __init__(self, dataset: str, positions: int):
+    def __init__(self, dataset: str, positions: int=15):
         super().__init__()
         self.wt = get_wildtype(dataset)
         self.dataset = dataset
@@ -156,7 +177,10 @@ def positional_splitter(seqs, query_seq, val, offset, pos_per_fold):
     return train_indices, val_indices, test_indices
 
 
-def pos_per_fold_assigner(name: str):
+def pos_per_fold_assigner(name: str) -> int:
+    """
+    Return reference number of positions for blocksplitter.
+    """
     if name.lower() == 'blat' or name == '1FQG':
         pos_per_fold = 85
     elif name.lower() == 'ubqt':

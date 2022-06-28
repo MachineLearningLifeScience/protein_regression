@@ -3,6 +3,8 @@ from os.path import join
 from statistics import mean
 import numpy as np
 from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
 import tensorflow as tf
 import mlflow
 from tqdm import tqdm
@@ -80,12 +82,16 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         X_test = X[test_indices[split], :]
         Y_test = Y[test_indices[split]]
         mean_y, std_y, scaled_y = scale_observations(Y_train)
+        # TODO: linear fit through scaled_y with X as input and compute std of residuals
+        #res = LinearRegression().fit(X_train, scaled_y)
         if dim and X_train.shape[1] > dim:
             X_train, reducer = _dim_reduce_X(dim=dim, dim_reduction=dim_reduction, X_train=X_train, Y_train=Y_train)
             X_test = reducer.transform(X_test).astype(np.float64)
             mlflow.set_tags({"DIM_REDUCTION": dim_reduction, "DIM": reducer.n_components})
         if "GP" in method.get_name() and not dim: # set initial parameters based on distance in space if using full latent space
-            method.init_length = np.max(np.abs(np.subtract(X_train[0], X_train[1]))) # if reduced on lower dim this value is too small
+            init_len = np.max(np.abs(np.subtract(X_train[0], X_train[1])))
+            eps = 0.001
+            method.init_length = init_len if init_len > 0.0 else init_len+eps # if reduced on lower dim this value is too small
         method.train(X_train, scaled_y)
         try:
             _mu, _unc = method.predict_f(X_test)

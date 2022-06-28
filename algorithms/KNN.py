@@ -13,7 +13,7 @@ class KNN(AbstractAlgorithm):
 
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
-        self.model = KNeighborsRegressor(n_neighbors=int(0.3*len(X)), n_jobs=-1)  # use all processors
+        self.model = KNeighborsRegressor(n_neighbors=int(np.ceil(0.3*len(X))), n_jobs=-1)  # use all processors
         self.model.fit(X, Y.squeeze())
 
     def predict(self, X):
