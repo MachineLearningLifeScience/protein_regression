@@ -6,7 +6,7 @@ from os.path import join, dirname
 from data.get_alphabet import get_alphabet
 from data.load_augmentation import load_augmentation
 from util.aa2int import map_alphabets
-from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM, VAE_DENSITY, VAE_AUX
+from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM, VAE_DENSITY, VAE_AUX, VAE_RAND
 
 base_path = join(dirname(__file__), "files")
 
@@ -55,68 +55,19 @@ def load_transformer(name: str, desired_alphabet=None) -> Tuple[np.ndarray, np.n
     return X, Y
 
 
-def load_vae(name: str) -> Tuple[np.ndarray, np.ndarray]:
+def load_vae(name: str, vae_suffix: str) -> Tuple[np.ndarray, np.ndarray]:
+    if name not in ["1FQG", "BRCA", "CALM", "MTH3", "TIMB", "UBQT", "TOXI"]:
+        raise ValueError("Unknown dataset: %s" % name)
     if name == "1FQG":
-        d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "blat_VAE_reps.pkl"), "rb"))
-    elif name == "BRCA":
-        d = pickle.load(open(join(base_path, "brca_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "brca_VAE_reps.pkl"), "rb"))
-    elif name == "CALM":
-        d = pickle.load(open(join(base_path, "calm_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "calm_VAE_reps.pkl"), "rb"))
-    elif name == "MTH3":
-        d = pickle.load(open(join(base_path, "mth3_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "mth3_VAE_reps.pkl"), "rb"))
-    elif name == "TIMB":
-        d = pickle.load(open(join(base_path, "timb_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "timb_VAE_reps.pkl"), "rb"))
-    elif name == "UBQT":
-        d = pickle.load(open(join(base_path, "ubqt_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "ubqt_VAE_reps.pkl"), "rb"))
-    elif name == "TOXI":
-        d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
+        name = "blat"
+    df_filename = f"{name.lower()}_seq_reps_n_phyla.pkl"
+    vae_filename = f"{name.lower()}_{vae_suffix}.pkl"
+    d = pickle.load(open(join(base_path, df_filename), "rb"))
+    idx = np.logical_not(np.isnan(d["assay"]))
+    Y = np.vstack(d["assay"].loc[idx])
+    X = pickle.load(open(join(base_path, vae_filename), "rb"))[idx[idx==True].index]
+    if name == "toxi": # TODO make X selection more elegant!
         X = np.load(join(base_path, "toxi_VAE_reps.npy"))[idx]
-    else:
-        raise ValueError("Unknown dataset: %s" % name)
-    return X, Y
-
-
-def load_aux_vae(name: str) -> Tuple[np.ndarray, np.ndarray]:
-    if name == "1FQG":
-        d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "blat_VAE_reps_RANDOM_VAL.pkl"), "rb"))
-        X = X[idx[idx==True].index]
-    elif name == "CALM":
-        d = pickle.load(open(join(base_path, "calm_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "calm_VAE_reps_RANDOM_VAL.pkl"), "rb"))
-        X = X[idx[idx==True].index]
-    elif name == "UBQT":
-        d = pickle.load(open(join(base_path, "ubqt_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "ubqt_VAE_reps_RANDOM_VAL.pkl"), "rb"))
-        X = X[idx[idx==True].index]
-    else:
-        raise ValueError("Unknown dataset: %s" % name)
     return X, Y
 
 
@@ -179,9 +130,11 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
         if representation == TRANSFORMER:
             X, Y = load_transformer(name)
         elif representation == VAE:
-            X, Y = load_vae(name)
+            X, Y = load_vae(name, vae_suffix="VAE_reps")
         elif representation == VAE_AUX:
-            X, Y = load_aux_vae(name)
+            X, Y = load_vae(name, vae_suffix="AUX_VAE_reps_RANDOM_VAL")
+        elif representation == VAE_RAND:
+            X, Y = load_vae(name, vae_suffix="VAE_reps_RANDOM_VAL")
         elif representation == ESM:
             X, Y = load_esm(name)
         elif representation == VAE_DENSITY:
