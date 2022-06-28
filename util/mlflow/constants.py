@@ -34,6 +34,7 @@ ONE_HOT = "one_hot"
 TRANSFORMER = "transformer"
 VAE = "vae"
 VAE_AUX = "vae_aux"
+VAE_RAND = "vae_rand"
 NONSENSE = "nonsense"
 ESM = "esm"
 KNN_name = 'knn'
