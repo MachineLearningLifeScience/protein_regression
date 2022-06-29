@@ -33,16 +33,18 @@ class RandomSplitter(AbstractTrainTestSplitter):
 
 
 class FractionalRandomSplitter(AbstractTrainTestSplitter):
-    def __init__(self, fraction: float, seed: int = 42):
+    def __init__(self, fraction: float, seed: int = 42, n_splits=5):
         super().__init__()
         self.seed = seed
         self.fraction = fraction
+        self.n_splits = n_splits
 
     def split(self, X):
-        n_sequences = np.ceil(X.shape[0] * self.fraction)
+        N = X.shape[0]
+        n_sequences = np.ceil((N-N*(1/self.n_splits)) * self.fraction)
         train_indices = []
         test_indices = []
-        kf = KFold(n_splits=10, random_state=self.seed, shuffle=True)
+        kf = KFold(n_splits=self.n_splits, random_state=self.seed, shuffle=True)
         for train, test in kf.split(X):
             train_indices.append(train[:int(n_sequences)])
             test_indices.append(test[:int(n_sequences)])
