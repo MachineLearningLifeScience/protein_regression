@@ -18,4 +18,5 @@ python /home/pcq275/EVE/train_VAE.py \
     --VAE_checkpoint_location ${VAE_CHECKPOINT} \
     --model_parameters_location ${MODEL_PARAMETERS} \
     --training_logs_location ${VAE_CHECKPOINT}/logs/ \
-    --MSA_eights_location ${VAE_CHECKPOINT}
+    --MSA_weights_location ${VAE_CHECKPOINT} \
+    --model_name_suffix 06_22
