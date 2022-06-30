@@ -36,14 +36,18 @@ class GPonRealSpace(AbstractAlgorithm):
     def get_name(self):
         return "GP" + self.kernel_factory().name
 
-    def train(self, X, Y):
-        assert(Y.shape[1] == 1)
+    def prior(self, X, Y):
         self.gp = GPR(data=(tf.constant(X, dtype=tf.float64), tf.constant(Y, dtype=tf.float64)), kernel=self.kernel_factory(),
                       mean_function=self.mean_function, noise_variance=self.noise_variance)
         if self.gp.kernel.__class__ != Linear:
             self.gp.kernel.lengthscales = Parameter(self.init_length, transform=tfp.bijectors.Softplus(), prior=tfp.distributions.InverseGamma(to_default_float(3.0), to_default_float(3.0)))
         self.gp.kernel.variance = Parameter(self.kernel_variance, transform=tfp.bijectors.Softplus(), prior=tfp.distributions.InverseGamma(to_default_float(3.0), to_default_float(3.0)))
         self.gp.likelihood.variance = Parameter(value=self.noise_variance, transform=tfp.bijectors.Softplus(), prior=tfp.distributions.Uniform(to_default_float(0.01), to_default_float(1.0)))
+        return self.gp
+
+    def train(self, X, Y):
+        assert(Y.shape[1] == 1)
+        self.prior(X, Y)
         self._optimize()
 
     def predict(self, X):

@@ -8,13 +8,13 @@ class RandomForest(AbstractAlgorithm):
     def __init__(self):
         self.model = None
         self.optimize = False
+        self.model = RandomForestRegressor(random_state=42, n_jobs=-1)  # use all processors
 
     def get_name(self):
         return "RF"
 
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
-        self.model = RandomForestRegressor(random_state=42, n_jobs=-1)  # use all processors
         self.model.fit(X, Y.squeeze())
 
     def predict(self, X):
