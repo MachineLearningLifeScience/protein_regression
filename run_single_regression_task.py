@@ -6,6 +6,7 @@ from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 import tensorflow as tf
+import tensorflow_probability as tfp
 import mlflow
 from tqdm import tqdm
 from scipy.stats import spearmanr
@@ -20,11 +21,18 @@ from data.train_test_split import AbstractTrainTestSplitter
 from util.numpy_one_hot import numpy_one_hot_2dmat
 from util.log_uncertainty import prep_for_logdict
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, VAE_DENSITY
-from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS
-from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR, MEAN_Y, STD_Y
+from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS, NO_AUGMENT
+from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR, MEAN_Y, STD_Y, PAC_BAYES_EPS
 from util.preprocess import scale_observations
+from bound.pac_bayes_bound import alquier_bounded_regression
 from gpflow.utilities import print_summary
 from gpflow import kernels
+from gpflow.mean_functions import Zero
+from gpflow import Parameter
+from gpflow.utilities import to_default_float
+from gpflow.models import GPR
+from gpflow.utilities import print_summary
+from gpflow.kernels.linears import Linear
 from visualization.plot_training import plot_prediction_CV
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 
@@ -92,9 +100,14 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             init_len = np.max(np.abs(np.subtract(X_train[0], X_train[1])))
             eps = 0.001
             method.init_length = init_len if init_len > 0.0 else init_len+eps # if reduced on lower dim this value is too small
+        if "GP" in method.get_name():
+            _, prior_cov = method.prior(X_train, scaled_y).predict_y(X_train)
+        else: # uniform prior of observations std=1
+            _, prior_cov = np.zeros(X_train.shape[0])[:, np.newaxis], np.ones(X_train.shape[0])[:, np.newaxis]
         method.train(X_train, scaled_y)
         try:
             _mu, _unc = method.predict_f(X_test)
+            _, post_cov = method.predict(X_train)
         except tf.errors.InvalidArgumentError as _:
             warnings.warn(f"Experiment: {dataset}, rep: {representation} in d={dim} not stable, prediction failed!")
             _mu, _unc = np.full(Y_test.shape, np.nan), np.full(Y_test.shape, np.nan)
@@ -113,6 +126,10 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         mse_var = np.var(err2)
         mll = np.mean(err2 / unc / 2 + np.log(2 * np.pi * unc) / 2)
         r = spearmanr(Y_test, mu)[0]  # we do not care about the p-value
+        n = X_train.shape[0]
+        unscaled_posterior_cov = np.array(post_cov)*std_y
+        unscaled_prior_cov = np.array(prior_cov)*std_y
+        pac_epsilon = alquier_bounded_regression(post_mu=np.zeros(n), post_cov=unscaled_posterior_cov, prior_mu=np.zeros(n), prior_cov=unscaled_prior_cov, n=n, delta=0.05, loss_bound=(0, 1))
 
         if split == 1 and plot_cv:
             if "GP" in method.get_name():
@@ -126,6 +143,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         mlflow.log_metric(SPEARMAN_RHO, r, step=split)
         mlflow.log_metric(MEAN_Y, mean_y, step=split)  # record scaling information 
         mlflow.log_metric(STD_Y, std_y, step=split)
+        mlflow.log_metric(PAC_BAYES_EPS, float(pac_epsilon), step=split)
         if "GP" in method.get_name():
             mlflow.log_metric(GP_VAR, float(method.gp.kernel.variance.numpy()), step=split)
             mlflow.log_metric(GP_L_VAR, float(method.gp.likelihood.variance.numpy()), step=split)

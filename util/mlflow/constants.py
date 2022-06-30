@@ -16,6 +16,7 @@ SEVar = "SEVar"
 MLL = "MLL"
 SPEARMAN_RHO = "rho"
 OPT_SUCCESS = "opt_success"
+PAC_BAYES_EPS = "pac_bayes_epsilon"
 
 # scaling
 MEAN_Y = "mean_y_train"
