@@ -1,9 +1,11 @@
 from distutils.log import error
 import enum
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from data.load_dataset import load_dataset
-from util.mlflow.constants import LINEAR, VAE, VAE_DENSITY
+from util.mlflow.constants import LINEAR, VAE, VAE_DENSITY, ONE_HOT
+from util.mlflow.constants import MLL, MSE, SPEARMAN_RHO, PAC_BAYES_EPS
 
 def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
     c = ['darkred', 'dimgray', 'blue', 'darkorange', 'k', 'lightblue', 'green', 'purple', 'chocolate', 'red', 'lightgreen', 'indigo', 'orange', 'darkblue', 'cyan', 'olive', 'brown', 'pink']
@@ -30,8 +32,8 @@ def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
     plt.savefig('results/figures/'+f'accuracy_of_methods_d={dim}_cv_{cvtype}')
     plt.show()
 
-def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.075):
-    c = ['dimgrey', '#661100', '#332288', '#117733', "purple", "tan", "orangered"]
+def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.065):
+    c = ['dimgrey', '#661100', '#332288', '#117733', "purple", "tan", "orangered", "cyan", "hotpink"]
     plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
     filename = 'results/figures/benchmark/'+'accuracy_of_methods_barplot_'+cvtype+str(list(metric_values.keys()))
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,6))
@@ -57,7 +59,9 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
         axs[d].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
         axs[d].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
         axs[d].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[d].axvline(0.25, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
         axs[d].axvline(-0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[d].axvline(-0.25, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
         axs[d].set_yticks(list(range(len(list(metric_values[dataset_key].keys())))))
         axs[d].set_yticklabels(['' for i in range(len(list(metric_values[dataset_key].keys())))])
         axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
@@ -72,10 +76,17 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.savefig(filename)
     plt.show()
 
-def errorplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.075):
-    c = ['dimgrey', '#661100', '#332288', '#117733', "purple", "tan", "orangered"]
+def errorplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.075, plot_reference=False):
+    c = ['dimgrey', '#661100', '#332288', '#117733', "purple", "tan", "orangered", "cyan", "hotpink"]
     plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ U[0.01, 1.0]'
     filename = 'results/figures/benchmark/'+'correlation_of_methods_errorbar_'+cvtype+str(list(metric_values.keys()))
+    if plot_reference:
+        ref_df = pd.read_excel("data/riesselman_ref/41592_2018_138_MOESM6_ESM.xlsx")
+        ref_dict = {"1FQG": ref_df[ref_df.dataset=="BLAT_ECOLX_Ranganathan2015"].spearmanr_VAE.values[0],
+                    "UBQT": ref_df[ref_df.dataset=="RL401_YEAST_Bolon2013"].spearmanr_VAE.values[0],
+                    "MTH3": ref_df[ref_df.protein=="MTH3_HAEAESTABILIZED"].spearmanr_VAE.values[0],
+                    #"BRCA": ref_df[ref_df.dataset=="BRCA1_HUMAN_Fields2015" & ref_df.feature=="hdr"].spearmanr_VAE.values[0],
+                    }
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,6))
     axs = np.ravel(ax)
     reps = []
@@ -91,10 +102,16 @@ def errorplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, h
                 rho_mean = np.mean(rho_list)
                 error_on_mean = np.std(rho_list, ddof=1)/np.sqrt(len(rho_list))
                 axs[d].errorbar(rho_mean, i+seps[j], xerr=error_on_mean, label=rep, color=c[j], mec='black', ms=8, capsize=5)
+        if plot_reference and ref_dict.get(dataset_key):
+            axs[d].vlines(ref_dict.get(dataset_key), seps[0], len(metric_values[dataset_key].keys())+seps[-1], colors="k", linestyles="dotted", label="DeepSequence")
         axs[d].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
         axs[d].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
         axs[d].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[d].axvline(0.25, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[d].axvline(0.75, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
         axs[d].axvline(-0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[d].axvline(-0.25, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[d].axvline(-0.75, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
         axs[d].set_yticks(list(range(len(list(metric_values[dataset_key].keys())))))
         axs[d].set_yticklabels(['' for i in range(len(list(metric_values[dataset_key].keys())))])
         axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
@@ -162,7 +179,7 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
 
 
 def plot_optimization_task(metric_values: dict, name: str, max_iterations=500):
-    c = ['dimgrey', '#661100', '#332288']
+    c = ['dimgrey', '#661100', '#332288', '#117733', 'cyan', 'deeppink']
     plt.figure()
     for d, dataset_key in enumerate(metric_values.keys()):
         algos = []
@@ -176,7 +193,7 @@ def plot_optimization_task(metric_values: dict, name: str, max_iterations=500):
                 plt.plot(means, color=c[i], label=algo, linewidth=2)
                 plt.fill_between(list(range(len(means))), means-stds, means+stds, color=c[i], alpha=0.5)
                 if 'best' in name.lower():
-                    _, Y = load_dataset(dataset_key, representation=rep)
+                    _, Y = load_dataset(dataset_key, representation=ONE_HOT)
                     plt.hlines(min(Y), 0, len(means), linestyles='--', colors='dimgrey')
     plt.xlabel('Iterations', size=16)
     plt.ylabel('observed value', size=16)
@@ -190,3 +207,54 @@ def plot_optimization_task(metric_values: dict, name: str, max_iterations=500):
     plt.tight_layout()
     plt.savefig('results/figures/optim/'+name+'_optimization_plot')
     plt.show()
+
+
+def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMAN_RHO]):
+    c = ['dimgrey', '#661100', '#332288', '#117733', 'cyan', 'deeppink']
+    data_fractions = list(metrics_values.keys())
+    dataset = list(metrics_values[data_fractions[0]].keys())[0]
+    methods = list(metrics_values[data_fractions[0]][dataset].keys())
+    representations = list(metrics_values[data_fractions[0]][dataset][methods[0]].keys())
+    # metrics = list(metrics_values[data_fractions[0]][dataset][methods[0]][representations[0]][None].keys())
+    for metric in metrics:
+        observations = {m: {'mean': [], 'std': [], 'eps': []} for m in methods}
+        for fraction in data_fractions:
+            for method in methods:
+                for representation in representations:
+                    _metric = metrics_values[fraction][dataset][method][representation][None][metric]
+                    if metric == MSE: # compute positive 1-NMSE:
+                        mean_metric = np.clip(1-np.mean(_metric), 0, 1)
+                    elif metric == SPEARMAN_RHO:
+                        mean_metric = np.clip(np.mean(_metric), 0, 1)
+                    else:
+                        mean_metric = np.mean(_metric)
+                    # TODO: STD calculated w.r.t. clipped metric?
+                    std_metric = np.std(metrics_values[fraction][dataset][method][representation][None][metric])/np.sqrt(len(_metric))
+                    observations[method]['mean'].append(mean_metric)
+                    observations[method]['std'].append(std_metric)
+                    if metric is MSE or metric is SPEARMAN_RHO:
+                        epsilon_observation = np.mean(metrics_values[fraction][dataset][method][representation][None][PAC_BAYES_EPS])
+                        observations[method]['eps'].append(epsilon_observation)
+        fig, ax = plt.subplots(2)
+        for i, method in enumerate(methods):
+            # TODO: keep index of NaNs and annotate with stars?
+            y = np.nan_to_num(np.array(observations[method]['mean']))
+            yerr = np.nan_to_num(np.array(observations[method]['std']))
+            eps = np.nan_to_num(np.array(observations[method]['eps']))
+            ax[0].errorbar(data_fractions, y, yerr=yerr, color=c[i], label=method)
+            if metric == MLL:
+                ax[0].set_yscale('log')
+            if metric in [MSE, SPEARMAN_RHO] and method not in ['RF', 'KNN']:
+                ax[0].fill_between(data_fractions, y+eps, y-eps, alpha=0.25, color=c[i], label=r"PAC $\lambda$-bound $\delta$=.05")
+                ax[0].set_ylim((0, 1))
+            ax[1].plot(data_fractions, np.cumsum(y), color=c[i], label=method)
+            if metric == MLL:
+                ax[1].set_yscale('log')
+        ax[0].set_xlabel('fraction of N')
+        ax[0].set_ylabel(f'{metric}')
+        ax[1].set_ylabel(f'cumulative {metric}')
+        plt.suptitle(f"{dataset}: {metric} on {representation} \n over training-fractions")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric}_{representation}.png')
+        plt.show()
