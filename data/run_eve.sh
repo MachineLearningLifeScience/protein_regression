@@ -4,12 +4,12 @@ conda activate eve_env
 /home/pcq275/mount_erda.sh
 
 MNT_DIR=/home/pcq275/mnt
-MSA_DIR=${MNT_DIR}
+MSA_DIR=${MNT_DIR}/alignments
 MSA_LIST=${MNT_DIR}/eve_mappings.csv
 VAE_CHECKPOINT=${MNT_DIR}/eve_checkpoint
 MODEL_PARAMETERS=/home/pcq275/EVE/EVE/default_model_params.json
 
-idx=0
+idx=6
 
 python /home/pcq275/EVE/train_VAE.py \
     --MSA_data_folder ${MSA_DIR} \
