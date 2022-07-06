@@ -6,6 +6,9 @@ __pycache__
 # mmseq temp directory
 data/tmp/*
 
+# deep sequence data
+data/deep_sequence/*
+
 #Mlflow output
 mlruns/
 bak_mlruns/

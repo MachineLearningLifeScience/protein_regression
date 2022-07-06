@@ -9,7 +9,7 @@ MSA_LIST=${MNT_DIR}/eve_mappings.csv
 VAE_CHECKPOINT=${MNT_DIR}/eve_checkpoint
 MODEL_PARAMETERS=/home/pcq275/EVE/EVE/default_model_params.json
 
-idx=6
+idx=7
 
 python /home/pcq275/EVE/train_VAE.py \
     --MSA_data_folder ${MSA_DIR} \

@@ -31,3 +31,11 @@ def get_alphabet(name: str):
         data_alphabet = {a: i for (i, a) in data_alphabet}
         return data_alphabet
     raise ValueError("Unknown dataset: %s" % name)
+
+
+def get_eve_alphabet():
+    """
+    Alphabet as used in EVE data preprocessing.
+    See https://github.com/OATML-Markslab/EVE/blob/460d70efeeeded58bc69227a203540d68953ae88/utils/data_utils.py#L44
+    """
+    return "ACDEFGHIKLMNPQRSTVWY"
