@@ -10,7 +10,7 @@ from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.uncertain_rf import UncertainRandomForest
 from algorithms.random_forest import RandomForest
 from algorithms.KNN import KNN
-from util.mlflow.constants import DATASET, METHOD, MSE, REPRESENTATION, STD_Y, TRANSFORMER, VAE, VAE_DENSITY 
+from util.mlflow.constants import DATASET, METHOD, MSE, REPRESENTATION, STD_Y, TRANSFORMER, VAE, VAE_DENSITY, ESM
 from util.mlflow.constants import SPLIT, ONE_HOT, NONSENSE, KNN_name, SEED, OPTIMIZATION, EXPERIMENT_TYPE, OBSERVED_Y
 from util.mlflow.convenience_functions import get_mlflow_results_optimization
 from data.load_dataset import load_dataset
@@ -18,12 +18,12 @@ from visualization.plot_metric_for_dataset import plot_optimization_task
 from visualization.plot_metric_for_uncertainties import plot_uncertainty_optimization
 
 # gathers all our results and saves them into a numpy array
-datasets = ["1FQG"]
-representations = [TRANSFORMER]
-seeds = [11, 42, 123, 54] # 11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245
+datasets = ["TOXI"]
+representations = [ESM] # TRANSFORMER
+seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245] # 11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245
 #seeds = [11]
 
-algos = [GPonRealSpace(kernel_factory=lambda: SquaredExponential()).get_name(), 
+algos = [GPonRealSpace(kernel_factory=lambda: Matern52()).get_name(), 
         GPonRealSpace(kernel_factory=lambda: Linear()).get_name(), 
         UncertainRandomForest().get_name()]
 
@@ -92,4 +92,4 @@ plot_optimization_task(metric_values=meanObs_dict, name=f'Mean_observed_{represe
 plot_optimization_task(metric_values=lastObs_dict, name=f'Last_observed_{representations}_{datasets}')
 
 plot_uncertainty_optimization(dataset=datasets[0], algos=[GPonRealSpace(kernel_factory=lambda: SquaredExponential()).get_name(), UncertainRandomForest().get_name()], 
-                                rep=representations[0], seeds=seeds, number_quantiles=10, stepsize=1, min_obs_metrics=minObs_dict, regret_metrics=regret_dict)
+                                rep=representations[0], seeds=seeds, number_quantiles=10, stepsize=2, min_obs_metrics=minObs_dict, regret_metrics=regret_dict)
