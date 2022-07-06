@@ -38,10 +38,11 @@ def plot_cumulative_comparison(datasets: List[str],
 
 if __name__ == "__main__":
     datasets = ["1FQG"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
-    algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(),
-             UncertainRandomForest().get_name()]
+    algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(), 
+        #GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), 
+        UncertainRandomForest().get_name()]
     metrics = [MLL, MSE, SPEARMAN_RHO, PAC_BAYES_EPS] # MSE
-    representations = [ESM] # # SPECIAL CASE [UBQT, BLAT]: VAE+"_clusterval" 
+    representations = [ESM] # SPECIAL CASE [UBQT, BLAT]: VAE+"_clusterval" 
     dim = None
     dim_reduction = LINEAR # LINEAR, NON_LINEAR
     
