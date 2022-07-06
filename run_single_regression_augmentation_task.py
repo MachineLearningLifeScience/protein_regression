@@ -34,6 +34,8 @@ def run_single_augmentation_task(dataset: str, representation: str, method_key: 
     seq_len = X.shape[1]
     A /= seq_len
 
+    # TODO: augmentation task: add additive weighted kernel value from Rosetta, dELBO value
+
     X, Y = load_dataset(dataset, representation=representation)
     if missed_assay_indices is not None and len(A) != len(X):
         X = np.delete(X, missed_assay_indices, axis=0) 

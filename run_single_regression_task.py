@@ -15,6 +15,7 @@ import warnings
 from typing import Tuple
 
 from algorithm_factories import ALGORITHM_REGISTRY
+from protocol_factories import PROTOCOL_REGISTRY
 from data.load_augmentation import load_augmentation
 from data.load_dataset import load_dataset, get_alphabet
 from data.train_test_split import AbstractTrainTestSplitter
@@ -57,15 +58,14 @@ def _dim_reduce_X(dim: int, dim_reduction: str, X_train: np.ndarray, Y_train: np
     return X_train, reducer
 
 
-def run_single_regression_task(dataset: str, representation: str, method_key: str, train_test_splitter: AbstractTrainTestSplitter, augmentation: str, 
-                                dim: int=None, dim_reduction=NON_LINEAR, plot_cv=False):
+def run_single_regression_task(dataset: str, representation: str, method_key: str, protocol: AbstractTrainTestSplitter, 
+                                augmentation: str, dim: int=None, dim_reduction=NON_LINEAR, plot_cv=False):
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     # load X for CV splitting
     X, Y = load_dataset(dataset, representation=ONE_HOT)
     seq_len = X.shape[1]
-    train_indices, _, test_indices = train_test_splitter.split(X)
+    train_indices, _, test_indices = protocol.split(X)
     X, Y = load_dataset(dataset, representation=representation)
-    
     if representation is ONE_HOT:
         X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
         # normalize by sequence length
@@ -74,7 +74,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
     tags = {DATASET: dataset, 
             METHOD: method.get_name(), 
             REPRESENTATION: representation,
-            SPLIT: train_test_splitter.get_name(), 
+            SPLIT: protocol.get_name(), 
             AUGMENTATION: augmentation,
             "OPTIMIZE": method.optimize,
             }
