@@ -33,6 +33,7 @@ GP_D_PRIOR = "data_prior"
 # representations
 ONE_HOT = "one_hot"
 TRANSFORMER = "transformer"
+EVE = "eve"
 VAE = "vae"
 VAE_AUX = "vae_aux"
 VAE_RAND = "vae_rand"

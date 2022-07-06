@@ -69,7 +69,7 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                     if rep:
                         filter_string += f" and tags.{REPRESENTATION} = '{rep}'"
                     if train_test_splitter:
-                        filter_string += f" and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}'"
+                        filter_string += f" and tags.{SPLIT} = '{train_test_splitter.get_name()}'"
                     if aug:
                         filter_string += f" and tags.{AUGMENTATION} = '{aug}'"
                     if dim and not (rep==VAE and dim >= 30):
@@ -114,7 +114,7 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
                 for aug in augmentation:
                     filter_string = f"tags.{DATASET} = '{dataset}' and tags.{METHOD} = '{a}' and tags.{REPRESENTATION} = '{rep}'"
                     if train_test_splitter:
-                        filter_string += f" and tags.{SPLIT} = '{train_test_splitter(dataset).get_name()}'"
+                        filter_string += f" and tags.{SPLIT} = '{train_test_splitter.get_name()}'"
                     if 'GP' in a and not 'optimization' in experiment_ids[0]:
                         filter_string += f" and tags.OPTIMIZE = '{optimize}'"
                     if dim and not (rep==VAE and dim >= 30):
