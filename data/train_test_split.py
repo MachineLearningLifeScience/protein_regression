@@ -3,7 +3,7 @@ from builtins import ValueError
 import numpy as np
 from sklearn.model_selection import KFold
 
-from data.load_dataset import get_wildtype, load_dataset
+from data.load_dataset import get_wildtype_and_offset, load_dataset
 
 
 class AbstractTrainTestSplitter:
@@ -18,8 +18,9 @@ class AbstractTrainTestSplitter:
 
 
 class RandomSplitter(AbstractTrainTestSplitter):
-    def __init__(self, seed: int = 42):
+    def __init__(self, dataset, seed: int = 42):
         super().__init__()
+        self.dataset = dataset
         self.seed = seed
 
     def split(self, X):
@@ -33,9 +34,13 @@ class RandomSplitter(AbstractTrainTestSplitter):
 
 
 class FractionalRandomSplitter(AbstractTrainTestSplitter):
-    def __init__(self, fraction: float, seed: int = 42, n_splits=5):
+    """
+    n-fold Crossvalidation with a pct. sub-selection for training.
+    """
+    def __init__(self, dataset:str, fraction: float, seed: int = 42, n_splits=5):
         super().__init__()
         self.seed = seed
+        self.dataset = dataset
         self.fraction = fraction
         self.n_splits = n_splits
 
@@ -56,11 +61,11 @@ class FractionalRandomSplitter(AbstractTrainTestSplitter):
 
 
 class BioSplitter(AbstractTrainTestSplitter):
-    def __init__(self, dataset, n_mutations_threshold: int=4, inverse=False):
+    def __init__(self, dataset, n_mutations_train: int=3, n_mutations_test: int=4):
         super().__init__()
-        self.wt = get_wildtype(dataset)
-        self.n_mutations = n_mutations_threshold
-        self.inverse = inverse
+        self.wt, _ = get_wildtype_and_offset(dataset)
+        self.n_mutations_train = n_mutations_train
+        self.n_mutations_test = n_mutations_test
     
     def split(self, X):
         """
@@ -71,16 +76,12 @@ class BioSplitter(AbstractTrainTestSplitter):
         TODO: internal multiple CV steps
         """
         diff_to_wt = np.sum(self.wt != X, axis=1)
-        X_idx_below_threshold = np.where(diff_to_wt < self.n_mutations)[0]
-        X_idx_above_equal_threshold = np.where(diff_to_wt >= self.n_mutations)[0]
-        train_indices = X_idx_below_threshold[np.newaxis, :]
-        test_indices = X_idx_above_equal_threshold[np.newaxis, :]
-        if self.inverse:
-            return test_indices, None, train_indices
+        train_indices = np.where(diff_to_wt == self.n_mutations_train)[0][np.newaxis, :]
+        test_indices = np.where(diff_to_wt == self.n_mutations_test)[0][np.newaxis, :]
         return train_indices, None, test_indices
     
     def get_name(self):
-        splitter_name = self.name if not self.inverse else "Inverse"+self.name
+        splitter_name = self.name+str(self.n_mutations_train)+"_"+str(self.n_mutations_test)
         return splitter_name
 
 
@@ -90,7 +91,7 @@ class PositionSplitter(AbstractTrainTestSplitter):
     """
     def __init__(self, dataset: str, positions: int=15):
         super().__init__()
-        self.wt = get_wildtype(dataset)
+        self.wt, _ = get_wildtype_and_offset(dataset)
         self.dataset = dataset
         self.positions = positions
 
@@ -105,7 +106,7 @@ class PositionSplitter(AbstractTrainTestSplitter):
 class BlockPostionSplitter(AbstractTrainTestSplitter):
     def __init__(self, dataset):
         super().__init__()
-        self.wt = get_wildtype(dataset)
+        self.wt, _ = get_wildtype_and_offset(dataset)
         self.pos_per_fold = pos_per_fold_assigner(dataset)
 
     def split(self, X): # TODO broken for TOXI
@@ -117,6 +118,8 @@ def positional_splitter(seqs, query_seq, val, offset, pos_per_fold):
     # to not allow info leakage just because positions are neighbours
     # Split_by_DI implements that positions are also split by direct info based on a "threshold"
     # needs an aln_path to work (fasta file)
+    # TODO: breaks unless one-hot encoding is used
+    # TODO: requires tests
     mut_pos = []
     for seq in seqs:
         mut_pos.append(np.argmax(query_seq != seq))
