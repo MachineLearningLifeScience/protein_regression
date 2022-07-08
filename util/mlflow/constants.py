@@ -50,5 +50,6 @@ OBSERVED_Y = "OBSERVED_Y"
 
 # augmentation
 VAE_DENSITY = "vae_density"
+EVE_DENSITY = "eve_density"
 ROSETTA = "rosetta"
 NO_AUGMENT = "None"
