@@ -11,7 +11,7 @@ from algorithms.abstract_algorithm import AbstractAlgorithm
 from util.preprocess import scale_observations
 from data.load_dataset import load_dataset, get_alphabet
 from util.numpy_one_hot import numpy_one_hot_2dmat
-from data.load_augmentation import load_augmentation
+from data.load_dataset import load_augmentation
 from data.train_test_split import AbstractTrainTestSplitter
 from util.log_uncertainty import prep_for_logdict
 from algorithm_factories import ALGORITHM_REGISTRY

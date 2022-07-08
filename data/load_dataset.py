@@ -6,9 +6,9 @@ import pickle
 from typing import Tuple
 from os.path import join, dirname
 from data.get_alphabet import get_alphabet
-from data.load_augmentation import load_augmentation
 from util.aa2int import map_alphabets
-from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM, EVE, VAE_DENSITY, VAE_AUX, VAE_RAND
+from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM, EVE
+from util.mlflow.constants import VAE_DENSITY, VAE_AUX, VAE_RAND, EVE_DENSITY, ROSETTA
 
 base_path = join(dirname(__file__), "files")
 
@@ -178,9 +178,9 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
         elif representation == EVE:
             X, Y = load_eve(name)
         elif representation == VAE_DENSITY:
-            if name not in ["1FQG", "BRCA", "CALM", "MTH3", "TIMB", "UBQT", "TOXI"]:
-                raise ValueError(f"Unknown dataset: {name}")
             X, Y, _ = load_augmentation(name=name, augmentation=VAE_DENSITY)
+        elif representation == EVE_DENSITY:
+            X, Y, _ = load_augmentation(name=name, augmentation=EVE_DENSITY)
         elif representation == NONSENSE:
             X, Y = load_nonsense(name)
         else:
@@ -227,6 +227,8 @@ def get_wildtype_and_offset(name: str) -> Tuple[str, int]:
     elif name == "TOXI":
         d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
         sequence_offset = __parse_sequence_offset_from_alignment("alignments/parEparD_3.a2m")
+        # special case parD (F7YBW8) anti-toxin: MSA contains F7YBW7 sequence prior, that is 103 long -> offset 103
+        sequence_offset += 103
         wt = np.array(d[d.mutant=="wt"].seqs.values[0]).astype(np.int64)
     else:
         raise ValueError("Unknown dataset: %s" % name)
@@ -239,6 +241,27 @@ def __parse_sequence_offset_from_alignment(alignment_filename: str):
     seq_range = re.findall(r"\b\d+-\d+\b", wt_alignment)[0]
     start_idx = int(seq_range.split("-")[0]) - 1
     return start_idx
+
+
+def compute_mutations_csv_from_observations(observations_file: str, offset: int=0) -> None:
+    """
+    Read in observation CSV, parse mutations from observation CSV to 'mutations' column csv, required by EVE.
+    DeepSequence reference data had 'mutant' column. ProteinGym has 'mutations' and 'mutant'
+    Adjust by optional offset - required to compute TOXI: ParD mutations
+    """
+    obs_df = pd.read_csv(observations_file, sep=";")
+    m_column = 'mutations' if 'mutations' in obs_df.columns else 'mutant'
+    mutation_dict = {'mutations': []}
+    for mut in obs_df[m_column]:
+        if mut == "wt":
+            continue
+        _mut = mut.split(":") # parse multi-mutants
+        mutation = ["".join([m[0], str(int(m[1:-1])+offset), m[-1]]) for m in _mut]
+        mutation_dict['mutations'].append(":".join(mutation))
+    out_filename = observations_file.split("_")[0] + "_mutations.csv"
+    print(f"writing: {out_filename}")
+    pd.DataFrame(mutation_dict).to_csv(out_filename, index=False)
+    
 
 
 def __load_df(name: str, x_column_name: str):
@@ -293,4 +316,115 @@ def make_debug_se_dataset():
     Y = L @ np.random.randn(X.shape[0], 1)
     np.random.seed(restore_seed)
     return X, Y
+
+
+def load_augmentation(name: str, augmentation: str):
+    if augmentation == ROSETTA:
+        if name not in ["1FQG", "CALM", "UBQT"]:
+            raise ValueError("Unknown dataset: %s" % name)
+        if name == "1FQG":
+            A, Y, idx_miss = __load_rosetta_df(name="BLAT")
+        else:
+            A, Y, idx_miss = __load_rosetta_df(name=name.upper())
+    elif augmentation == VAE_DENSITY:
+        if name not in ["1FQG", "CALM", "UBQT"]:
+            raise ValueError("Unknown dataset: %s" % name)
+        if name == "1FQG":
+            name = "BLAT"
+        A, Y, idx_miss = __load_vae_df(name=name.upper())
+    elif augmentation == EVE_DENSITY:
+        if name not in ["1FQG", "CALM", "UBQT", "BRCA", "TIMB", "MTH3", "TOXI"]:
+            raise ValueError("Unknown dataset: %s" % name)
+        if name == "1FQG":
+            name = "BLAT"
+        A, Y, idx_miss = __load_eve_df(name=name.upper())
+    else:
+        raise NotImplementedError(f"Augmentation {augmentation} | {name} not implemented !")
+    return A.astype(np.float64) , -Y.astype(np.float64), idx_miss
+
+
+def __load_assay_df(name: str):
+    df = pickle.load(open(join(base_path, "{}_data_df.pkl".format(name.lower())), "rb"))
+    idx_array = np.logical_not(np.isnan(df["assay"]))
+    df = df[idx_array]
+    wt_sequence, offset = get_wildtype_and_offset(name)
+    if "mutant" in df.columns:
+        df = df[df.mutant.str.lower() != "wt"]
+        if df.mutant.str.contains(":").any():
+            df["last_mutation_position"] = df.mutant.apply(lambda x: x.split(":")[-1][1:-1]).astype(int) + offset
+            df["mut_aa"] = df.mutant.apply(lambda x: x.split(":")[-1][-1])
+        else:
+            df["last_mutation_position"] = df.mutant.str.slice(1, -1).astype(int) + offset
+            df["mut_aa"] = df.mutant.str.slice(-1)
+    else: # translate last mutational variants from sequence information
+        df["seq_AA"] = [[alphabet.get(int(elem)) for elem in seq] for seq in df.seqs]
+        # we infer the mutations by reference to its first sequence
+        # idx adjusted +1 for comparability 
+        alphabet = dict((v, k) for k,v in get_alphabet(name=name).items())
+        df["mutation_idx"] = [[idx+1+offset for idx in range(len(wt_sequence)) if df.seq_AA[obs][idx] != wt_sequence[idx]] 
+                                  for obs in range(len(df))]
+        df["last_mutation_position"] = [int(mut[-1]) if mut else 0 for mut in df.mutation_idx]
+        # we use the LAST mutation value (-1) from the index,in case of multi-mutation values in there
+        df["mut_aa"] = [sequence[(int(mutations[-1])-1)] for sequence, mutations in 
+                                    zip(df.seq_AA, df.mutation_idx)]
+    return df
+
+
+def __load_rosetta_df(name: str):
+    """
+    Load persisted DataFrames and join Rosetta simulations on mutations.
+    returns 
+        X: np.ndarray : DDG simulation values, v-stacked array
+        Y: np.ndarray : observation array values
+    """
+    rosetta_df = pd.read_csv(join(base_path, "{}_single_mutation_rosetta.csv".format(name.lower())))
+    rosetta_df["DDG"] = rosetta_df.DDG.astype(float)
+    df = __load_assay_df(name)
+    joined_df = pd.merge(rosetta_df, df, how="right", left_on=["position", "mut_aa"], 
+                                            right_on=["last_mutation_position", "mut_aa"], 
+                                            suffixes=('_rosetta', '_assay'))  
+    idx_missing = joined_df['DDG'].index[joined_df['DDG'].apply(np.isnan)]
+    joined_df = joined_df.dropna(subset=["assay", "DDG"])                             
+    A = np.vstack(joined_df["DDG"])  
+    Y = np.vstack(joined_df["assay"])
+    return A, -Y, idx_missing # select only matching data
+
+
+def __load_vae_df(name: str):
+    with open(join(base_path, "vae_results.pkl"), "rb") as infile:
+        vae_data = pickle.load(infile).get(name.lower())
+    assay_df = __load_assay_df(name)
+    A = np.vstack(vae_data)
+    Y = np.vstack(assay_df["assay"])
+    return A, -Y, None
+
+
+def __load_eve_df(name: str):
+    df = pd.read_csv(join(base_path, f"EVE_{name}_2000_samples.csv"))
+    assert df.iloc[0].evol_indices == 0.0
+    df = df.iloc[1:] # drop WT - should be zero/NaN for observations and zero for EVE computation
+    assay_df = __load_assay_df(name)
+    multivariates = df.mutations.str.contains(":").any()
+    _, offset = get_wildtype_and_offset(name)
+    if multivariates:
+        adjusted_mutations = []
+        for mutant in assay_df.mutant:
+            _m = []
+            for mut in mutant.split(":"):
+                from_aa, m_idx, to_aa = mut[0], mut[1:-1], mut[-1]
+                _m.append(from_aa + str(int(m_idx)+offset)+ to_aa)
+            adjusted_mutations.append(":".join(_m))
+        assay_df["adjusted_mutations"] = adjusted_mutations
+        joined_df = pd.merge(df, assay_df, how="right", left_on=["mutations"], 
+                                                right_on=["adjusted_mutations"])
+    else:
+        df["last_mutation_position"] = df.mutations.str.slice(1, -1).astype(int)
+        df["mut_aa"] = df.mutations.str.slice(-1)
+        joined_df = pd.merge(df, assay_df, how="right", left_on=["last_mutation_position", "mut_aa"], 
+                                                right_on=["last_mutation_position", "mut_aa"])
+    joined_df = joined_df.dropna(subset=["assay", "evol_indices"])
+    # add WT                
+    A = np.vstack(joined_df['evol_indices'])
+    Y = np.vstack(joined_df['assay'])
+    return A, -Y, None
 
