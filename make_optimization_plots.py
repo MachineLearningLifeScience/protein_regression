@@ -10,7 +10,7 @@ from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.uncertain_rf import UncertainRandomForest
 from algorithms.random_forest import RandomForest
 from algorithms.KNN import KNN
-from util.mlflow.constants import DATASET, METHOD, MSE, REPRESENTATION, STD_Y, TRANSFORMER, VAE, VAE_DENSITY, ESM
+from util.mlflow.constants import DATASET, METHOD, MSE, REPRESENTATION, STD_Y, TRANSFORMER, VAE, VAE_DENSITY, EVE_DENSITY, ESM
 from util.mlflow.constants import SPLIT, ONE_HOT, NONSENSE, KNN_name, SEED, OPTIMIZATION, EXPERIMENT_TYPE, OBSERVED_Y
 from util.mlflow.convenience_functions import get_mlflow_results_optimization
 from data.load_dataset import load_dataset
@@ -18,17 +18,19 @@ from visualization.plot_metric_for_dataset import plot_optimization_task
 from visualization.plot_metric_for_uncertainties import plot_uncertainty_optimization
 
 # gathers all our results and saves them into a numpy array
-datasets = ["TOXI"]
-representations = [ESM] # TRANSFORMER
+datasets = ["1FQG"]
+representations = [TRANSFORMER] # TRANSFORMER
 seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245] # 11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245
 #seeds = [11]
+reference_benchmark_rep = [EVE_DENSITY] # option: VAE_DENSITY
 
 algos = [GPonRealSpace(kernel_factory=lambda: Matern52()).get_name(), 
         GPonRealSpace(kernel_factory=lambda: Linear()).get_name(), 
         UncertainRandomForest().get_name()]
 
 results = get_mlflow_results_optimization(datasets=datasets, algos=algos, reps=representations, metrics=[OBSERVED_Y, STD_Y], seeds=seeds)
-reference_results = get_mlflow_results_optimization(datasets=datasets, algos=[VAE_DENSITY], reps=[None], metrics=[OBSERVED_Y])
+# benchmark against VAE scored sorted list
+reference_results = get_mlflow_results_optimization(datasets=datasets, algos=reference_benchmark_rep, reps=[None], metrics=[OBSERVED_Y])
 
 def compute_metrics_optimization_results(results: dict, datasets: list=datasets, algos: list=algos, representations: list=representations, seeds: list=seeds) -> Tuple[dict, dict, dict, dict]:
     minObs_dict = {}
@@ -78,12 +80,12 @@ def compute_metrics_optimization_results(results: dict, datasets: list=datasets,
     return minObs_dict, regret_dict, meanObs_dict, lastObs_dict
        
 minObs_dict, regret_dict, meanObs_dict, lastObs_dict = compute_metrics_optimization_results(results)
-ref_minObs_dict, ref_regret_dict, ref_meanObs_dict, ref_lastObs_dict = compute_metrics_optimization_results(reference_results, algos=[VAE_DENSITY], representations=[None], seeds=[None])
+ref_minObs_dict, ref_regret_dict, ref_meanObs_dict, ref_lastObs_dict = compute_metrics_optimization_results(reference_results, algos=reference_benchmark_rep, representations=[None], seeds=[None])
 # add reference to results
-minObs_dict[datasets[0]][VAE_DENSITY] = ref_minObs_dict[datasets[0]][VAE_DENSITY]
-regret_dict[datasets[0]][VAE_DENSITY] = ref_regret_dict[datasets[0]][VAE_DENSITY]
-meanObs_dict[datasets[0]][VAE_DENSITY] = ref_meanObs_dict[datasets[0]][VAE_DENSITY]
-lastObs_dict[datasets[0]][VAE_DENSITY] = ref_lastObs_dict[datasets[0]][VAE_DENSITY]
+minObs_dict[datasets[0]][reference_benchmark_rep[0]] = ref_minObs_dict[datasets[0]].get(reference_benchmark_rep[0])
+regret_dict[datasets[0]][reference_benchmark_rep[0]] = ref_regret_dict[datasets[0]].get(reference_benchmark_rep[0])
+meanObs_dict[datasets[0]][reference_benchmark_rep[0]] = ref_meanObs_dict[datasets[0]].get(reference_benchmark_rep[0])
+lastObs_dict[datasets[0]][reference_benchmark_rep[0]] = ref_lastObs_dict[datasets[0]].get(reference_benchmark_rep[0])
 
 
 plot_optimization_task(metric_values=minObs_dict, name=f'Best_observed_{representations}_{datasets}')
@@ -91,5 +93,4 @@ plot_optimization_task(metric_values=regret_dict, name=f'Regret_{representations
 plot_optimization_task(metric_values=meanObs_dict, name=f'Mean_observed_{representations}_{datasets}')
 plot_optimization_task(metric_values=lastObs_dict, name=f'Last_observed_{representations}_{datasets}')
 
-plot_uncertainty_optimization(dataset=datasets[0], algos=[GPonRealSpace(kernel_factory=lambda: SquaredExponential()).get_name(), UncertainRandomForest().get_name()], 
-                                rep=representations[0], seeds=seeds, number_quantiles=10, stepsize=2, min_obs_metrics=minObs_dict, regret_metrics=regret_dict)
+plot_uncertainty_optimization(dataset=datasets[0], algos=algos, rep=representations[0], seeds=seeds, number_quantiles=10, stepsize=2, min_obs_metrics=minObs_dict, regret_metrics=regret_dict)
