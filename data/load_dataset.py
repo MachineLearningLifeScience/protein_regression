@@ -135,7 +135,6 @@ def load_eve(name) -> Tuple[np.ndarray, np.ndarray]:
     observed_d = d.loc[idx].copy()
     mut_idx = __get_mutation_idx(name, observed_d)
     observed_d["mutations"] = mut_idx
-    Y = np.vstack(d["assay"].loc[idx])
     if name == "1FQG":
         name = "blat"
     if name == "BRCA":
@@ -143,6 +142,7 @@ def load_eve(name) -> Tuple[np.ndarray, np.ndarray]:
     eve_df = pd.read_csv(join(base_path, f"EVE_{name.upper()}_2000_samples.csv"))
     merged_df_eve_observations = pd.merge(observed_d, eve_df, on="mutations")
     latent_z = merged_df_eve_observations['mean_latent_dim'].tolist()
+    Y = np.vstack(merged_df_eve_observations["assay"]) # select assay observations for which merged
     if len(latent_z) != len(Y):
         warnings.warn(f"no. EVE mutants {len(latent_z)} != no. observations {len(Y)}! \n Diff: {len(Y)-len(latent_z)} ...")
         Y = np.vstack(merged_df_eve_observations['assay'])
@@ -199,7 +199,7 @@ def get_wildtype_and_offset(name: str) -> Tuple[str, int]:
     Get encoded wildtype from sequence alignment.
     Get offset with respect to wild-type sequence from alignment FASTA identifier.
     """
-    if name == "1FQG":  # beta-lactamase
+    if name == "1FQG" or name == "BLAT":  # beta-lactamase
         d = pickle.load(open(join(base_path, "blat_data_df.pkl"), "rb"))
         sequence_offset = __parse_sequence_offset_from_alignment("alignments/BLAT_ECOLX_hmmerbit_plmc_n5_m30_f50_t0.2_r24-286_id100_b105.a2m")
         wt = d['seqs'][0].astype(np.int64)
@@ -340,11 +340,12 @@ def load_augmentation(name: str, augmentation: str):
         A, Y, idx_miss = __load_eve_df(name=name.upper())
     else:
         raise NotImplementedError(f"Augmentation {augmentation} | {name} not implemented !")
-    return A.astype(np.float64) , -Y.astype(np.float64), idx_miss
+    return A.astype(np.float64) , Y.astype(np.float64), idx_miss
 
 
 def __load_assay_df(name: str):
     df = pickle.load(open(join(base_path, "{}_data_df.pkl".format(name.lower())), "rb"))
+    alphabet = dict((v, k) for k,v in get_alphabet(name=name).items())
     idx_array = np.logical_not(np.isnan(df["assay"]))
     df = df[idx_array]
     wt_sequence, offset = get_wildtype_and_offset(name)
@@ -357,16 +358,13 @@ def __load_assay_df(name: str):
             df["last_mutation_position"] = df.mutant.str.slice(1, -1).astype(int) + offset
             df["mut_aa"] = df.mutant.str.slice(-1)
     else: # translate last mutational variants from sequence information
-        df["seq_AA"] = [[alphabet.get(int(elem)) for elem in seq] for seq in df.seqs]
+        df.reset_index(inplace=True)
         # we infer the mutations by reference to its first sequence
         # idx adjusted +1 for comparability 
-        alphabet = dict((v, k) for k,v in get_alphabet(name=name).items())
-        df["mutation_idx"] = [[idx+1+offset for idx in range(len(wt_sequence)) if df.seq_AA[obs][idx] != wt_sequence[idx]] 
-                                  for obs in range(len(df))]
+        df["mutation_idx"] = [[idx+1+offset for idx in np.argwhere(df.seqs[obs] != wt_sequence)[0]] for obs in range(len(df))]
         df["last_mutation_position"] = [int(mut[-1]) if mut else 0 for mut in df.mutation_idx]
         # we use the LAST mutation value (-1) from the index,in case of multi-mutation values in there
-        df["mut_aa"] = [sequence[(int(mutations[-1])-1)] for sequence, mutations in 
-                                    zip(df.seq_AA, df.mutation_idx)]
+        df["mut_aa"] = [alphabet.get(int(seq[idx-1-offset])) for seq, idx in zip(df.seqs, df.last_mutation_position)]
     return df
 
 
@@ -387,7 +385,7 @@ def __load_rosetta_df(name: str):
     joined_df = joined_df.dropna(subset=["assay", "DDG"])                             
     A = np.vstack(joined_df["DDG"])  
     Y = np.vstack(joined_df["assay"])
-    return A, -Y, idx_missing # select only matching data
+    return A, Y, idx_missing # select only matching data
 
 
 def __load_vae_df(name: str):
@@ -396,7 +394,7 @@ def __load_vae_df(name: str):
     assay_df = __load_assay_df(name)
     A = np.vstack(vae_data)
     Y = np.vstack(assay_df["assay"])
-    return A, -Y, None
+    return A, Y, None
 
 
 def __load_eve_df(name: str):
@@ -422,9 +420,9 @@ def __load_eve_df(name: str):
         df["mut_aa"] = df.mutations.str.slice(-1)
         joined_df = pd.merge(df, assay_df, how="right", left_on=["last_mutation_position", "mut_aa"], 
                                                 right_on=["last_mutation_position", "mut_aa"])
-    joined_df = joined_df.dropna(subset=["assay", "evol_indices"])
+    #joined_df = joined_df.dropna(subset=["assay", "evol_indices"])
     # add WT                
     A = np.vstack(joined_df['evol_indices'])
     Y = np.vstack(joined_df['assay'])
-    return A, -Y, None
+    return A, Y, None
 

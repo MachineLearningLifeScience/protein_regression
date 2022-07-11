@@ -130,10 +130,10 @@ def run_ranked_reference_task(dataset, max_iterations=500, log_interval=1, refer
     X, Y = load_dataset(dataset, representation=reference_task)
     tags = {EXPERIMENT_TYPE: OPTIMIZATION, 
             DATASET: dataset, 
-            METHOD: VAE_DENSITY,
+            METHOD: reference_task,
             OPTIMIZATION: False,}
     # sort by dELBO densities
-    sorted_idx = np.argsort(-X, axis=0)
+    sorted_idx = np.argsort(X, axis=0)
     X = X[sorted_idx, :]
     Y = Y[sorted_idx, :]
     # record experiments by dataset name and have the tags as logged parameters
