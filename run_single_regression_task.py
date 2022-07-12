@@ -13,12 +13,10 @@ from scipy.stats import spearmanr
 from umap import UMAP
 import warnings
 from typing import Tuple
-
 from algorithm_factories import ALGORITHM_REGISTRY
 from protocol_factories import PROTOCOL_REGISTRY
-from data.load_augmentation import load_augmentation
-from data.load_dataset import load_dataset, get_alphabet
-from data.train_test_split import AbstractTrainTestSplitter
+from data import load_dataset, get_alphabet, load_augmentation, get_load_function
+from data.train_test_split import AbstractTrainTestSplitter, BioSplitter, PositionSplitter
 from util.numpy_one_hot import numpy_one_hot_2dmat
 from util.log_uncertainty import prep_for_logdict
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, VAE_DENSITY
@@ -62,14 +60,25 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
                                 augmentation: str, dim: int=None, dim_reduction=NON_LINEAR, plot_cv=False):
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     # load X for CV splitting
-    X, Y = load_dataset(dataset, representation=ONE_HOT)
-    seq_len = X.shape[1]
-    train_indices, _, test_indices = protocol.split(X)
     X, Y = load_dataset(dataset, representation=representation)
+    seq_len = X.shape[1]
+
     if representation is ONE_HOT:
         X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
         # normalize by sequence length
         X = X / seq_len
+        
+    if augmentation: # add augmentation vector from Rosetta, EVE, VAE
+        A, Y, missed_assay_indices = load_augmentation(name=dataset, augmentation=augmentation)
+        if missed_assay_indices is not None and len(A) != len(X):
+            X = np.delete(X, missed_assay_indices, axis=0) 
+        A /= seq_len
+        X = np.concatenate([X, A], axis=1)
+
+    if type(protocol) in [PositionSplitter, BioSplitter]: # special case mismatches in position splitting
+        train_indices, _, test_indices = protocol.split(X, representation)
+    else: # BASE CASE splitting:
+        train_indices, _, test_indices = protocol.split(X)
 
     tags = {DATASET: dataset, 
             METHOD: method.get_name(), 
@@ -90,8 +99,6 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         X_test = X[test_indices[split], :]
         Y_test = Y[test_indices[split]]
         mean_y, std_y, scaled_y = scale_observations(Y_train)
-        # TODO: linear fit through scaled_y with X as input and compute std of residuals
-        #res = LinearRegression().fit(X_train, scaled_y)
         if dim and X_train.shape[1] > dim:
             X_train, reducer = _dim_reduce_X(dim=dim, dim_reduction=dim_reduction, X_train=X_train, Y_train=Y_train)
             X_test = reducer.transform(X_test).astype(np.float64)
@@ -102,8 +109,9 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             method.init_length = init_len if init_len > 0.0 else init_len+eps # if reduced on lower dim this value is too small
         if "GP" in method.get_name():
             _, prior_cov = method.prior(X_train, scaled_y).predict_y(X_train)
-        else: # uniform prior of observations std=1
+        else: # uniform prior of observations std=1 in accordance with scaling
             _, prior_cov = np.zeros(X_train.shape[0])[:, np.newaxis], np.ones(X_train.shape[0])[:, np.newaxis]
+        # TRAIN MODEL:
         method.train(X_train, scaled_y)
         try:
             _mu, _unc = method.predict_f(X_test)
@@ -111,6 +119,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         except tf.errors.InvalidArgumentError as _:
             warnings.warn(f"Experiment: {dataset}, rep: {representation} in d={dim} not stable, prediction failed!")
             _mu, _unc = np.full(Y_test.shape, np.nan), np.full(Y_test.shape, np.nan)
+            post_cov = np.full(Y_train.shape, np.nan)
         # undo scaling
         mu = _mu*std_y + mean_y
         unc = _unc * std_y
@@ -129,13 +138,8 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         n = X_train.shape[0]
         unscaled_posterior_cov = np.array(post_cov)*std_y
         unscaled_prior_cov = np.array(prior_cov)*std_y
-        pac_epsilon = alquier_bounded_regression(post_mu=np.zeros(n), post_cov=unscaled_posterior_cov, prior_mu=np.zeros(n), prior_cov=unscaled_prior_cov, n=n, delta=0.05, loss_bound=(0, 1))
-
-        if split == 1 and plot_cv:
-            if "GP" in method.get_name():
-                unc += np.sqrt(method.gp.likelihood.variance.numpy())
-            plot_prediction_CV(X_test, Y_test, mu, unc, method, representation, dim_reduction)
-
+        pac_epsilon = alquier_bounded_regression(post_mu=np.zeros(n), post_cov=unscaled_posterior_cov, 
+                                prior_mu=np.zeros(n), prior_cov=unscaled_prior_cov, n=n, delta=0.05, loss_bound=(0, 1))
         mlflow.log_metric(MSE, mse, step=split)
         mlflow.log_metric(MedSE, medse, step=split)
         mlflow.log_metric(SEVar, mse_var, step=split)
@@ -155,19 +159,3 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         trues, mus, uncs, errs = prep_for_logdict(Y_test, mu, unc, err2, baseline)
         mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
     mlflow.end_run()
-
-
-if __name__ == "__main__":
-    dataset = "1FQG"
-    from util.mlflow.constants import VAE, TRANSFORMER
-    representation = TRANSFORMER
-    from data.load_dataset import get_alphabet
-    alphabet = get_alphabet(dataset)
-    from gpflow.kernels import SquaredExponential
-    from data.train_test_split import BlockPostionSplitter
-    from algorithms.one_hot_gp import GPOneHotSequenceSpace
-    from algorithms.gp_on_real_space import GPonRealSpace
-
-    run_single_regression_task(dataset=dataset, representation=representation,
-                               method=GPonRealSpace(kernel_factory=lambda: SquaredExponential()),
-                               train_test_splitter=BlockPostionSplitter(dataset=dataset), augmentation=NO_AUGMENT)
