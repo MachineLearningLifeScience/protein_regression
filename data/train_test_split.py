@@ -1,9 +1,9 @@
 from builtins import ValueError
-
 import numpy as np
+import pandas as pd
 from sklearn.model_selection import KFold
-
-from data.load_dataset import get_wildtype_and_offset, load_dataset
+from data.load_dataset import get_wildtype_and_offset, load_dataset, load_sequences_of_representation
+from util.mlflow.constants import ONE_HOT
 
 
 class AbstractTrainTestSplitter:
@@ -61,22 +61,28 @@ class FractionalRandomSplitter(AbstractTrainTestSplitter):
 
 
 class BioSplitter(AbstractTrainTestSplitter):
+    """
+    Splitting Protocol that splits by amount of mutations compared to reference sequence.
+    From n_mutations_train to n_mutations_test.
+    """
     def __init__(self, dataset, n_mutations_train: int=3, n_mutations_test: int=4):
         super().__init__()
+        self.dataset = dataset
         self.wt, _ = get_wildtype_and_offset(dataset)
         self.n_mutations_train = n_mutations_train
         self.n_mutations_test = n_mutations_test
     
-    def split(self, X):
+    def split(self, X, representation=ONE_HOT):
         """
         Splits input data by mutational threshold, such that below threshold is training
         and above threshold is testing.
         In case of 'inverse' the opposite is the case.
         w.r.t. CV protocol this is effectively one split.
-        TODO: internal multiple CV steps
         """
-        diff_to_wt = np.sum(self.wt != X, axis=1)
-        train_indices = np.where(diff_to_wt == self.n_mutations_train)[0][np.newaxis, :]
+        _X, _ = load_sequences_of_representation(self.dataset, representation=representation)
+        assert _X.shape[0] == X.shape[0]
+        diff_to_wt = np.sum(self.wt != _X, axis=1)
+        train_indices = np.where(diff_to_wt <= self.n_mutations_train)[0][np.newaxis, :]
         test_indices = np.where(diff_to_wt == self.n_mutations_test)[0][np.newaxis, :]
         return train_indices, None, test_indices
     
@@ -87,16 +93,26 @@ class BioSplitter(AbstractTrainTestSplitter):
 
 class PositionSplitter(AbstractTrainTestSplitter):
     """
-    Granular splitter, that splits by given positions range
+    Splitting Protocol that splits by given positions range.
     """
-    def __init__(self, dataset: str, positions: int=15):
+    def __init__(self, dataset: str, positions: int=15, missing_indices: np.ndarray=None):
         super().__init__()
         self.wt, _ = get_wildtype_and_offset(dataset)
         self.dataset = dataset
         self.positions = positions
 
-    def split(self, X):
-        return positional_splitter(X, self.wt, val=False, offset=4, pos_per_fold=self.positions)
+    def split(self, X, representation=ONE_HOT):
+        """
+        Splitting routine of Positionsplitter.
+        Input: X - representation matrix
+        Output: train, test indices
+        Positionsplitter dependant on sequence encoding. This may mismatch with loaded X!
+        Requires internal filtering.
+        Either missing_idx exists, enforcing subselection with boolean mask.
+        """
+        _X = load_sequences_of_representation(self.dataset, representation)
+        assert _X.shape[0] == X.shape[0]
+        return positional_splitter(_X, self.wt, val=False, offset=4, pos_per_fold=self.positions)
     
     def get_name(self):
         splitter_name = f"{self.name}_p{self.positions}"
@@ -118,7 +134,6 @@ def positional_splitter(seqs, query_seq, val, offset, pos_per_fold):
     # to not allow info leakage just because positions are neighbours
     # Split_by_DI implements that positions are also split by direct info based on a "threshold"
     # needs an aln_path to work (fasta file)
-    # TODO: breaks unless one-hot encoding is used
     # TODO: requires tests
     mut_pos = []
     for seq in seqs:

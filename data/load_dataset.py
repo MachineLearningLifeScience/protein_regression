@@ -3,7 +3,8 @@ import re
 import warnings
 import pandas as pd
 import pickle
-from typing import Tuple
+from typing import Tuple, Callable
+
 from os.path import join, dirname
 from data.get_alphabet import get_alphabet
 from util.aa2int import map_alphabets
@@ -114,7 +115,18 @@ def load_esm(name: str) -> Tuple[np.ndarray, np.ndarray]:
     return X, Y
 
 
-def load_eve(name) -> Tuple[np.ndarray, np.ndarray]:
+def load_eve(name):
+    eve_df = __load_eve_df(name)
+    latent_z = eve_df['mean_latent_dim'].tolist()
+    Y = np.vstack(eve_df["assay"]) # select assay observations for which merged
+    if len(latent_z) != len(Y):
+        warnings.warn(f"no. EVE mutants {len(latent_z)} != no. observations {len(Y)}! \n Diff: {len(Y)-len(latent_z)} ...")
+        Y = np.vstack(eve_df['assay'])
+    X = np.array([np.fromstring(seq[1:-1], np.float64, sep=",") for seq in latent_z])
+    return X, Y 
+
+
+def __load_eve_df(name) -> Tuple[np.ndarray, np.ndarray]:
     if name == "1FQG":
         d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
     elif name == "BRCA":
@@ -141,13 +153,7 @@ def load_eve(name) -> Tuple[np.ndarray, np.ndarray]:
         name = "brca_brct" # this is from deep sequence BRCA
     eve_df = pd.read_csv(join(base_path, f"EVE_{name.upper()}_2000_samples.csv"))
     merged_df_eve_observations = pd.merge(observed_d, eve_df, on="mutations")
-    latent_z = merged_df_eve_observations['mean_latent_dim'].tolist()
-    Y = np.vstack(merged_df_eve_observations["assay"]) # select assay observations for which merged
-    if len(latent_z) != len(Y):
-        warnings.warn(f"no. EVE mutants {len(latent_z)} != no. observations {len(Y)}! \n Diff: {len(Y)-len(latent_z)} ...")
-        Y = np.vstack(merged_df_eve_observations['assay'])
-    X = np.array([np.fromstring(seq[1:-1], np.float64, sep=",") for seq in latent_z])
-    return X, Y 
+    return merged_df_eve_observations
 
 
 def load_nonsense(name) -> Tuple[np.ndarray, np.ndarray]:
@@ -157,6 +163,42 @@ def load_nonsense(name) -> Tuple[np.ndarray, np.ndarray]:
     X = np.random.randn(Y.shape[0], 2)
     np.random.seed(restore_seed)
     return X, Y
+
+
+def load_sequences_of_representation(name, representation):
+    """
+    Assay sequence encodings may have mismatches with loaded representations.
+    This function returns the sequences associated with the representation.
+    """
+    if representation == EVE:
+        ref_df = __load_eve_df(name)
+    elif representation == EVE_DENSITY:
+        if name.upper() == "1FQG":
+            name = "BLAT"
+        ref_df = __load_eve_mutations_and_observations_df(name)
+        ref_df = ref_df.dropna(subset=["assay", "evol_indices"])
+    else:
+        raise NotImplementedError
+    return ref_df.seqs
+
+
+def get_load_function(representation) -> Callable:
+    if representation is ONE_HOT:
+        return load_one_hot
+    elif representation == TRANSFORMER:
+            return load_transformer
+    elif "vae" in representation:
+        return load_vae
+    elif representation == ESM:
+        return load_esm
+    elif representation == EVE:
+        return load_eve
+    elif representation == VAE_DENSITY:
+        return load_augmentation
+    elif representation == EVE_DENSITY:
+        return load_augmentation
+    elif representation == NONSENSE:
+        return load_nonsense
 
 
 def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
@@ -169,9 +211,9 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
             X, Y = load_transformer(name)
         elif representation == VAE:
             X, Y = load_vae(name, vae_suffix="VAE_reps")
-        elif representation == VAE_AUX:
+        elif representation == VAE_AUX: # THIS IS THE VAE WITH AUXILIARY ELBO NN
             X, Y = load_vae(name, vae_suffix="AUX_VAE_reps_RANDOM_VAL")
-        elif representation == VAE_RAND:
+        elif representation == VAE_RAND: # THIS IS THE REFERENCE VAE REPRESENTATION
             X, Y = load_vae(name, vae_suffix="VAE_reps_RANDOM_VAL")
         elif representation == ESM:
             X, Y = load_esm(name)
@@ -190,7 +232,7 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
     assert(X.shape[0] == Y.shape[0])
     assert(Y.shape[1] == 1)
     # We flip the sign of Y so our optimization experiment is a minimazation problem
-    # litterature review of modelled proteins showed higher values are better
+    # literature review of modelled proteins showed higher values are better
     return X, -Y
 
 
@@ -319,25 +361,35 @@ def make_debug_se_dataset():
 
 
 def load_augmentation(name: str, augmentation: str):
+    """
+    Load data augmentation vectors.
+    For Rosetta, VAE densities, EVE evo-scores.
+    Data augmentation vectors for VAE and EVE also used as 1D representations.
+    Not all assay data has a value due to DeepSequence/EVE setup. Therefore idx_miss is vector of not-computed values.
+    Returns:
+    A: np.ndarray - augmentation vector
+    Y: np.ndarray - assay observations
+    idx_miss: np.ndarray - index of missings w.r.t. assay dataframe
+    """
     if augmentation == ROSETTA:
         if name not in ["1FQG", "CALM", "UBQT"]:
             raise ValueError("Unknown dataset: %s" % name)
         if name == "1FQG":
-            A, Y, idx_miss = __load_rosetta_df(name="BLAT")
+            A, Y, idx_miss = _load_rosetta_augmentation(name="BLAT")
         else:
-            A, Y, idx_miss = __load_rosetta_df(name=name.upper())
+            A, Y, idx_miss = _load_rosetta_augmentation(name=name.upper())
     elif augmentation == VAE_DENSITY:
         if name not in ["1FQG", "CALM", "UBQT"]:
             raise ValueError("Unknown dataset: %s" % name)
         if name == "1FQG":
             name = "BLAT"
-        A, Y, idx_miss = __load_vae_df(name=name.upper())
+        A, Y, idx_miss = _load_vae_augmentation(name=name.upper())
     elif augmentation == EVE_DENSITY:
         if name not in ["1FQG", "CALM", "UBQT", "BRCA", "TIMB", "MTH3", "TOXI"]:
             raise ValueError("Unknown dataset: %s" % name)
         if name == "1FQG":
             name = "BLAT"
-        A, Y, idx_miss = __load_eve_df(name=name.upper())
+        A, Y, idx_miss = _load_eve_augmentation(name=name.upper())
     else:
         raise NotImplementedError(f"Augmentation {augmentation} | {name} not implemented !")
     return A.astype(np.float64) , Y.astype(np.float64), idx_miss
@@ -368,7 +420,16 @@ def __load_assay_df(name: str):
     return df
 
 
-def __load_rosetta_df(name: str):
+def _load_rosetta_augmentation(name: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    rosetta_df = __load_rosetta_augmentation_df(name)
+    idx_missing = rosetta_df['DDG'].index[rosetta_df['DDG'].apply(np.isnan)]
+    rosetta_df = rosetta_df.dropna(subset=["assay", "DDG"])                             
+    A = np.vstack(rosetta_df["DDG"])  
+    Y = np.vstack(rosetta_df["assay"])
+    return A, Y, idx_missing # select only matching data
+    
+
+def __load_rosetta_augmentation_df(name: str) -> pd.DataFrame:
     """
     Load persisted DataFrames and join Rosetta simulations on mutations.
     returns 
@@ -381,23 +442,36 @@ def __load_rosetta_df(name: str):
     joined_df = pd.merge(rosetta_df, df, how="right", left_on=["position", "mut_aa"], 
                                             right_on=["last_mutation_position", "mut_aa"], 
                                             suffixes=('_rosetta', '_assay'))  
-    idx_missing = joined_df['DDG'].index[joined_df['DDG'].apply(np.isnan)]
-    joined_df = joined_df.dropna(subset=["assay", "DDG"])                             
-    A = np.vstack(joined_df["DDG"])  
-    Y = np.vstack(joined_df["assay"])
-    return A, Y, idx_missing # select only matching data
+    return joined_df
 
-
-def __load_vae_df(name: str):
-    with open(join(base_path, "vae_results.pkl"), "rb") as infile:
-        vae_data = pickle.load(infile).get(name.lower())
+def _load_vae_augmentation(name):
+    vae_data = __load_vae_augmentation_df(name)
     assay_df = __load_assay_df(name)
     A = np.vstack(vae_data)
     Y = np.vstack(assay_df["assay"])
     return A, Y, None
 
 
-def __load_eve_df(name: str):
+def __load_vae_augmentation_df(name: str):
+    with open(join(base_path, "vae_results.pkl"), "rb") as infile:
+        vae_data = pickle.load(infile).get(name.lower())
+    return vae_data
+
+
+def _load_eve_augmentation(name: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    eve_augmentation_df = __load_eve_mutations_and_observations_df(name)
+    idx_missing = eve_augmentation_df['evol_indices'].index[eve_augmentation_df['evol_indices'].apply(np.isnan)]
+    eve_augmentation_df = eve_augmentation_df.dropna(subset=["assay", "evol_indices"])
+    # add WT                
+    A = np.vstack(eve_augmentation_df['evol_indices'])
+    Y = np.vstack(eve_augmentation_df['assay'])
+    return A, Y, idx_missing
+
+
+def __load_eve_mutations_and_observations_df(name: str) -> pd.DataFrame:
+    """
+    Load EVE dataframe from CSV and index mutation for mutations and observation assay join.
+    """
     df = pd.read_csv(join(base_path, f"EVE_{name}_2000_samples.csv"))
     assert df.iloc[0].evol_indices == 0.0
     df = df.iloc[1:] # drop WT - should be zero/NaN for observations and zero for EVE computation
@@ -416,13 +490,9 @@ def __load_eve_df(name: str):
         joined_df = pd.merge(df, assay_df, how="right", left_on=["mutations"], 
                                                 right_on=["adjusted_mutations"])
     else:
-        df["last_mutation_position"] = df.mutations.str.slice(1, -1).astype(int)
+        df["last_mutation_position"] = df.mutations.str.slice(1, -1).astype(int) + offset
         df["mut_aa"] = df.mutations.str.slice(-1)
         joined_df = pd.merge(df, assay_df, how="right", left_on=["last_mutation_position", "mut_aa"], 
                                                 right_on=["last_mutation_position", "mut_aa"])
-    #joined_df = joined_df.dropna(subset=["assay", "evol_indices"])
-    # add WT                
-    A = np.vstack(joined_df['evol_indices'])
-    Y = np.vstack(joined_df['assay'])
-    return A, Y, None
+    return joined_df
 
