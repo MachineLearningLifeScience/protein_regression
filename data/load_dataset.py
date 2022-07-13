@@ -172,14 +172,16 @@ def load_sequences_of_representation(name, representation):
     """
     if representation == EVE:
         ref_df = __load_eve_df(name)
+        X = np.vstack(ref_df.seqs)
     elif representation == EVE_DENSITY:
         if name.upper() == "1FQG":
             name = "BLAT"
         ref_df = __load_eve_mutations_and_observations_df(name)
         ref_df = ref_df.dropna(subset=["assay", "evol_indices"])
+        X = np.vstack(ref_df.seqs)
     else:
-        raise NotImplementedError
-    return ref_df.seqs
+        X, _ = load_one_hot(name)
+    return X
 
 
 def get_load_function(representation) -> Callable:
