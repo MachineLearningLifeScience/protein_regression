@@ -43,7 +43,7 @@ def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
 def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.065):
     plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
     filename = 'results/figures/benchmark/'+'accuracy_of_methods_barplot_'+cvtype+str(list(metric_values.keys()))
-    fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,6))
+    fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(len(metric_values.keys())*4,6))
     axs = np.ravel(ax)
     reps = []
     for d, dataset_key in enumerate(metric_values.keys()):
@@ -187,6 +187,84 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
     fig.legend(handles[:len(representations)], representations, loc='lower right', ncol=2, prop={'size': 10})
     plt.suptitle(plot_heading, size=20)
     plt.tight_layout()
+    plt.savefig(filename+".png")
+    plt.savefig(filename+".pdf")
+    plt.show()
+
+
+def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE, height=0.065):
+    plot_heading = f'Comparison of algoritms and representations for MUTATION splitting \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
+    filename = 'results/figures/benchmark/'+'accuracy_of_methods_barplot_'+str(list(metric_values.keys()))
+    fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(len(metric_values.keys())*4,6))
+    axs = np.ravel(ax)
+    reps = []
+    previous_split_key = None
+    # first set of plots display absolute performance with indicators on previous performance
+    for d, splitter_key in enumerate(metric_values.keys()):
+        for dataset_key in metric_values[splitter_key].keys():
+            for i, algo in enumerate(metric_values[splitter_key][dataset_key].keys()):
+                seps = np.linspace(-height*len(metric_values[splitter_key][dataset_key].keys()), 
+                                height*len(metric_values[splitter_key][dataset_key].keys()), 
+                                len(metric_values[splitter_key][dataset_key][algo].keys()))
+                for j, rep in enumerate(metric_values[splitter_key][dataset_key][algo].keys()):
+                    if rep not in reps and "density" not in rep:
+                        reps.append(rep)
+                    mse_list = metric_values[splitter_key][dataset_key][algo][rep][None][metric]
+                    neg_invert_mse = 1-np.mean(mse_list)
+                    previous_metric = 1-np.mean(metric_values[previous_split_key][dataset_key][algo][rep][None][metric]) if previous_split_key else 0.
+                    if rep in [VAE_DENSITY, EVE_DENSITY]: # overlay VAE density as reference on VAE row
+                        if rep == VAE_DENSITY:
+                            ref = VAE
+                        elif rep == EVE_DENSITY:
+                            ref = EVE
+                        pos = list(metric_values[splitter_key][dataset_key][algo].keys()).index(ref)
+                        axs[d].boxplot(np.ones(len(mse_list)) - mse_list, positions=[i+seps[pos]], widths=[height], labels=[rep], vert=False)
+                    else: # if improvement, plot previous shaded and improvement solid
+                        if neg_invert_mse > previous_metric:
+                            axs[d].barh(i+seps[j], neg_invert_mse - previous_metric, left=previous_metric, height=height, label=rep, color=rc.get(rep),
+                                        facecolor=rc.get(rep), edgecolor=rc.get(rep), ecolor='black', capsize=5, hatch='//')
+                            axs[d].barh(i+seps[j], neg_invert_mse, height=height, color=rc.get(rep), alpha=0.125,
+                                        facecolor=rc.get(rep), edgecolor=rc.get(rep), ecolor='black', capsize=5, hatch='//')
+                                # axs[d].arrow(previous_metric, i+seps[j], neg_invert_mse-previous_metric, 0, length_includes_head=True,
+                                # color=rc.get(rep), width=height, head_width=1.5*height, head_length=0.1*(neg_invert_mse-previous_metric), ec='black')
+                        else: # if worse: plot diff to previous performance shaded and current performance solid
+                            axs[d].barh(i+seps[j], neg_invert_mse - previous_metric, left=previous_metric, height=height, color=rc.get(rep),
+                                        facecolor=rc.get(rep), edgecolor="red", ecolor='black', capsize=5, hatch='//', alpha=0.125)
+                            axs[d].barh(i+seps[j], neg_invert_mse, height=height, label=rep, color=rc.get(rep),
+                                        facecolor=rc.get(rep), edgecolor=rc.get(rep), ecolor='black', capsize=5, hatch='//')
+                        # mark diff explicitly with arrow:
+                        if d > 0: # mark difference to previous explicitly as error
+                            performance_diff_to_prev = previous_metric+(neg_invert_mse-previous_metric)
+                            arrow_offset = 0.07
+                            if performance_diff_to_prev < -0.99: # cap arrows to xlim
+                                axs[d].annotate("", xy=(previous_metric, i+seps[j]+arrow_offset), xytext=(-1, i+seps[j]+arrow_offset), 
+                                                arrowprops=dict(arrowstyle="-"))
+                            else:
+                                axs[d].annotate("", xy=(previous_metric, i+seps[j]+arrow_offset), xytext=(performance_diff_to_prev, i+seps[j]+arrow_offset), 
+                                                arrowprops=dict(arrowstyle="<-"))
+                            # axs[d].arrow(previous_metric, i+seps[j], neg_invert_mse, 0, length_includes_head=True,
+                            #     color=rc.get(rep), width=height, head_width=1.5*height, head_length=0.1*(neg_invert_mse-previous_metric), ec='black',
+                            #     transform=Affine2D().rotate_deg_around(x=previous_metric, y=i+seps[j],degrees=180))
+        previous_split_key = splitter_key
+        cols = len(metric_values[splitter_key][dataset_key].keys())
+        axs[d].axvline(0, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
+        axs[d].axvline(-1, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
+        axs[d].axvline(0.75, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
+        axs[d].axvline(0.5, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[d].axvline(0.25, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
+        axs[d].axvline(-0.5, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[d].axvline(-0.25, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
+        axs[d].axvline(-0.75, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
+        axs[d].set_yticks(list(range(len(list(metric_values[splitter_key][dataset_key].keys())))))
+        axs[d].set_yticklabels(['' for i in range(len(list(metric_values[splitter_key][dataset_key].keys())))])
+        axs[0].set_yticklabels(list(metric_values[splitter_key][dataset_key].keys()), size=16)
+        axs[d].set_xlim((-1, 1))
+        axs[d].tick_params(axis='x', which='both', labelsize=14)
+        axs[d].set_title(splitter_key, size=16)
+        axs[d].set_xlabel('1-NMSE', size=14)
+    handles, labels = axs[-1].get_legend_handles_labels()
+    fig.legend(handles[:len(reps)], reps, loc='lower right', prop={'size': 14})
+    plt.suptitle(plot_heading, size=12)
     plt.savefig(filename+".png")
     plt.savefig(filename+".pdf")
     plt.show()
