@@ -6,23 +6,18 @@ from util.mlflow.constants import TRANSFORMER, EVE, VAE, VAE_AUX, ONE_HOT, ESM
 from util.mlflow.constants import LINEAR, NON_LINEAR, VAE_DENSITY, VAE_RAND, EVE_DENSITY
 from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 
-PROBLEM_CASES = ["UBQT", "BRCA"] # Error: VAE breaks
-
-#datasets = ["TOXI"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
-datasets = ["UBQT", "BRCA"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
+datasets = ["TOXI"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
+#datasets = ["UBQT", "BRCA"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
 
 dim_reduction = LINEAR # LINEAR, NON_LINEAR
-representations = [EVE] # VAE_AUX, VAE_RAND, TRANSFORMER, VAE, ONE_HOT, ESM, # VAE_AUX EXTRA 1D rep: VAE_DENSITY
-# TODO: TOXI EVE, EVE_DENSITY, Biosplitter and Randomsplitter
+representations = [EVE_DENSITY] # VAE_AUX, VAE_RAND, TRANSFORMER, VAE, ONE_HOT, ESM, # VAE_AUX EXTRA 1D rep: VAE_DENSITY
+# TODO: TOXI EVE_DENSITY and Randomsplitter
 
-augmentations = [None]
-
-# TODO: rerun all EVE after fixes
 
 # Protocols: RandomSplitterFactory, BlockSplitterFactory, PositionalSplitterFactory, BioSplitterFactory, FractionalSplitterFactory
-# protocol_factories = [RandomSplitterFactory] # TOXI randomsplitter all reps except eve
-protocol_factories = [PositionalSplitterFactory]
-# protocol_factories = [BioSplitterFactory("TOXI", 1, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 4)]
+protocol_factories = [RandomSplitterFactory] # TOXI randomsplitter all reps except eve
+# protocol_factories = [PositionalSplitterFactory]
+# protocol_factories = [BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 3, 3)]
 
 # Methods: # KNNFactory, RandomForestFactory, UncertainRFFactory, GPSEFactory, GPLinearFactory, GPMaternFactory
 method_factories = [get_key_for_factory(f) for f in [KNNFactory, RandomForestFactory, UncertainRFFactory, GPSEFactory, GPLinearFactory, GPMaternFactory]] 
@@ -31,7 +26,7 @@ def run_experiments():
     for dataset in datasets:
         for representation in representations:
             for protocol_factory in protocol_factories:
-                for protocol in protocol_factory(dataset):
+                for protocol in protocol_factory:#(dataset):
                     for factory_key in method_factories:
                         print(f"{dataset}: {representation} - {factory_key} | {protocol.get_name()} , dim: full")
                         run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
@@ -51,7 +46,7 @@ def run_augmentation_experiments():
                 for protocol_factory in [RandomSplitterFactory, PositionalSplitterFactory]:
                     for protocol in protocol_factory(dataset):
                         for factory_key in method_factories:
-                            for augmentation in [None, ROSETTA, VAE_DENSITY]: 
+                            for augmentation in [ROSETTA, EVE_DENSITY]: 
                                 for factory_key in method_factories:
                                     print(f"{dataset}: {representation} - {factory_key} | {protocol.get_name()} , dim: {dim}")
                                     run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
