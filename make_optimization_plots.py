@@ -19,7 +19,8 @@ from visualization.plot_metric_for_uncertainties import plot_uncertainty_optimiz
 
 # gathers all our results and saves them into a numpy array
 datasets = ["1FQG"]
-representations = [TRANSFORMER] # TRANSFORMER
+representations = [EVE] # TRANSFORMER
+plot_calibration = False
 seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245] # 11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245
 #seeds = [11]
 reference_benchmark_rep = [EVE_DENSITY] # option: VAE_DENSITY
@@ -93,4 +94,5 @@ plot_optimization_task(metric_values=regret_dict, name=f'Regret_{representations
 plot_optimization_task(metric_values=meanObs_dict, name=f'Mean_observed_{representations}_{datasets}')
 plot_optimization_task(metric_values=lastObs_dict, name=f'Last_observed_{representations}_{datasets}')
 
-plot_uncertainty_optimization(dataset=datasets[0], algos=algos, rep=representations[0], seeds=seeds, number_quantiles=10, stepsize=2, min_obs_metrics=minObs_dict, regret_metrics=regret_dict)
+if plot_calibration:
+    plot_uncertainty_optimization(dataset=datasets[0], algos=algos, rep=representations[0], seeds=seeds, number_quantiles=10, stepsize=2, min_obs_metrics=minObs_dict, regret_metrics=regret_dict)
