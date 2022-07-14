@@ -40,16 +40,16 @@ def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
     plt.show()
 
 
-def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.065):
+def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.08):
     plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
     filename = 'results/figures/benchmark/'+'accuracy_of_methods_barplot_'+cvtype+str(list(metric_values.keys()))
-    fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(len(metric_values.keys())*4,6))
+    fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(len(metric_values.keys())*4,10))
     axs = np.ravel(ax)
     reps = []
     for d, dataset_key in enumerate(metric_values.keys()):
         for i, algo in enumerate(metric_values[dataset_key].keys()):
-            seps = np.linspace(-height*0.5*len(metric_values[dataset_key].keys()), 
-                               height*0.5*len(metric_values[dataset_key].keys()), 
+            seps = np.linspace(-height*0.8*len(metric_values[dataset_key].keys()), 
+                               height*0.8*len(metric_values[dataset_key].keys()), 
                                len(metric_values[dataset_key][algo].keys()))
             for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
                 if rep not in reps and "density" not in rep:
@@ -192,26 +192,27 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
     plt.show()
 
 
-def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE, height=0.065):
+def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE):
     plot_heading = f'Comparison of algoritms and representations for MUTATION splitting \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
     filename = 'results/figures/benchmark/'+'accuracy_of_methods_barplot_'+str(list(metric_values.keys()))
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(len(metric_values.keys())*4,6))
     axs = np.ravel(ax)
     reps = []
-    previous_split_key = None
+    previous_split_keys = []
+    n_reps = 5 # OR: len of second level metrics dictionary
+    height = 1/(n_reps*5) # 3 elements (1 bar + 2 arrows) + 2 extra space
     # first set of plots display absolute performance with indicators on previous performance
     for d, splitter_key in enumerate(metric_values.keys()):
         for dataset_key in metric_values[splitter_key].keys():
             for i, algo in enumerate(metric_values[splitter_key][dataset_key].keys()):
-                seps = np.linspace(-height*len(metric_values[splitter_key][dataset_key].keys()), 
-                                height*len(metric_values[splitter_key][dataset_key].keys()), 
-                                len(metric_values[splitter_key][dataset_key][algo].keys()))
+                seps = np.linspace(-height*n_reps, height*n_reps, n_reps)
                 for j, rep in enumerate(metric_values[splitter_key][dataset_key][algo].keys()):
                     if rep not in reps and "density" not in rep:
                         reps.append(rep)
                     mse_list = metric_values[splitter_key][dataset_key][algo][rep][None][metric]
                     neg_invert_mse = 1-np.mean(mse_list)
-                    previous_metric = 1-np.mean(metric_values[previous_split_key][dataset_key][algo][rep][None][metric]) if previous_split_key else 0.
+                    previous_metric = 1-np.mean(metric_values[previous_split_keys[-1]][dataset_key][algo][rep][None][metric]) if len(previous_split_keys) > 0 else 0.
+                    prev_previous_metric = 1-np.mean(metric_values[previous_split_keys[-2]][dataset_key][algo][rep][None][metric]) if len(previous_split_keys) > 1 else 0.
                     if rep in [VAE_DENSITY, EVE_DENSITY]: # overlay VAE density as reference on VAE row
                         if rep == VAE_DENSITY:
                             ref = VAE
@@ -235,20 +236,32 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE, hei
                         # mark diff explicitly with arrow:
                         if d > 0: # mark difference to previous explicitly as error
                             performance_diff_to_prev = previous_metric+(neg_invert_mse-previous_metric)
-                            arrow_offset = 0.07
                             if performance_diff_to_prev < -0.99: # cap arrows to xlim
-                                axs[d].annotate("", xy=(previous_metric, i+seps[j]+arrow_offset), xytext=(-1, i+seps[j]+arrow_offset), 
+                                axs[d].annotate("", xy=(previous_metric, i+seps[j]+height*0.1), 
+                                                xytext=(-1.1, i+seps[j]+height*0.1), 
                                                 arrowprops=dict(arrowstyle="-"))
                             else:
-                                axs[d].annotate("", xy=(previous_metric, i+seps[j]+arrow_offset), xytext=(performance_diff_to_prev, i+seps[j]+arrow_offset), 
+                                axs[d].annotate("", xy=(previous_metric, i+seps[j]+height*0.1), 
+                                                xytext=(performance_diff_to_prev, i+seps[j]+height*0.1), 
                                                 arrowprops=dict(arrowstyle="<-"))
                             # axs[d].arrow(previous_metric, i+seps[j], neg_invert_mse, 0, length_includes_head=True,
                             #     color=rc.get(rep), width=height, head_width=1.5*height, head_length=0.1*(neg_invert_mse-previous_metric), ec='black',
                             #     transform=Affine2D().rotate_deg_around(x=previous_metric, y=i+seps[j],degrees=180))
-        previous_split_key = splitter_key
+                        if d > 1:
+                            performance_diff = prev_previous_metric+(neg_invert_mse-prev_previous_metric)
+                            if performance_diff < -0.99: # cap arrows to xlim
+                                axs[d].annotate("", xy=(prev_previous_metric, i+seps[j]+height*1.5), 
+                                                xytext=(-1.1, i+seps[j]+height*1.5), 
+                                                arrowprops=dict(arrowstyle="-", linestyle="-", color=rc.get(rep)))
+                            else:
+                                axs[d].annotate("", xy=(prev_previous_metric, i+seps[j]+height*1.5), 
+                                                xytext=(performance_diff, i+seps[j]+height*1.5), 
+                                                arrowprops=dict(arrowstyle="<-", linestyle="-", color=rc.get(rep)))
+        previous_split_keys.append(splitter_key)
         cols = len(metric_values[splitter_key][dataset_key].keys())
         axs[d].axvline(0, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
         axs[d].axvline(-1, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
+        axs[d].axvline(1, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
         axs[d].axvline(0.75, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
         axs[d].axvline(0.5, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.25)
         axs[d].axvline(0.25, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
@@ -258,7 +271,7 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE, hei
         axs[d].set_yticks(list(range(len(list(metric_values[splitter_key][dataset_key].keys())))))
         axs[d].set_yticklabels(['' for i in range(len(list(metric_values[splitter_key][dataset_key].keys())))])
         axs[0].set_yticklabels(list(metric_values[splitter_key][dataset_key].keys()), size=16)
-        axs[d].set_xlim((-1, 1))
+        axs[d].set_xlim((-1.1, 1.1))
         axs[d].tick_params(axis='x', which='both', labelsize=14)
         axs[d].set_title(splitter_key, size=16)
         axs[d].set_xlabel('1-NMSE', size=14)
