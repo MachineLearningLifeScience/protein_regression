@@ -73,7 +73,7 @@ class BioSplitter(AbstractTrainTestSplitter):
         self.n_mutations_test = n_mutations_test
         self.test_fraction = test_fraction
     
-    def split(self, X, representation=ONE_HOT):
+    def split(self, X, representation=ONE_HOT, missed_indices=None):
         """
         Splits input data by mutational threshold, such that below threshold is training
         and above threshold is testing.
@@ -81,6 +81,8 @@ class BioSplitter(AbstractTrainTestSplitter):
         w.r.t. CV protocol either setup is effectively one split.
         """
         _X = load_sequences_of_representation(self.dataset, representation=representation)
+        if missed_indices:
+            _X = np.delete(_X, missed_indices, axis=0) 
         assert _X.shape[0] == X.shape[0]
         diff_to_wt = np.sum(self.wt != _X, axis=1)
         if self.n_mutations_train == self.n_mutations_test:
@@ -110,7 +112,7 @@ class PositionSplitter(AbstractTrainTestSplitter):
         self.dataset = dataset
         self.positions = positions
 
-    def split(self, X, representation=ONE_HOT):
+    def split(self, X, representation=ONE_HOT, missed_indices=None):
         """
         Splitting routine of Positionsplitter.
         Input: X - representation matrix
@@ -120,6 +122,8 @@ class PositionSplitter(AbstractTrainTestSplitter):
         Either missing_idx exists, enforcing subselection with boolean mask.
         """
         _X = load_sequences_of_representation(self.dataset, representation)
+        if missed_indices is not None:
+            _X = np.delete(_X, missed_indices, axis=0) 
         assert _X.shape[0] == X.shape[0]
         return positional_splitter(_X, self.wt, val=False, offset=4, pos_per_fold=self.positions)
     
