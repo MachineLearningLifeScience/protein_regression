@@ -76,7 +76,10 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         X = np.concatenate([X, A], axis=1)
 
     if type(protocol) in [PositionSplitter, BioSplitter]: # special case mismatches in position splitting
-        train_indices, _, test_indices = protocol.split(X, representation)
+        if missed_assay_indices is not None:
+            train_indices, _, test_indices = protocol.split(X, representation, missed_assay_indices)
+        else:
+            train_indices, _, test_indices = protocol.split(X, representation)
     else: # BASE CASE splitting:
         train_indices, _, test_indices = protocol.split(X)
 
