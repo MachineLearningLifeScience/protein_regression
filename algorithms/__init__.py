@@ -2,4 +2,4 @@ from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.KNN import KNN
 from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.random_forest import RandomForest
-from algorithms.uncertain_rf import Uncertain_RandomForestRegressor
+from algorithms.uncertain_rf import Uncertain_RandomForestRegressor, UncertainRandomForest

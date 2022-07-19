@@ -7,7 +7,6 @@ from util.mlflow.constants import LINEAR, NON_LINEAR, VAE_DENSITY, VAE_RAND, EVE
 from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 
 datasets = ["MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
-dim_reduction = LINEAR # LINEAR, NON_LINEAR
 representations = [TRANSFORMER, ESM, ONE_HOT, EVE, EVE_DENSITY] # VAE_AUX, VAE_RAND, TRANSFORMER, VAE, ONE_HOT, ESM, EVE, VAE_AUX EXTRA 1D rep: VAE_DENSITY
 
 # Protocols: RandomSplitterFactory, BlockSplitterFactory, PositionalSplitterFactory, BioSplitterFactory, FractionalSplitterFactory
@@ -26,29 +25,43 @@ def run_experiments():
                     for factory_key in method_factories:
                         print(f"{dataset}: {representation} - {factory_key} | {protocol.get_name()} , dim: full")
                         run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
-                                                protocol=protocol, augmentation=None, dim=None, dim_reduction=dim_reduction, plot_cv=False)
+                                                protocol=protocol, augmentation=None, dim=None, dim_reduction=LINEAR, plot_cv=False)
+
+
+def run_dim_reduction_experiments():
+    for dataset in ["1FQG", "UBQT", "CALM"]: # TODO: 1FQG Possplitter+Randomsplitter NONLINEAR
+        for representation in [TRANSFORMER, EVE, ONE_HOT, ESM]:
+            for protocol_factory in [RandomSplitterFactory]: # TODO: randomsplitter >1FQG dim=2
+                for protocol in protocol_factory(dataset):
+                    for factory_key in method_factories:
+                        for dim_reduction in [NON_LINEAR, LINEAR]: # LINEAR, NON_LINEAR
+                            for dim in [2, 10, 100, 1000]:
+                                if representation == VAE and dim and int(dim) > 30:
+                                    if int(dim) > 30:
+                                        continue # skip, dimensions greater than original -> None
+                                if representation == EVE and dim and int(dim) > 50:
+                                    if int(dim) > 50:
+                                        continue
+                                print(f"{dataset}: {representation} - {factory_key} | {protocol.get_name()} , dim: {dim} {dim_reduction}, aug: None")
+                                run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
+                                                            protocol=protocol, augmentation=None, dim=dim, dim_reduction=dim_reduction)
 
 
 def run_augmentation_experiments():
-    for dataset in ["1FQG", "UBQT", "CALM"]: # "UBQT", "CALM", "1FQG"
+    for dataset in ["UBQT", "CALM"]: # "UBQT", "CALM", "1FQG"
         for representation in [TRANSFORMER, EVE, ONE_HOT, ESM]: # TRANSFORMER, VAE, ONE_HOT, ESM
-            for dim in [2, 10, 100, 1000]:
-                if representation == VAE and dim and int(dim) > 30:
-                    if int(dim) > 30:
-                        continue # skip, dimensions greater than original -> None
-                if representation == EVE and dim and int(dim) > 50:
-                    if int(dim) > 50:
-                        continue
                 for protocol_factory in [PositionalSplitterFactory]: # TODO: randomsplitter >1FQG dim=2
                     for protocol in protocol_factory(dataset):
                         for factory_key in method_factories:
                             for augmentation in [ROSETTA, EVE_DENSITY]: 
-                                    print(f"{dataset}: {representation} - {factory_key} | {protocol.get_name()} , dim: {dim}, aug: {augmentation}")
-                                    run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
-                                                            protocol=protocol, augmentation=augmentation, dim=dim, dim_reduction=dim_reduction)
+                                print(f"{dataset}: {representation} - {factory_key} | {protocol.get_name()} , dim: full, aug: {augmentation}")
+                                run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
+                                                            protocol=protocol, augmentation=augmentation, dim=None, dim_reduction=LINEAR)
                 
 
 if __name__ == "__main__":
     # run_experiments()
-    run_augmentation_experiments()
+    # ABLATION STUDY:
+    run_dim_reduction_experiments()
+    # run_augmentation_experiments() # DONE
     
