@@ -59,6 +59,7 @@ def _dim_reduce_X(dim: int, dim_reduction: str, X_train: np.ndarray, Y_train: np
 def run_single_regression_task(dataset: str, representation: str, method_key: str, protocol: AbstractTrainTestSplitter, 
                                 augmentation: str, dim: int=None, dim_reduction=NON_LINEAR, plot_cv=False):
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
+    missed_assay_indices: np.ndarray = None
     # load X for CV splitting
     X, Y = load_dataset(dataset, representation=representation)
     seq_len = X.shape[1]
