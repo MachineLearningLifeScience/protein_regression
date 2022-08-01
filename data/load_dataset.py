@@ -4,7 +4,6 @@ import warnings
 import pandas as pd
 import pickle
 from typing import Tuple, Callable
-
 from os.path import join, dirname
 from data.get_alphabet import get_alphabet
 from util.aa2int import map_alphabets
@@ -74,44 +73,70 @@ def load_vae(name: str, vae_suffix: str) -> Tuple[np.ndarray, np.ndarray]:
     return X, Y
 
 
+def __compute_observation_and_deduplication_indices(df) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Required to filter persisted dataframes by indices.
+    Filter *_phyla.pkl dataframe by observation index AND deduplication index,
+    Filter *_esm_rep.pkl by deduplication
+    returns:
+    observation_idx: np.ndarray ,
+    representation_idx: np.ndarray 
+    """
+    idx = np.logical_not(np.isnan(df["assay"])) # observations by assay values
+    observations_start: int = np.argwhere(idx.values==True)[0][0] # first observation index
+    duplicated_index = df[["seqs_aa", "assay"]].duplicated() # find duplicates as sequence+assay repeats
+    observation_idx = np.logical_and(idx, ~duplicated_index) # combine observation AND INVERT duplicate for later selection
+    anchored_duplicated_index = duplicated_index.set_axis(duplicated_index.index-observations_start) # adjust index by first observation
+    representation_index = np.invert(anchored_duplicated_index[anchored_duplicated_index.index >= 0])
+    return observation_idx.values, representation_index.values
+
+
 def load_esm(name: str) -> Tuple[np.ndarray, np.ndarray]:
     if name == "1FQG":
         d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "blat_esm_rep.pkl"), "rb"))
+        observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
+        d = d.loc[observation_idx]
+        Y = np.vstack(d["assay"])
+        X = pickle.load(open(join(base_path, "blat_esm_rep.pkl"), "rb"))[representation_idx]
     elif name == "BRCA":
         d = pickle.load(open(join(base_path, "brca_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "brca_esm_rep.pkl"), "rb"))
+        observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
+        d = d.loc[observation_idx]
+        Y = np.vstack(d["assay"])
+        X = pickle.load(open(join(base_path, "brca_esm_rep.pkl"), "rb"))[representation_idx]
     elif name == "CALM":
         d = pickle.load(open(join(base_path, "calm_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "calm_esm_rep.pkl"), "rb"))
+        observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
+        d = d.loc[observation_idx]
+        Y = np.vstack(d["assay"])
+        X = pickle.load(open(join(base_path, "calm_esm_rep.pkl"), "rb"))[representation_idx]
     elif name == "MTH3":
         d = pickle.load(open(join(base_path, "mth3_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "mth3_esm_rep.pkl"), "rb"))
+        observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
+        d = d.loc[observation_idx]
+        Y = np.vstack(d["assay"])
+        X = pickle.load(open(join(base_path, "mth3_esm_rep.pkl"), "rb"))[representation_idx]
     elif name == "TIMB":
         d = pickle.load(open(join(base_path, "timb_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "timb_esm_rep.pkl"), "rb"))
+        observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
+        d = d.loc[observation_idx]
+        Y = np.vstack(d["assay"])
+        X = pickle.load(open(join(base_path, "timb_esm_rep.pkl"), "rb"))[representation_idx]
     elif name == "UBQT":
         d = pickle.load(open(join(base_path, "ubqt_seq_reps_n_phyla.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "ubqt_esm_rep.pkl"), "rb"))
+        observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
+        d = d.loc[observation_idx]
+        Y = np.vstack(d["assay"])
+        X = pickle.load(open(join(base_path, "ubqt_esm_rep.pkl"), "rb"))[representation_idx]
     elif name == "TOXI":
         d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
-        idx = np.logical_not(np.isnan(d["assay"]))
-        Y = np.vstack(d["assay"].loc[idx])
-        X = pickle.load(open(join(base_path, "toxi_esm_rep.pkl"), "rb"))
+        observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
+        d = d.loc[observation_idx]
+        Y = np.vstack(d["assay"])
+        X = pickle.load(open(join(base_path, "toxi_esm_rep.pkl"), "rb"))[representation_idx]
     else:
         raise ValueError("Unknown dataset: %s" % name)
+    assert X.shape[0] == Y.shape[0]
     return X, Y
 
 
