@@ -1,10 +1,7 @@
 import os
 from os.path import join
-from statistics import mean
 import numpy as np
 from sklearn.decomposition import PCA
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
 import tensorflow as tf
 import tensorflow_probability as tfp
 import mlflow
@@ -24,10 +21,7 @@ from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS, 
 from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR, MEAN_Y, STD_Y, PAC_BAYES_EPS
 from util.preprocess import scale_observations
 from bound.pac_bayes_bound import alquier_bounded_regression
-from gpflow.utilities import print_summary
 from gpflow import kernels
-from gpflow.mean_functions import Zero
-from gpflow import Parameter
 from gpflow.utilities import to_default_float
 from gpflow.models import GPR
 from gpflow.utilities import print_summary
