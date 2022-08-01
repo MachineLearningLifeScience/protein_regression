@@ -29,9 +29,9 @@ def run_experiments():
 
 
 def run_dim_reduction_experiments():
-    for dataset in ["1FQG", "UBQT", "CALM"]: # TODO: 1FQG Possplitter+Randomsplitter NONLINEAR
+    for dataset in ["1FQG", "UBQT", "CALM"]:
         for representation in [TRANSFORMER, EVE, ONE_HOT, ESM]:
-            for protocol_factory in [RandomSplitterFactory]: # TODO: randomsplitter >1FQG dim=2
+            for protocol_factory in [PositionalSplitterFactory, RandomSplitterFactory]:
                 for protocol in protocol_factory(dataset):
                     for factory_key in method_factories:
                         for dim_reduction in [NON_LINEAR, LINEAR]: # LINEAR, NON_LINEAR
@@ -48,12 +48,12 @@ def run_dim_reduction_experiments():
 
 
 def run_augmentation_experiments():
-    for dataset in ["UBQT", "CALM"]: # "UBQT", "CALM", "1FQG"
-        for representation in [TRANSFORMER, EVE, ONE_HOT, ESM]: # TRANSFORMER, VAE, ONE_HOT, ESM
-                for protocol_factory in [PositionalSplitterFactory]: # TODO: randomsplitter >1FQG dim=2
+    for dataset in ["UBQT", "CALM", "1FQG"]: # "UBQT", "CALM", "1FQG"
+        for representation in [EVE, TRANSFORMER, ONE_HOT, ESM]: # TRANSFORMER, VAE, ONE_HOT, ESM, EVE
+                for protocol_factory in [PositionalSplitterFactory, RandomSplitterFactory]: # TODO: randomsplitter >1FQG dim=2
                     for protocol in protocol_factory(dataset):
                         for factory_key in method_factories:
-                            for augmentation in [ROSETTA, EVE_DENSITY]: 
+                            for augmentation in [EVE_DENSITY, ROSETTA]: 
                                 print(f"{dataset}: {representation} - {factory_key} | {protocol.get_name()} , dim: full, aug: {augmentation}")
                                 run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
                                                             protocol=protocol, augmentation=augmentation, dim=None, dim_reduction=LINEAR)
@@ -61,7 +61,7 @@ def run_augmentation_experiments():
 
 if __name__ == "__main__":
     # run_experiments()
-    # ABLATION STUDY:
-    run_dim_reduction_experiments()
-    # run_augmentation_experiments() # DONE
+    # ABLATION STUDY (dim-reduction, augmentation):
+    # run_dim_reduction_experiments() # TODO
+    run_augmentation_experiments() # TODO: Eve Positional+Random
     

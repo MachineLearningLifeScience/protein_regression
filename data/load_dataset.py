@@ -147,12 +147,21 @@ def __load_eve_df(name) -> Tuple[np.ndarray, np.ndarray]:
     observed_d = d.loc[idx].copy()
     mut_idx = __get_mutation_idx(name, observed_d)
     observed_d["mutations"] = mut_idx
+    observed_d = observed_d.drop_duplicates(subset=["mutations", "assay"])
     if name == "1FQG":
         name = "blat"
     if name == "BRCA":
         name = "brca_brct" # this is from deep sequence BRCA
     eve_df = pd.read_csv(join(base_path, f"EVE_{name.upper()}_2000_samples.csv"))
-    merged_df_eve_observations = pd.merge(observed_d, eve_df, on="mutations")
+    merged_df_eve_observations = pd.merge(observed_d, eve_df, on="mutations", validate="one_to_one")
+    # add mutation positions and AA to DF
+    _, offset = get_wildtype_and_offset(name)
+    if merged_df_eve_observations.mutations.str.contains(":").any():
+        merged_df_eve_observations["last_mutation_position"] = merged_df_eve_observations.mutations.apply(lambda x: x.split(":")[-1][1:-1]).astype(int) + offset
+        merged_df_eve_observations["mut_aa"] = merged_df_eve_observations.mutations.apply(lambda x: x.split(":")[-1][-1])
+    else:
+        merged_df_eve_observations["last_mutation_position"] = merged_df_eve_observations.mutations.str[1:-1].astype(int) + offset
+        merged_df_eve_observations["mut_aa"] = merged_df_eve_observations.mutations.str[-1]
     return merged_df_eve_observations
 
 
@@ -308,9 +317,9 @@ def compute_mutations_csv_from_observations(observations_file: str, offset: int=
     
 
 
-def __load_df(name: str, x_column_name: str):
+def __load_df(name: str, x_column_name: str) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Function to load X, Y columns from Jacob's dataframes.
+    Function to load X, Y columns from pickled/persisted dataframes.
     :param name:
         name of the dataset
     :param x_column_name:
@@ -319,8 +328,10 @@ def __load_df(name: str, x_column_name: str):
     """
     d = pickle.load(open(join(base_path, "%s.pkl" % name), "rb"))
     idx = np.logical_not(np.isnan(d["assay"]))
-    X = np.vstack(d[x_column_name].loc[idx])  #.astype(np.int64)
-    Y = np.vstack(d["assay"].loc[idx])
+    d["mutations"] = __get_mutation_idx(name=name.split("_")[0].upper(), df=d)
+    d = d.drop_duplicates(subset=["mutations", "assay"])
+    X = np.vstack(d[x_column_name].loc[idx])
+    Y = np.vstack(d["assay"].loc[idx]) 
     return X, Y
 
 
@@ -344,6 +355,8 @@ def __get_mutation_idx(name, df: pd.DataFrame) -> list:
             m_idx = i+1 + seq_offset
             m.append(str(from_aa)+str(m_idx)+str(to_aa))
         mutation_idx.append(":".join(m))
+    # TODO: resolve below
+    # assert len(np.unique(mutation_idx)) == df.seqs.shape[0] "Mismatch between unique mutations and number of input sequences"
     return mutation_idx
 
 
@@ -362,12 +375,16 @@ def make_debug_se_dataset():
     return X, Y
 
 
-def load_augmentation(name: str, augmentation: str):
+def load_augmentation(name: str, augmentation: str, representation: str):
     """
     Load data augmentation vectors.
     For Rosetta, VAE densities, EVE evo-scores.
     Data augmentation vectors for VAE and EVE also used as 1D representations.
     Not all assay data has a value due to DeepSequence/EVE setup. Therefore idx_miss is vector of not-computed values.
+    Input:
+    name: str - of system's augmentations to be loaded
+    augmentation: str - type of augmentation [Rosetta, EVE, VAE]
+    representation: str - type of representation in use, too keep dimensions in-line
     Returns:
     A: np.ndarray - augmentation vector
     Y: np.ndarray - assay observations
@@ -377,9 +394,9 @@ def load_augmentation(name: str, augmentation: str):
         if name not in ["1FQG", "CALM", "UBQT"]:
             raise ValueError("Unknown dataset: %s" % name)
         if name == "1FQG":
-            A, Y, idx_miss = _load_rosetta_augmentation(name="BLAT")
+            A, Y, idx_miss = _load_rosetta_augmentation(name="BLAT", rep=representation)
         else:
-            A, Y, idx_miss = _load_rosetta_augmentation(name=name.upper())
+            A, Y, idx_miss = _load_rosetta_augmentation(name=name.upper(), rep=representation)
     elif augmentation == VAE_DENSITY:
         if name not in ["1FQG", "CALM", "UBQT"]:
             raise ValueError("Unknown dataset: %s" % name)
@@ -422,8 +439,8 @@ def __load_assay_df(name: str):
     return df
 
 
-def _load_rosetta_augmentation(name: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    rosetta_df = __load_rosetta_augmentation_df(name)
+def _load_rosetta_augmentation(name: str, rep: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    rosetta_df = __load_rosetta_augmentation_df(name, rep)
     idx_missing = rosetta_df['DDG'].index[rosetta_df['DDG'].apply(np.isnan)]
     rosetta_df = rosetta_df.dropna(subset=["assay", "DDG"])                             
     A = np.vstack(rosetta_df["DDG"])  
@@ -431,7 +448,7 @@ def _load_rosetta_augmentation(name: str) -> Tuple[np.ndarray, np.ndarray, np.nd
     return A, Y, idx_missing # select only matching data
     
 
-def __load_rosetta_augmentation_df(name: str) -> pd.DataFrame:
+def __load_rosetta_augmentation_df(name: str, rep: str) -> pd.DataFrame:
     """
     Load persisted DataFrames and join Rosetta simulations on mutations.
     returns 
@@ -440,10 +457,16 @@ def __load_rosetta_augmentation_df(name: str) -> pd.DataFrame:
     """
     rosetta_df = pd.read_csv(join(base_path, "{}_single_mutation_rosetta.csv".format(name.lower())))
     rosetta_df["DDG"] = rosetta_df.DDG.astype(float)
-    df = __load_assay_df(name)
-    joined_df = pd.merge(rosetta_df, df, how="right", left_on=["position", "mut_aa"], 
+    observations_df = __load_assay_df(name)
+    observations_df = observations_df[["assay", "last_mutation_position", "mut_aa"]].drop_duplicates()
+    if rep == EVE: # special case: does not guarantee same data loaded for representations, due to EVE-internal df construction
+        _name = name if name.upper() != "1FQG" else "BLAT"
+        rep_df = __load_eve_df(_name)
+        rep_df = rep_df[["assay", "mutations", "last_mutation_position", "mut_aa"]].drop_duplicates() # TODO: fix root-cause
+        observations_df = pd.merge(rep_df, observations_df, how="inner", on=["last_mutation_position", "mut_aa"], suffixes=["_eve", ""], validate="one_to_one")
+    joined_df = pd.merge(rosetta_df, observations_df, how="right", left_on=["position", "mut_aa"], 
                                             right_on=["last_mutation_position", "mut_aa"], 
-                                            suffixes=('_rosetta', '_assay'))  
+                                            suffixes=('_rosetta', '_assay'), validate="one_to_one")  
     return joined_df
 
 def _load_vae_augmentation(name):
@@ -478,6 +501,7 @@ def __load_eve_mutations_and_observations_df(name: str) -> pd.DataFrame:
     assert df.iloc[0].evol_indices == 0.0
     df = df.iloc[1:] # drop WT - should be zero/NaN for observations and zero for EVE computation
     assay_df = __load_assay_df(name)
+    assay_df = assay_df.drop_duplicates(subset=["last_mutation_position", "mut_aa", "assay"])
     multivariates = df.mutations.str.contains(":").any()
     _, offset = get_wildtype_and_offset(name)
     if multivariates:
@@ -490,11 +514,11 @@ def __load_eve_mutations_and_observations_df(name: str) -> pd.DataFrame:
             adjusted_mutations.append(":".join(_m))
         assay_df["adjusted_mutations"] = adjusted_mutations
         joined_df = pd.merge(df, assay_df, how="right", left_on=["mutations"], 
-                                                right_on=["adjusted_mutations"])
+                                                right_on=["adjusted_mutations"], validate="one_to_one")
     else:
         df["last_mutation_position"] = df.mutations.str.slice(1, -1).astype(int) + offset
         df["mut_aa"] = df.mutations.str.slice(-1)
         joined_df = pd.merge(df, assay_df, how="right", left_on=["last_mutation_position", "mut_aa"], 
-                                                right_on=["last_mutation_position", "mut_aa"])
+                                                right_on=["last_mutation_position", "mut_aa"], validate="one_to_one")
     return joined_df
 
