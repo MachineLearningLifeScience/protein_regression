@@ -70,7 +70,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         X = X / seq_len
         
     if augmentation: # add augmentation vector from Rosetta, EVE, VAE
-        A, Y, missed_assay_indices = load_augmentation(name=dataset, augmentation=augmentation)
+        A, Y, missed_assay_indices = load_augmentation(name=dataset, augmentation=augmentation, representation=representation)
         if missed_assay_indices is not None and len(A) != len(X):
             X = np.delete(X, missed_assay_indices, axis=0) 
         A /= seq_len
