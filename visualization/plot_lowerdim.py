@@ -15,7 +15,7 @@ def f(x, a, b, c):
 def plot_lower_dim_results(datasets: List[str], algorithms: List[str], representations: List[str], cv_types: List[str],
                             dimensions: List[int]=[2, 10, 100, 1000, None], metrics: List[str]=[MSE, SPEARMAN_RHO], dim_reduction=LINEAR, VAE_DIM=30):
     dim_results = {metric: {d: {} for d in dimensions} for metric in metrics}
-    cv_names = [cv(datasets[0]).get_name() for cv in cv_types]
+    cv_names = [cv.get_name() for cv in cv_types]
     ds = [d for d in dimensions.copy()[:-1]] + [1050]
     for metric in tqdm(metrics):
         for dim in tqdm(dimensions):
@@ -23,7 +23,7 @@ def plot_lower_dim_results(datasets: List[str], algorithms: List[str], represent
                 # TODO what happens if multiple metrics are queried?
                 results = get_mlflow_results(datasets=datasets, algos=algorithms, reps=representations, metrics=[metric], 
                                             train_test_splitter=split, dim=dim, dim_reduction=dim_reduction)
-                dim_results[metric][dim][split(datasets[0]).get_name()] = results
+                dim_results[metric][dim][split.get_name()] = results
     
     # make multiplot row per representation, column per split
     fig, ax = plt.subplots(len(cv_types), len(representations)*2, figsize=(20, 10))
@@ -44,7 +44,7 @@ def plot_lower_dim_results(datasets: List[str], algorithms: List[str], represent
                     first_metric, correct = check_results(first_metric)
                     average_metric = np.average(first_metric, axis=1) if correct else np.nanmean(first_metric, axis=1)
                     one_minus_mean_nmses = np.ones(len(dimensions)) - average_metric
-                    std_nmses = np.nanstd(first_metric, axis=1)
+                    std_nmses = np.nanstd(first_metric, axis=1) # TODO: divide by sqrt of N
                     second_metric = [dim_results[metrics[1]][d][cv][datasets[0]][method][rep][None][metrics[1]] for d in dimensions]
                     second_metric, correct = check_results(second_metric)
                     mean_rhos = np.average(second_metric, axis=1) if correct else np.nanmean(second_metric, axis=1)
@@ -58,8 +58,10 @@ def plot_lower_dim_results(datasets: List[str], algorithms: List[str], represent
                     ax[i, j_idx].plot(xx, mse_fit, linestyle="dotted", c=colors[k], alpha=0.5)
                     ax[i, j_idx+1].plot(xx, r_fit, linestyle="dotted", c=colors[k], alpha=0.5)
                     for r, mse, std_r, std_mse, _d in zip(mean_rhos, one_minus_mean_nmses, std_rhos, std_nmses, _ds):
-                        ax[i, j_idx].errorbar(_d, mse, yerr=std_mse, marker=shapes[data_idx], c=colors[k], ms=4, mew=2, label=f"{data}-{method}", alpha=(0.5+int(correct)*0.5)) # shade if values are missing by alpha
-                        ax[i, j_idx+1].errorbar(_d, r, yerr=std_r, marker=shapes[data_idx], c=colors[k], ms=4, mew=2, label=f"{data}-{method}", alpha=(0.5+int(correct)*0.5))
+                        ax[i, j_idx].errorbar(_d, mse, yerr=std_mse, marker=shapes[data_idx], c=colors[k], ms=4, mew=2, linestyle="--", 
+                                            label=f"{data}-{method}", alpha=(0.5+int(correct)*0.5)) # shade if values are missing by alpha
+                        ax[i, j_idx+1].errorbar(_d, r, yerr=std_r, marker=shapes[data_idx], c=colors[k], ms=4, mew=2, linestyle="--", 
+                                            label=f"{data}-{method}", alpha=(0.5+int(correct)*0.5))
                     ax[i, j_idx].set_xscale('log')
                     ax[i, j_idx+1].set_xscale('log')
                     ax[i, j_idx].set_ylim([0., 1.1])

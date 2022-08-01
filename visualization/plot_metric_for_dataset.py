@@ -8,7 +8,7 @@ from matplotlib.transforms import Affine2D
 from data.load_dataset import load_dataset
 from visualization.plot_metric_for_uncertainties import prep_reliability_diagram
 from visualization import algorithm_colors as ac
-from visualization import colorscheme2 as cc
+from visualization import augmentation_colors as aug_c
 from visualization import representation_colors as rc
 from util.mlflow.constants import GP_L_VAR, LINEAR, VAE, EVE, VAE_DENSITY, ONE_HOT, EVE_DENSITY
 from util.mlflow.constants import MLL, MSE, SPEARMAN_RHO, PAC_BAYES_EPS, STD_Y
@@ -144,9 +144,9 @@ def errorplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, h
 
 def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, augmentation: dict, metric: str, height=0.3, 
                                         dim=None, dim_reduction=LINEAR, reference_values: dict=None):
-    plot_heading = f'Augmented models and representations, cv-type: {cvtype}, augmentation {str(augmentation)} \n d={dim} {dim_reduction}'
-    filename = f'results/figures/augmentation/accuracy_of_methods_barplot_{cvtype}_{str(augmentation)}_d={dim}_{dim_reduction}'
-    fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,5))
+    plot_heading = f'Augmented models and representations, cv-type: {cvtype.get_name()}, augmentation {str(augmentation)} \n d={dim} {dim_reduction}'
+    filename = f'results/figures/augmentation/accuracy_of_methods_barplot_{cvtype.get_name()}_{str(augmentation)}_d={dim}_{dim_reduction}'
+    fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(15,5))
     axs = np.ravel(ax)
     representations = []
     for i, dataset_key in enumerate(metric_values.keys()):
@@ -156,7 +156,8 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
             idx = 0
             for k, rep in enumerate(representation_keys):
                 augmentation_keys = metric_values[dataset_key][algo][rep].keys()
-                seps = np.linspace(-height*0.7*len(algorithm_keys), height*0.7*len(algorithm_keys), 
+                seps = np.linspace(-height*0.9*len(algorithm_keys), 
+                                height*0.9*len(algorithm_keys), 
                                 len(algorithm_keys)*len(representation_keys)*len(augmentation_keys))
                 for l, aug in enumerate(augmentation_keys):
                     repname = f"{rep}_{aug}"
@@ -168,10 +169,10 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
                     if reference_values: # overlay by mean reference benchmark
                         neg_reference_mse = 1-np.mean(reference_values[dataset_key][algo][rep][None][metric])
                         axs[i].barh(j+seps[idx], neg_reference_mse-neg_invert_mse, label=repname, xerr=error_on_mean, height=height*0.25, color=rc.get(rep), alpha=0.8,
-                                    facecolor=rc.get(rep), edgecolor=cc[l], ecolor='black', capsize=5, hatch='/', linewidth=2)
+                                    facecolor=rc.get(rep), edgecolor=aug_c.get(aug), ecolor='black', capsize=5, hatch='/', linewidth=2)
                     else:
                         axs[i].barh(j+seps[idx], neg_invert_mse, xerr=error_on_mean, height=height*0.25, label=repname, color=rc.get(rep), 
-                            facecolor=rc.get(rep), edgecolor=cc[l], ecolor='black', capsize=5, hatch='/', linewidth=2)
+                            facecolor=rc.get(rep), edgecolor=aug_c.get(aug), ecolor='black', capsize=5, hatch='/', linewidth=2)
                     axs[i].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
                     axs[i].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
                     axs[i].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
@@ -184,7 +185,7 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
                     axs[i].set_xlabel('1 minus normalized MSE', size=12)
                     idx += 1
     handles, labels = axs[-1].get_legend_handles_labels()
-    fig.legend(handles[:len(representations)], representations, loc='lower right', ncol=2, prop={'size': 10})
+    fig.legend(handles[:len(representations)], representations, loc='lower right', ncol=len(representations), prop={'size': 9})
     plt.suptitle(plot_heading, size=20)
     plt.tight_layout()
     plt.savefig(filename+".png")
@@ -276,7 +277,7 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE):
         axs[d].set_title(splitter_key, size=16)
         axs[d].set_xlabel('1-NMSE', size=14)
     handles, labels = axs[-1].get_legend_handles_labels()
-    fig.legend(handles[:len(reps)], reps, loc='lower right', prop={'size': 14})
+    fig.legend(handles[:len(reps)], reps, loc='lower right', ncol=len(reps), prop={'size': 14})
     plt.suptitle(plot_heading, size=12)
     plt.savefig(filename+".png")
     plt.savefig(filename+".pdf")
@@ -306,8 +307,8 @@ def plot_optimization_task(metric_values: dict, name: str, max_iterations=500):
     plt.xticks(size=14)
     plt.yticks(size=14)
     plt.title(' '.join(name.split("_")))
-    markers = [plt.Line2D([0,0],[0,0],color=color, marker='o', linestyle='') for color in ac.values()]
-    plt.legend(markers, algos, loc="lower right", numpoints=1, prop={'size':12})
+    markers = [plt.Line2D([0,0],[0,0],color=ac.get(algo), marker='o', linestyle='') for algo in algos]
+    plt.legend(markers, algos, loc="lower right", numpoints=1, ncol=len(algos), prop={'size':12})
     plt.tight_layout()
     plt.savefig('results/figures/optim/'+name+'_optimization_plot.png')
     plt.savefig('results/figures/optim/'+name+'_optimization_plot.pdf')

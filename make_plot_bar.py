@@ -51,18 +51,20 @@ def plot_metric_mutation_comparison(datasets: List[str],
     barplot_metric_mutation_comparison(results_dict)
 
 
-# def plot_metric_augmentation_comparison(datasets: List[str]=["UBQT", "CALM", "1FQG"], 
-#                                         reps = [ONE_HOT, VAE, TRANSFORMER, ESM],
-#                                         algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), RandomForest().get_name()], # 
-#                                         metrics=[MSE], train_test_splitter=train_test_splitter, 
-#                                         augmentation = [ROSETTA, VAE_DENSITY], 
-#                                         dim=None, dim_reduction=LINEAR, reference_bars=True):
-#     results_dict = get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, train_test_splitter=train_test_splitter, 
-#                                     augmentation=augmentation, dim=dim, dim_reduction=dim_reduction)
-#     if reference_bars:
-#         ref_results_dict = get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, train_test_splitter=train_test_splitter, dim=dim, dim_reduction=dim_reduction)
-#     barplot_metric_augmentation_comparison(metric_values=results_dict, cvtype=train_test_splitter(datasets[-1]).get_name(), augmentation=augmentation, metric=MSE, 
-#                                     dim=dim, dim_reduction=dim_reduction, reference_values=ref_results_dict)      
+def plot_metric_augmentation_comparison(datasets: List[str], 
+                                        algos: List[str],
+                                        metrics: List[str], 
+                                        reps: List[str],
+                                        train_test_splitter: List[AbstractTrainTestSplitter], 
+                                        augmentation: str, 
+                                        dim=None, dim_reduction=LINEAR, reference_bars=True):
+    results_dict = get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, train_test_splitter=train_test_splitter, 
+                                    augmentation=augmentation, dim=dim, dim_reduction=dim_reduction)
+    ref_results_dict = {}
+    if reference_bars:
+        ref_results_dict = get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, train_test_splitter=train_test_splitter, dim=dim, dim_reduction=dim_reduction)
+    barplot_metric_augmentation_comparison(metric_values=results_dict, cvtype=train_test_splitter, augmentation=augmentation, metric=MSE, 
+                                    dim=dim, dim_reduction=dim_reduction, reference_values=ref_results_dict)      
 
 
 if __name__ == "__main__":
@@ -71,18 +73,27 @@ if __name__ == "__main__":
     metrics = [MSE, SPEARMAN_RHO] # MSE
     dim = None
     dim_reduction = LINEAR # LINEAR, NON_LINEAR
-    # RANDOMSPLITTER BENCHMARK PLOT
-    plot_metric_comparison(datasets=["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA", "TOXI"], 
+    # # RANDOMSPLITTER BENCHMARK PLOT
+    # plot_metric_comparison(datasets=["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA", "TOXI"], 
+    #                     algos=algos, metrics=metrics, reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM], 
+    #                     train_test_splitter=RandomSplitter("1FQG"), dimension=None, dim_reduction=LINEAR)
+    # POSITIONSPLITTER BENCHMARK PLOT
+    plot_metric_comparison(datasets=["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"], 
                         algos=algos, metrics=metrics, reps=[ONE_HOT, EVE, EVE_DENSITY, VAE_AUX, TRANSFORMER, ESM], 
-                        train_test_splitter=RandomSplitter("1FQG"), dimension=None, dim_reduction=LINEAR)
-    # # POSITIONSPLITTER BENCHMARK PLOT
-    # plot_metric_comparison(datasets=["MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"], 
-    #                     algos=algos, metrics=metrics, reps=[ONE_HOT, EVE, EVE_DENSITY, VAE_AUX, TRANSFORMER, ESM], 
-    #                     train_test_splitter=PositionSplitter("1FQG"), dimension=None, dim_reduction=LINEAR)
+                        train_test_splitter=PositionSplitter("1FQG"), dimension=None, dim_reduction=LINEAR)
     # # MUTATIONSPLITTER BENCHMARK PLOT
     # plot_metric_mutation_comparison(datasets=["TOXI"], algos=algos, metrics=[MSE], 
     #                     reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM],
     #                     train_test_splitter=[BioSplitter("TOXI", 1, 2), BioSplitter("TOXI", 2, 2), BioSplitter("TOXI", 2, 3), BioSplitter("TOXI", 3, 3), BioSplitter("TOXI", 3, 4)],
     #                     dimension=None, dim_reduction=LINEAR)
     # TODO: below
-    # plot_metric_augmentation_comparison(dim=None)
+    # # AUGMENTATION RANDOMSPLITTER
+    # plot_metric_augmentation_comparison(datasets=["1FQG", "UBQT", "CALM"], algos=algos, metrics=[MSE],
+    #                                     reps=[ONE_HOT, TRANSFORMER, ESM], # TODO: EVE, EVE_DENSITY, 
+    #                                     dim=None, train_test_splitter=RandomSplitter("1FQG"),
+    #                                     augmentation=[ROSETTA, EVE_DENSITY], reference_bars=False)
+    # # AUGMENTATION POSITIONSPLITTER
+    # plot_metric_augmentation_comparison(datasets=["1FQG", "UBQT", "CALM"], algos=algos, metrics=[MSE],
+    #                                     reps=[ONE_HOT, TRANSFORMER, ESM], # TODO: EVE, EVE_DENSITY, 
+    #                                     dim=None, train_test_splitter=PositionSplitter("1FQG"),
+    #                                     augmentation=[ROSETTA, EVE_DENSITY], reference_bars=False)
