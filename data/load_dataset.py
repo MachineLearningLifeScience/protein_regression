@@ -90,7 +90,7 @@ def __compute_observation_and_deduplication_indices(df) -> Tuple[np.ndarray, np.
         duplicated_index = df[["seqs_aa", "assay"]].duplicated() # find duplicates as sequence+assay repeats
     observation_idx = np.logical_and(idx, ~duplicated_index) # combine observation AND INVERT duplicate for later selection
     anchored_duplicated_index = duplicated_index.set_axis(duplicated_index.index-observations_start) # adjust index by first observation
-    representation_index = np.logical_and(idx, np.invert(anchored_duplicated_index[anchored_duplicated_index.index >= 0]))
+    representation_index = np.invert(anchored_duplicated_index[anchored_duplicated_index.index >= 0])
     assert observation_idx.sum() == representation_index.sum()
     return observation_idx.values, representation_index.values
 
