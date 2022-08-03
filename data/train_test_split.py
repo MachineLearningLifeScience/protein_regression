@@ -3,6 +3,10 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold
+from scipy.optimize import minimize
+from scipy.optimize import LinearConstraint
+from scipy.spatial.distance import euclidean
+from scipy.spatial import distance_matrix
 from data.load_dataset import get_wildtype_and_offset, load_dataset, load_sequences_of_representation
 from util.mlflow.constants import ONE_HOT
 
@@ -82,7 +86,7 @@ class BioSplitter(AbstractTrainTestSplitter):
         w.r.t. CV protocol either setup is effectively one split.
         """
         _X = load_sequences_of_representation(self.dataset, representation=representation)
-        if missed_indices:
+        if missed_indices and len(X) != len(_X):
             _X = np.delete(_X, missed_indices, axis=0) 
         assert _X.shape[0] == X.shape[0]
         diff_to_wt = np.sum(self.wt != _X, axis=1)
@@ -101,6 +105,141 @@ class BioSplitter(AbstractTrainTestSplitter):
     def get_name(self):
         splitter_name = self.name+str(self.n_mutations_train)+"_"+str(self.n_mutations_test)
         return splitter_name
+
+
+class WeightedTaskSplitter(AbstractTrainTestSplitter):
+    def __init__(self, dataset: str, seed=42, n_splits=5, threshold=2, X_p_fraction=0.05, p_accept=0.9, split_type="mutation"):
+        """
+        Initialized with X_s, Y_s data distribution and n_splits for k-fold CV.
+
+        INITIAL CONDITIONS if eta=0.125 so satisfy N-sum constraint, initial alphas=0.914...
+
+        """
+        super().__init__()
+        self.dataset = dataset
+        self.n_splits = n_splits
+        self.seed = seed
+        self.X_s, self.Y_s = None, None
+        self.eta = 0.125
+        if split_type not in ["mutation", "threshold"]:
+            raise ValueError("Incorrect split_type provided")
+        self.threshold = threshold
+        self.split_type = split_type
+        self.X_p_fraction = X_p_fraction
+        self.p_accept = p_accept
+
+    def split(self, X, y):
+        """
+        Implements indirect weighted inductive transfer learning regression (KL-ITL) 
+        by weighting one distribution against another, given that a small subset of defined other distribution is given.
+        Input X, y is split up into X_p, y_p and X_s, y_s
+        """
+        train_idx_list, test_idx_list = [], []
+        # eta = self._eta_optimize(X, y)
+        # return indices based on sampling from computed weights
+        for _ in range(self.n_splits):
+            if self.split_type == "mutation":
+                assert type(self.threshold) == int
+                p_idx, s_idx, test_idx = self.split_Xy_by_mutations(X, y)
+            elif self.split_type == "threshold":
+                assert type(self.threshold) == float
+                p_idx, s_idx, test_idx = self.split_Xy_by_observations(X, y)
+            X_p, y_p = X[p_idx], y[p_idx]
+            self.X_s, self.Y_s = X[s_idx], y[s_idx]
+            alphas = self._optimize(X_p, y_p)
+            weights = self.weight(X_p, y_p, alphas)
+            idx_excluding_test = np.setdiff1d(np.arange(0, X.shape[0]), test_idx, assume_unique=True)
+            assert weights.shape[0] == len(idx_excluding_test)
+            train_idx = np.random.choice(idx_excluding_test, p=weights)
+            train_idx_list.append(train_idx)
+            test_idx_list.append(test_idx)
+        return train_idx_list, None, test_idx_list
+
+    def split_Xy_by_mutations(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Split by number of mutations against wild-type: e.g. X_s = singles+doubles, X_p = subset(triples)
+        Note: data-size condition |X_p| << |X_s|
+        Returns: p, s, and test indices for X
+        """
+        wt, _ = get_wildtype_and_offset(self.dataset)
+        _X = load_sequences_of_representation(self.dataset, representation=ONE_HOT)
+        assert X.shape[0] == _X.shape[0]
+        diff_to_wt = np.sum(wt != _X, axis=1)
+        s_idx = np.where(diff_to_wt < self.threshold)[0]
+        all_p_idx = np.where(diff_to_wt == self.threshold)[0]
+        N_X_p = int(len(all_p_idx)*self.X_p_fraction)
+        np.random.shuffle(all_p_idx)
+        p_idx = all_p_idx[:N_X_p]
+        test_idx = all_p_idx[N_X_p:]
+        assert p_idx.shape[0] <= s_idx.shape[0]
+        assert p_idx.shape[0] + test_idx.shape[0] == all_p_idx.shape[0]
+        return p_idx, s_idx, test_idx
+
+    def split_Xy_by_observations(self, X, y):
+        raise NotImplementedError("Splitting by observed values not implemented!")
+
+    def _eta_optimize(self, X, y, k=10):
+        raise NotImplementedError("eta optimizaiton not yet functional!")
+        etas = np.linspace(0, 1, k)
+        performance = []
+        for eta in etas:
+            alphas = self._optimize(X, y, eta)
+            performance.append(np.sum(alphas))
+        best_eta = etas[np.argwhere(performance)]
+        return best_eta
+
+    def constrained_weight_sum(self, alphas):
+        """
+        Constraint: N=\sum from j=1 to N: w(X_s[j], Y_s[j])
+        rewritten as 0==sum-N equality constraint
+        """
+        N = self.X_s.shape[0]
+        w = [self.weight(alphas, self.X_s[j], self.Y_s[j], self.X_s, self.Y_s, self.eta) for j in range(N)]
+        return np.sum(w) - N
+
+    def _optimize(self, X, y):
+        """
+        Compute weights by optimizing on training split
+        Returns: optimal alphas vector
+        """
+        N = self.X_s.shape[0]
+        initial_alpha = 0.9143
+        alphas0 = np.ones(N)[:, np.newaxis] * initial_alpha
+        cons = [{"type": "eq", 
+                "fun": self.constrained_weight_sum,},
+                {"type": "ineq",
+                "fun": lambda alpha: alpha}]
+        res = minimize(self.average_log_weight, alphas0, args=(X, y), constraints=cons, options={'disp': True})
+        optimal_alphas = res.fun
+        return optimal_alphas
+
+    def average_log_weight(self, alphas: np.ndarray, X_p: np.ndarray, Y_p: np.ndarray) -> float:
+        """
+        Average logged weight over input X_p, Y_p.
+        Return single numeric value.
+        For optimization purposes: compute max alpha
+        """
+        assert alphas.shape[0] == self.X_s.shape[0] == self.Y_s.shape[0] , "Alpha required with same dimensions as X_s and Y_s!"
+        M = X_p.shape[0]
+        ws = []
+        for i in range(M):
+            _w = self.weight(alphas=alphas, x_p=X_p[i], y_p=Y_p[i], X_s=self.X_s, Y_s=self.Y_s, eta=self.eta)
+            ws.append(_w)
+        w = np.sum(np.log(ws)) / M
+        return -w # negative as we minimize
+
+    @staticmethod
+    def weight(alphas: np.ndarray, x_p: np.ndarray, y_p: np.ndarray, X_s: np.ndarray, Y_s: np.ndarray, eta: float) -> np.ndarray:
+        assert alphas.shape[0] == X_s.shape[0] == Y_s.shape[0] , "Alpha required with same dimensions as X_s and Y_s!"
+        X_s_Y_s = np.hstack([X_s, Y_s])
+        x_p_y_p = np.hstack([x_p, y_p])[np.newaxis, :]
+        assert X_s_Y_s.shape[-1] == x_p_y_p.shape[-1]
+        w = alphas * np.exp(-distance_matrix(x_p_y_p, X_s_Y_s)/(2*(eta**2)))
+        return w
+
+    def get_name(self):
+        return f"{self.name}_cv{self.n_splits}" 
+        
 
 
 class PositionSplitter(AbstractTrainTestSplitter):
@@ -123,7 +262,7 @@ class PositionSplitter(AbstractTrainTestSplitter):
         Either missing_idx exists, enforcing subselection with boolean mask.
         """
         _X = load_sequences_of_representation(self.dataset, representation)
-        if missed_indices is not None:
+        if missed_indices is not None and len(_X) != len(X):
             _X = np.delete(_X, missed_indices, axis=0) 
         assert _X.shape[0] == X.shape[0]
         return positional_splitter(_X, self.wt, val=False, offset=4, pos_per_fold=self.positions)

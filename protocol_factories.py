@@ -6,7 +6,9 @@ import numpy as np
 from typing import Callable
 from algorithm_factories import get_key_for_factory
 from data.train_test_split import AbstractTrainTestSplitter
-from data.train_test_split import RandomSplitter, BlockPostionSplitter, PositionSplitter, BioSplitter, FractionalRandomSplitter
+from data.train_test_split import RandomSplitter, BlockPostionSplitter 
+from data.train_test_split import PositionSplitter, BioSplitter
+from data.train_test_split import FractionalRandomSplitter, WeightedTaskSplitter
 
 # SPLITTING: random, block, positional, fractional-random, mutation-lvl
 
@@ -31,6 +33,10 @@ def BlockSplitterFactory(dataset) -> List[AbstractTrainTestSplitter]:
 
 def RandomSplitterFactory(dataset) -> List[AbstractTrainTestSplitter]:
     return [RandomSplitter(dataset)]
+
+
+def WeightedTaskSplitterFactory(dataset, threshold=3) -> List[AbstractTrainTestSplitter]:
+    return [WeightedTaskSplitter(dataset, threshold=threshold)]
 
 
 PROTOCOL_REGISTRY = {

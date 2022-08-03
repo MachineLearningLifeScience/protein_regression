@@ -13,7 +13,7 @@ from typing import Tuple
 from algorithm_factories import ALGORITHM_REGISTRY
 from protocol_factories import PROTOCOL_REGISTRY
 from data import load_dataset, get_alphabet, load_augmentation, get_load_function
-from data.train_test_split import AbstractTrainTestSplitter, BioSplitter, PositionSplitter
+from data.train_test_split import AbstractTrainTestSplitter, BioSplitter, PositionSplitter, WeightedTaskSplitter
 from util.numpy_one_hot import numpy_one_hot_2dmat
 from util.log_uncertainty import prep_for_logdict
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, VAE_DENSITY
@@ -75,6 +75,8 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             train_indices, _, test_indices = protocol.split(X, representation, missed_assay_indices)
         else:
             train_indices, _, test_indices = protocol.split(X, representation)
+    elif type(protocol) == WeightedTaskSplitter:
+        train_indices, _, test_indices = protocol.split(X, Y)
     else: # BASE CASE splitting:
         train_indices, _, test_indices = protocol.split(X)
 
