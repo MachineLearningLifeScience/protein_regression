@@ -190,7 +190,7 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
 
     def constrained_weight_sum(self, alphas):
         """
-        Constraint: N=\sum from j=1 to N: w(X_s[j], Y_s[j])
+        Constraint: N=sum from j=1 to N: w(X_s[j], Y_s[j])
         rewritten as 0==sum-N equality constraint
         """
         N = self.X_s.shape[0]
@@ -221,18 +221,16 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
         """
         assert alphas.shape[0] == self.X_s.shape[0] == self.Y_s.shape[0] , "Alpha required with same dimensions as X_s and Y_s!"
         M = X_p.shape[0]
-        ws = []
-        for i in range(M):
-            _w = self.weight(alphas=alphas, x_p=X_p[i], y_p=Y_p[i], X_s=self.X_s, Y_s=self.Y_s, eta=self.eta)
-            ws.append(_w)
-        w = np.sum(np.log(ws)) / M
-        return -w # negative as we minimize
+        _w = self.weight(alphas=alphas, x_p=X_p, y_p=Y_p, X_s=self.X_s, Y_s=self.Y_s, eta=self.eta)
+        w = np.sum(np.log(_w)) / M
+        return -w # negative s.t. we minimize
 
     @staticmethod
     def weight(alphas: np.ndarray, x_p: np.ndarray, y_p: np.ndarray, X_s: np.ndarray, Y_s: np.ndarray, eta: float) -> np.ndarray:
         assert alphas.shape[0] == X_s.shape[0] == Y_s.shape[0] , "Alpha required with same dimensions as X_s and Y_s!"
         X_s_Y_s = np.hstack([X_s, Y_s])
-        x_p_y_p = np.hstack([x_p, y_p])[np.newaxis, :]
+        x_p_y_p = np.hstack([x_p, y_p])
+        x_p_y_p = x_p_y_p if x_p_y_p.shape[0] != x_p_y_p.shape[-1] else x_p_y_p[np.newaxis, :]
         assert X_s_Y_s.shape[-1] == x_p_y_p.shape[-1]
         w = alphas * np.exp(-distance_matrix(x_p_y_p, X_s_Y_s)/(2*(eta**2)))
         return w
