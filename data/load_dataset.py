@@ -84,10 +84,14 @@ def __compute_observation_and_deduplication_indices(df) -> Tuple[np.ndarray, np.
     """
     idx = np.logical_not(np.isnan(df["assay"])) # observations by assay values
     observations_start: int = np.argwhere(idx.values==True)[0][0] # first observation index
-    duplicated_index = df[["seqs_aa", "assay"]].duplicated() # find duplicates as sequence+assay repeats
+    if "mutant" in df.columns:
+        duplicated_index = df[["mutant", "assay"]].duplicated()
+    else:
+        duplicated_index = df[["seqs_aa", "assay"]].duplicated() # find duplicates as sequence+assay repeats
     observation_idx = np.logical_and(idx, ~duplicated_index) # combine observation AND INVERT duplicate for later selection
     anchored_duplicated_index = duplicated_index.set_axis(duplicated_index.index-observations_start) # adjust index by first observation
-    representation_index = np.invert(anchored_duplicated_index[anchored_duplicated_index.index >= 0])
+    representation_index = np.logical_and(idx, np.invert(anchored_duplicated_index[anchored_duplicated_index.index >= 0]))
+    assert observation_idx.sum() == representation_index.sum()
     return observation_idx.values, representation_index.values
 
 
@@ -133,7 +137,7 @@ def load_esm(name: str) -> Tuple[np.ndarray, np.ndarray]:
         observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
         d = d.loc[observation_idx]
         Y = np.vstack(d["assay"])
-        X = pickle.load(open(join(base_path, "toxi_esm_rep.pkl"), "rb"))[representation_idx]
+        X = pickle.load(open(join(base_path, "toxi_esm_rep.pkl"), "rb"))[representation_idx[observation_idx==True]]
     else:
         raise ValueError("Unknown dataset: %s" % name)
     assert X.shape[0] == Y.shape[0]
@@ -353,10 +357,11 @@ def __load_df(name: str, x_column_name: str) -> Tuple[np.ndarray, np.ndarray]:
     """
     d = pickle.load(open(join(base_path, "%s.pkl" % name), "rb"))
     idx = np.logical_not(np.isnan(d["assay"]))
+    d = d.loc[idx]
     d["mutations"] = __get_mutation_idx(name=name.split("_")[0].upper(), df=d)
     d = d.drop_duplicates(subset=["mutations", "assay"])
-    X = np.vstack(d[x_column_name].loc[idx])
-    Y = np.vstack(d["assay"].loc[idx]) 
+    X = np.vstack(d[x_column_name])
+    Y = np.vstack(d["assay"]) 
     return X, Y
 
 
