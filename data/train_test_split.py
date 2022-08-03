@@ -112,7 +112,7 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
         """
         Initialized with X_s, Y_s data distribution and n_splits for k-fold CV.
 
-        INITIAL CONDITIONS if eta=0.125 so satisfy N-sum constraint, initial alphas=0.914...
+        INITIAL CONDITIONS if eta=0.75 to satisfy N-sum constraint, initial approx. alphas=1.5
 
         """
         super().__init__()
@@ -120,7 +120,7 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
         self.n_splits = n_splits
         self.seed = seed
         self.X_s, self.Y_s = None, None
-        self.eta = 0.125
+        self.eta = 0.75
         if split_type not in ["mutation", "threshold"]:
             raise ValueError("Incorrect split_type provided")
         self.threshold = threshold
@@ -146,11 +146,18 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
                 p_idx, s_idx, test_idx = self.split_Xy_by_observations(X, y)
             X_p, y_p = X[p_idx], y[p_idx]
             self.X_s, self.Y_s = X[s_idx], y[s_idx]
-            alphas = self._optimize(X_p, y_p)
-            weights = self.weight(X_p, y_p, alphas)
-            idx_excluding_test = np.setdiff1d(np.arange(0, X.shape[0]), test_idx, assume_unique=True)
-            assert weights.shape[0] == len(idx_excluding_test)
-            train_idx = np.random.choice(idx_excluding_test, p=weights)
+            training_N = X_p.shape[0] + self.X_s.shape[0]
+            optimal_alphas = self._optimize(X_p, y_p)
+            weights = self.weight(alphas=optimal_alphas, x_p=X_p, y_p=y_p, X_s=self.X_s, Y_s=self.Y_s, eta=self.eta)
+            avrg_weights = np.mean(weights, axis=0)
+            # we have a weight for each X_py_p entry -> take average shape: [N_p, M_s], take average
+            assert avrg_weights.shape[0] == self.X_s.shape[0]
+            # training data: ALL X_p equal likelihood, all X_s data with avrg weights
+            idx_vec = np.concatenate([p_idx, s_idx])
+            training_N = len(p_idx)+avrg_weights.sum()
+            p_vec = np.concatenate([np.ones(len(p_idx)), avrg_weights]) / training_N # normalize to make it p-measure
+            assert idx_vec.shape == p_vec.shape
+            train_idx = np.random.choice(idx_vec, size=int(np.ceil(training_N)), p=p_vec)
             train_idx_list.append(train_idx)
             test_idx_list.append(test_idx)
         return train_idx_list, None, test_idx_list
@@ -194,7 +201,9 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
         rewritten as 0==sum-N equality constraint
         """
         N = self.X_s.shape[0]
-        w = [self.weight(alphas, self.X_s[j], self.Y_s[j], self.X_s, self.Y_s, self.eta) for j in range(N)]
+        w = self.weight(alphas, self.X_s, self.Y_s, self.X_s, self.Y_s, self.eta) # returns NxN matrix from euclidean distances
+        # TODO: inquire if average across each sequence is sensible
+        w = np.mean(w, axis=1)
         return np.sum(w) - N
 
     def _optimize(self, X, y):
@@ -203,14 +212,14 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
         Returns: optimal alphas vector
         """
         N = self.X_s.shape[0]
-        initial_alpha = 0.9143
+        initial_alpha = 1.5
         alphas0 = np.ones(N)[:, np.newaxis] * initial_alpha
         cons = [{"type": "eq", 
                 "fun": self.constrained_weight_sum,},
                 {"type": "ineq",
                 "fun": lambda alpha: alpha}]
         res = minimize(self.average_log_weight, alphas0, args=(X, y), constraints=cons, options={'disp': True})
-        optimal_alphas = res.fun
+        optimal_alphas = res.x
         return optimal_alphas
 
     def average_log_weight(self, alphas: np.ndarray, X_p: np.ndarray, Y_p: np.ndarray) -> float:
@@ -227,12 +236,16 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
 
     @staticmethod
     def weight(alphas: np.ndarray, x_p: np.ndarray, y_p: np.ndarray, X_s: np.ndarray, Y_s: np.ndarray, eta: float) -> np.ndarray:
+        """
+        Matrix computation of Eq. (8) from KL-ITL J.Garcke
+        """
         assert alphas.shape[0] == X_s.shape[0] == Y_s.shape[0] , "Alpha required with same dimensions as X_s and Y_s!"
         X_s_Y_s = np.hstack([X_s, Y_s])
         x_p_y_p = np.hstack([x_p, y_p])
         x_p_y_p = x_p_y_p if x_p_y_p.shape[0] != x_p_y_p.shape[-1] else x_p_y_p[np.newaxis, :]
         assert X_s_Y_s.shape[-1] == x_p_y_p.shape[-1]
         w = alphas * np.exp(-distance_matrix(x_p_y_p, X_s_Y_s)/(2*(eta**2)))
+        assert w.shape[-1] == X_s.shape[0]
         return w
 
     def get_name(self):

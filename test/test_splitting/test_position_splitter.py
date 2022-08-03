@@ -95,7 +95,7 @@ def test_with_offset_no_overlaps():
         for idx, (_train, _test) in enumerate(zip(train, test)):
             # the offset range at a position ...
             for k in range(1, offset):
-                not_contained_idx = pos*idx + k
+                not_contained_idx = int(pos*idx) + k
                 mutated_positions_at_exclusion_idx = np.hstack([np.where(mutation_pos==unique_mutations[not_contained_idx])[0]])
                 # ... should not be contained in training - TODO: but contained in testing instead??
                 assert all(np.isin(mutated_positions_at_exclusion_idx, _test))
