@@ -260,9 +260,9 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
         elif representation == EVE:
             X, Y = load_eve(name)
         elif representation == VAE_DENSITY:
-            X, Y, _ = load_augmentation(name=name, augmentation=VAE_DENSITY)
+            X, Y, _ = load_augmentation(name=name, augmentation=VAE_DENSITY, representation=representation)
         elif representation == EVE_DENSITY:
-            X, Y, _ = load_augmentation(name=name, augmentation=EVE_DENSITY)
+            X, Y, _ = load_augmentation(name=name, augmentation=EVE_DENSITY, representation=representation)
         elif representation == NONSENSE:
             X, Y = load_nonsense(name)
         else:
