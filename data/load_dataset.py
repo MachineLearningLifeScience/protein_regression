@@ -91,7 +91,6 @@ def __compute_observation_and_deduplication_indices(df) -> Tuple[np.ndarray, np.
     observation_idx = np.logical_and(idx, ~duplicated_index) # combine observation AND INVERT duplicate for later selection
     anchored_duplicated_index = duplicated_index.set_axis(duplicated_index.index-observations_start) # adjust index by first observation
     representation_index = np.invert(anchored_duplicated_index[anchored_duplicated_index.index >= 0])
-    assert observation_idx.sum() == representation_index.sum()
     return observation_idx.values, representation_index.values
 
 
@@ -177,20 +176,23 @@ def __load_eve_df(name) -> Tuple[np.ndarray, np.ndarray]:
     mut_idx = __get_mutation_idx(name, observed_d)
     observed_d["mutations"] = mut_idx
     observed_d = observed_d.drop_duplicates(subset=["mutations", "assay"])
+    _, offset = get_wildtype_and_offset(name)
     if name == "1FQG":
         name = "blat"
     if name == "BRCA":
         name = "brca_brct" # this is from deep sequence BRCA
     eve_df = pd.read_csv(join(base_path, f"EVE_{name.upper()}_2000_samples.csv"))
     merged_df_eve_observations = pd.merge(observed_d, eve_df, on="mutations", validate="one_to_one")
+    wt = merged_df_eve_observations[merged_df_eve_observations.mutations=="wt"]
+    merged_df_eve_observations = merged_df_eve_observations.drop(index=wt.index) if wt is not None else merged_df_eve_observations
     # add mutation positions and AA to DF
-    _, offset = get_wildtype_and_offset(name)
     if merged_df_eve_observations.mutations.str.contains(":").any():
         merged_df_eve_observations["last_mutation_position"] = merged_df_eve_observations.mutations.apply(lambda x: x.split(":")[-1][1:-1]).astype(int) + offset
         merged_df_eve_observations["mut_aa"] = merged_df_eve_observations.mutations.apply(lambda x: x.split(":")[-1][-1])
     else:
         merged_df_eve_observations["last_mutation_position"] = merged_df_eve_observations.mutations.str[1:-1].astype(int) + offset
         merged_df_eve_observations["mut_aa"] = merged_df_eve_observations.mutations.str[-1]
+    merged_df_eve_observations = merged_df_eve_observations.append(wt)
     return merged_df_eve_observations
 
 
@@ -384,7 +386,10 @@ def __get_mutation_idx(name, df: pd.DataFrame) -> list:
             to_aa = seq_str[i]
             m_idx = i+1 + seq_offset
             m.append(str(from_aa)+str(m_idx)+str(to_aa))
-        mutation_idx.append(":".join(m))
+        mutation = ":".join(m)
+        if all(wt==mut) and not any(m):
+            mutation = "wt"
+        mutation_idx.append(mutation)
     # TODO: resolve below
     # assert len(np.unique(mutation_idx)) == df.seqs.shape[0] "Mismatch between unique mutations and number of input sequences"
     return mutation_idx
