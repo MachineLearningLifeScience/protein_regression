@@ -249,7 +249,7 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
         return w
 
     def get_name(self):
-        return f"{self.name}_cv{self.n_splits}" 
+        return f"{self.name}_cv{self.n_splits}_k{self.threshold}" 
         
 
 
