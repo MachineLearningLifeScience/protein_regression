@@ -68,5 +68,16 @@ def test_weight_avrg_reference_against_vectorized():
     wts = WeightedTaskSplitter("test")
     wts.X_s = X_s
     wts.Y_s = y_s
+    wts.eta = eta
     w = wts.average_log_weight(alphas, X_p=X_p, Y_p=y_p)
     np.testing.assert_approx_equal(w_ref, w) # randomness introduces slight divergences
+
+
+def test_optimized_N_constraint():
+    wts = WeightedTaskSplitter("test")
+    wts.X_s = X_s
+    wts.Y_s = y_s
+    alphas = wts._optimize(X_p, y_p)
+    # constraint applies to computation with X_sY_s
+    constraint = wts.constrained_weight_sum(alphas)
+    np.testing.assert_almost_equal(0., constraint)
