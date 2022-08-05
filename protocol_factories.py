@@ -39,6 +39,11 @@ def WeightedTaskSplitterFactory(dataset, threshold=3) -> List[AbstractTrainTestS
     return [WeightedTaskSplitter(dataset, threshold=threshold)]
 
 
+def WeightedTaskRegressSplitterFactory(dataset, threshold=0.5) -> List[AbstractTrainTestSplitter]:
+    # use X_p fraction of functional observations for training, rest for testing
+    return [WeightedTaskSplitter(dataset, threshold=threshold, X_p_fraction=0.15, split_type="threshold")]
+
+
 PROTOCOL_REGISTRY = {
     get_key_for_factory(f): f for f in [RandomSplitterFactory, BlockSplitterFactory, PositionalSplitterFactory, FractionalSplitterFactory, BioSplitterFactory]
 }

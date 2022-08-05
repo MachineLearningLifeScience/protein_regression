@@ -1,10 +1,9 @@
 from builtins import ValueError
 from typing import Tuple
 import numpy as np
-import pandas as pd
+from numba import jit, float64
 from sklearn.model_selection import KFold
 from scipy.optimize import minimize
-from scipy.optimize import LinearConstraint
 from scipy.spatial.distance import euclidean
 from scipy.spatial import distance_matrix
 from data.load_dataset import get_wildtype_and_offset, load_dataset, load_sequences_of_representation
@@ -108,7 +107,7 @@ class BioSplitter(AbstractTrainTestSplitter):
 
 
 class WeightedTaskSplitter(AbstractTrainTestSplitter):
-    def __init__(self, dataset: str, seed=42, n_splits=5, threshold=2, X_p_fraction=0.05, p_accept=0.9, split_type="mutation"):
+    def __init__(self, dataset: str, seed=42, n_splits=5, threshold=2, X_p_fraction=0.05, p_accept=0.95, limit_N_Xs=250, split_type="mutation"):
         """
         Initialized with X_s, Y_s data distribution and n_splits for k-fold CV.
 
@@ -120,6 +119,7 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
         self.n_splits = n_splits
         self.seed = seed
         self.X_s, self.Y_s = None, None
+        self.X_s_N_limit = limit_N_Xs # hard limit, due to optimization scaling inefficiencies 
         self.eta = 0.75
         if split_type not in ["mutation", "threshold"]:
             raise ValueError("Incorrect split_type provided")
@@ -140,11 +140,12 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
         for _ in range(self.n_splits):
             if self.split_type == "mutation":
                 assert type(self.threshold) == int
-                p_idx, s_idx, test_idx = self.split_Xy_by_mutations(X, y)
+                p_idx, s_idx, test_idx = self.split_Xy_by_mutations(X)
             elif self.split_type == "threshold":
                 assert type(self.threshold) == float
                 p_idx, s_idx, test_idx = self.split_Xy_by_observations(X, y)
             X_p, y_p = X[p_idx], y[p_idx]
+            s_idx = s_idx[:self.X_s_N_limit] # limit amount of X_s for later optimization
             self.X_s, self.Y_s = X[s_idx], y[s_idx]
             training_N = X_p.shape[0] + self.X_s.shape[0]
             optimal_alphas = self._optimize(X_p, y_p)
@@ -162,7 +163,7 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
             test_idx_list.append(test_idx)
         return train_idx_list, None, test_idx_list
 
-    def split_Xy_by_mutations(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def split_Xy_by_mutations(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Split by number of mutations against wild-type: e.g. X_s = singles+doubles, X_p = subset(triples)
         Note: data-size condition |X_p| << |X_s|
@@ -178,22 +179,33 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
         np.random.shuffle(all_p_idx)
         p_idx = all_p_idx[:N_X_p]
         test_idx = all_p_idx[N_X_p:]
-        assert p_idx.shape[0] <= s_idx.shape[0]
+        assert p_idx.shape[0] < s_idx.shape[0]
         assert p_idx.shape[0] + test_idx.shape[0] == all_p_idx.shape[0]
         return p_idx, s_idx, test_idx
 
-    def split_Xy_by_observations(self, X, y):
-        raise NotImplementedError("Splitting by observed values not implemented!")
+    def split_Xy_by_observations(self, y) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Split by functional threshold with acceptance probability.
+        """
+        s_idx, p_idx, test_idx = [], [], []
+        all_indices = np.arange(0, len(y))
+        p_idx = np.array([idx for idx, _y in enumerate(y) if _y >= self.threshold and bool(np.random.binomial(1, self.p_accept))]) # functional variants
+        s_idx = np.setdiff1d(all_indices, s_idx) # non-functional variants
+        np.random.shuffle(p_idx)
+        N_X_p = int(len(p_idx)*self.X_p_fraction)
+        test_idx = p_idx[:N_X_p]
+        p_idx = p_idx[N_X_p:]
+        assert len(p_idx) < len(s_idx) and len(p_idx) < len(test_idx)
+        return p_idx, s_idx, test_idx
 
     def _eta_optimize(self, X, y, k=10):
-        raise NotImplementedError("eta optimizaiton not yet functional!")
+        raise NotImplementedError("eta optimization not yet functional!")
         etas = np.linspace(0, 1, k)
         performance = []
         for eta in etas:
             alphas = self._optimize(X, y, eta)
-            performance.append(np.sum(alphas))
-        best_eta = etas[np.argwhere(performance)]
-        return best_eta
+            performance.append(np.sum(self.average_log_weight(alphas, X, y)))
+        return np.max(etas)
 
     def constrained_weight_sum(self, alphas):
         """
@@ -217,8 +229,9 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
         cons = [{"type": "eq", 
                 "fun": self.constrained_weight_sum,},
                 {"type": "ineq",
-                "fun": lambda alpha: alpha}]
-        res = minimize(self.average_log_weight, alphas0, args=(X, y), constraints=cons, options={'disp': True})
+                "fun": lambda alpha: alpha,}]
+                # "jac": lambda alpha: np.ones(alpha.shape[0])[np.newaxis, :]}]
+        res = minimize(self.average_log_weight, alphas0, method="SLSQP", args=(X, y), constraints=cons, options={'disp': True}) # jac=self.average_log_w_der,
         optimal_alphas = res.x
         return optimal_alphas
 

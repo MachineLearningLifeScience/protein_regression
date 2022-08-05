@@ -3,9 +3,10 @@ from scipy.spatial.distance import euclidean
 from data.train_test_split import WeightedTaskSplitter
 
 
-X_s = np.array(np.linspace(0,1,100))[:, np.newaxis]
+np.random.seed(42)
+X_s = np.array(np.linspace(0,1,30))[:, np.newaxis]
 y_s = np.array(np.random.sample(X_s.shape[0]))[:, np.newaxis]
-subset_size = 10
+subset_size = 5
 X_p = X_s[:subset_size] - 0.01
 y_p = y_s[:subset_size] - 0.01
 alphas = np.ones(X_s.shape[0]) * 0.1
@@ -80,4 +81,5 @@ def test_optimized_N_constraint():
     alphas = wts._optimize(X_p, y_p)
     # constraint applies to computation with X_sY_s
     constraint = wts.constrained_weight_sum(alphas)
+    print(constraint)
     np.testing.assert_almost_equal(0., constraint)
