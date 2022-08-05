@@ -15,7 +15,8 @@ class RandomForest(AbstractAlgorithm):
 
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
-        self.model.fit(X, Y.squeeze())
+        Y = Y.squeeze() if Y.shape[0] > 1 else Y
+        self.model.fit(X, Y)
 
     def predict(self, X):
         pred = self.model.predict(X).reshape(-1, 1)

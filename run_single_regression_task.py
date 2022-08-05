@@ -103,7 +103,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             X_train, reducer = _dim_reduce_X(dim=dim, dim_reduction=dim_reduction, X_train=X_train, Y_train=Y_train)
             X_test = reducer.transform(X_test).astype(np.float64)
             mlflow.set_tags({"DIM_REDUCTION": dim_reduction, "DIM": reducer.n_components})
-        if "GP" in method.get_name() and not dim: # set initial parameters based on distance in space if using full latent space
+        if "GP" in method.get_name() and not dim and X_train.shape[0] > 1: # set initial parameters based on distance in space if using full latent space
             init_len = np.max(np.abs(np.subtract(X_train[0], X_train[1])))
             eps = 0.001
             method.init_length = init_len if init_len > 0.0 else init_len+eps # if reduced on lower dim this value is too small
