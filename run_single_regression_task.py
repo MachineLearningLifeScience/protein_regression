@@ -115,10 +115,13 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         method.train(X_train, scaled_y)
         try:
             _mu, _unc = method.predict_f(X_test)
-            _, post_cov = method.predict(X_train)
         except tf.errors.InvalidArgumentError as _:
             warnings.warn(f"Experiment: {dataset}, rep: {representation} in d={dim} not stable, prediction failed!")
             _mu, _unc = np.full(Y_test.shape, np.nan), np.full(Y_test.shape, np.nan)
+        try:
+            _, post_cov = method.predict(X_train)
+        except OverflowError as _:
+            warnings.warn(f"Experiment: {dataset}, {representation} at d={dim} posterior is NOT COMPUTABLE!")
             post_cov = np.full(Y_train.shape, np.nan)
         # undo scaling
         mu = _mu*std_y + mean_y
