@@ -24,10 +24,16 @@ class GMMRegression(AbstractAlgorithm):
         self.model.fit(X, Y)
 
     def predict(self, X):
-        # TODO: correct for variance computation
-        # pred = self.model.predict(np.arange(X.shape[1]), X).reshape(-1, 1)
         pred = self.model.predict(X)
-        return pred, np.repeat(np.var(pred), X.shape[0])[:, np.newaxis]
+        # sigma_2 = np.repeat(np.var(pred), X.shape[0])[:, np.newaxis]
+        cluster_vec = np.argmax(self.model.gmm_.to_responsibilities(np.hstack([X, pred])), axis=-1)
+        sigma_2 = []
+        for cluster in cluster_vec:
+            # NOTE: computing uncertainty sigma relative to Gaussian of MM: weight * (tr(\sigma)/2)
+            _sigma = (np.trace(self.model.gmm_.covariances[cluster])/self.n_components) * self.model.gmm_.priors[cluster]
+            sigma_2.append(_sigma)
+        sigma_2 = np.array(sigma_2)[:, np.newaxis]
+        return pred, sigma_2
 
     def predict_f(self, X):
         return self.predict(X)

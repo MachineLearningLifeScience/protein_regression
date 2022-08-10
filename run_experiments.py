@@ -70,12 +70,12 @@ def run_mixture_experiments():
     #                 for factory_key in [get_key_for_factory(f) for f in [GMMFactory]]:
     #                     run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
     #                                                 protocol=protocol, augmentation=None, dim=None, dim_reduction=LINEAR)
-    for dataset in ["1FQG", "UBQT"]:
+    for dataset in ["1FQG", "UBQT", "CALM"]:
         for representation in [TRANSFORMER, ONE_HOT, ESM, EVE]:
             for protocol_factory in [RandomSplitterFactory, PositionalSplitterFactory]:
                 for protocol in protocol_factory(dataset):
                     for factory_key in [get_key_for_factory(f) for f in [GMMFactory]]:
-                        for dim in [2, 10, 100, 500, 1000]:
+                        for dim in [2, 10, 100, 1000]:
                             if representation == VAE and dim and int(dim) > 30:
                                 continue # skip, dimensions greater than original -> None
                             if representation == EVE and dim and int(dim) > 50:

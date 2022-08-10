@@ -14,8 +14,9 @@ from algorithm_factories import ALGORITHM_REGISTRY
 from protocol_factories import PROTOCOL_REGISTRY
 from data import load_dataset, get_alphabet, load_augmentation, get_load_function
 from data.train_test_split import AbstractTrainTestSplitter, BioSplitter, PositionSplitter, WeightedTaskSplitter
-from util.numpy_one_hot import numpy_one_hot_2dmat
-from util.log_uncertainty import prep_for_logdict
+from util import numpy_one_hot_2dmat
+from util import prep_for_logdict
+from util import prep_from_mixture
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, VAE_DENSITY
 from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS, NO_AUGMENT
 from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR, MEAN_Y, STD_Y, PAC_BAYES_EPS
@@ -160,5 +161,12 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             mlflow.log_metric(OPT_SUCCESS, float(method.opt_success))
             mlflow.set_tag(GP_D_PRIOR, method.gp.likelihood.variance.prior.name)
         trues, mus, uncs, errs = prep_for_logdict(Y_test, mu, unc, err2, baseline)
-        mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(split)+'/output.json')
+        record_dict = {'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}
+        if "GMM" in method.get_name():
+            training_assignment, mu, cov, ws = prep_from_mixture(method, X_train, Y_train)
+            test_assignment, _, _, _ = prep_from_mixture(method, X_test, Y_test)
+            assignment_dict = {"train_X": X_train.tolist(), "train_assign": training_assignment.tolist(), "test_assign": test_assignment.tolist(), 
+                            "means": mu.tolist(), "covariances": cov.tolist(), "weights": ws.tolist()}
+            record_dict.update(assignment_dict)
+        mlflow.log_dict(record_dict, 'split'+str(split)+'/output.json')
     mlflow.end_run()
