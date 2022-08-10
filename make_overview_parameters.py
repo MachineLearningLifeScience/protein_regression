@@ -6,7 +6,7 @@ from gpflow.kernels import SquaredExponential
 from algorithms import GPonRealSpace, RandomForest, KNN
 from data.train_test_split import RandomSplitter, BlockPostionSplitter
 from util.mlflow.convenience_functions import get_mlflow_results
-from util.mlflow.constants import ONE_HOT, TRANSFORMER, VAE, ESM
+from util.mlflow.constants import ONE_HOT, TRANSFORMER, VAE, ESM, VAE_AUX, VAE_RAND
 from util.mlflow.constants import GP_LEN, GP_L_VAR, GP_VAR, MLL, MSE, SPEARMAN_RHO
 
 
@@ -31,8 +31,8 @@ def extract_parameters(datasets: list, algos: list, reps: list, metrics: list, t
 
 if __name__ == "__main__":
     datasets = ["MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA"]
-    algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), RandomForest().get_name(), KNN().get_name()]
-    representations = [ONE_HOT, TRANSFORMER, VAE, ESM]
+    algos = [GPonRealSpace().get_name()] # GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), RandomForest().get_name(), KNN().get_name()
+    representations = [ONE_HOT, TRANSFORMER, ESM, VAE, VAE_AUX, VAE_RAND]
     metrics = [GP_LEN, GP_L_VAR, GP_VAR, MLL, MSE, SPEARMAN_RHO]
     train_test_splitter = RandomSplitter # BlockPostionSplitter # 
     parameter_df = extract_parameters(datasets=datasets, algos=algos, reps=representations, metrics=metrics, 

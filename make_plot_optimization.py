@@ -19,7 +19,7 @@ from visualization.plot_metric_for_uncertainties import plot_uncertainty_optimiz
 
 # gathers all our results and saves them into a numpy array
 datasets = ["1FQG"]
-representations = [EVE] # TRANSFORMER
+representations = [TRANSFORMER] # TRANSFORMER
 plot_calibration = False
 seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245] # 11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245
 #seeds = [11]

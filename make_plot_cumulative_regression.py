@@ -33,7 +33,7 @@ def plot_cumulative_comparison(datasets: List[str],
 
 
 if __name__ == "__main__":
-    datasets = ["TIMB"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
+    datasets = ["CALM"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
     algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(), 
         #GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), 
         UncertainRandomForest().get_name()]
