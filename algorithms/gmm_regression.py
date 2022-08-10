@@ -27,8 +27,7 @@ class GMMRegression(AbstractAlgorithm):
         # TODO: correct for variance computation
         # pred = self.model.predict(np.arange(X.shape[1]), X).reshape(-1, 1)
         pred = self.model.predict(X)
-        unc = self.model.gmm_.means[1].mean() - self.model.gmm_.means[0].mean()**2
-        return pred, np.repeat(unc, X.shape[0])[:, np.newaxis]
+        return pred, np.repeat(np.var(pred), X.shape[0])[:, np.newaxis]
 
     def predict_f(self, X):
         return self.predict(X)
