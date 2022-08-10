@@ -5,7 +5,7 @@ from uncertainty_quantification.calibration import error_based_calibration, expe
 from uncertainty_quantification.calibration import expected_calibration_error
 from uncertainty_quantification.confidence import ranking_confidence_curve
 from uncertainty_quantification.confidence import area_confidence_oracle_error, decreasing_ratio
-from make_uncertain_plots import prep_reliability_diagram, quantile_and_oracle_errors
+from make_plot_uncertainties import prep_reliability_diagram, quantile_and_oracle_errors
 
 np.random.seed(1234)
 
