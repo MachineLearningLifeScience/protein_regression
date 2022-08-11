@@ -1,3 +1,4 @@
+from algorithms.abstract_algorithm import AbstractAlgorithm
 from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.KNN import KNN
 from algorithms.one_hot_gp import GPOneHotSequenceSpace
