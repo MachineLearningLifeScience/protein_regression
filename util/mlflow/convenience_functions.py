@@ -8,7 +8,7 @@ import mlflow
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, SPLIT, SEED
-from util.mlflow.constants import AUGMENTATION, NO_AUGMENT, DIMENSION, LINEAR, NON_LINEAR, VAE
+from util.mlflow.constants import AUGMENTATION, NO_AUGMENT, DIMENSION, LINEAR, NON_LINEAR, VAE, EVE
 from data.train_test_split import AbstractTrainTestSplitter
 from typing import List, Tuple
 
@@ -117,7 +117,7 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
                         filter_string += f" and tags.{SPLIT} = '{train_test_splitter.get_name()}'"
                     if 'GP' in a and not 'optimization' in experiment_ids[0]:
                         filter_string += f" and tags.OPTIMIZE = '{optimize}'"
-                    if dim and not (rep==VAE and dim >= 30):
+                    if dim and not (rep==VAE and dim >= 30) and not (rep==EVE and dim >= 50): # default results for VAE, EVE is highest dim
                         filter_string += f" and tags.DIM = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'"
                     if aug:
                         filter_string += f" and tags.{AUGMENTATION} = '{aug}'"

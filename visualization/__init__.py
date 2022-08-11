@@ -2,6 +2,7 @@ from util.mlflow.constants import ONE_HOT, ESM, TRANSFORMER, EVE, VAE_AUX, VAE_R
 from util.mlflow.constants import ROSETTA, VAE_DENSITY, EVE_DENSITY
 from gpflow.kernels import SquaredExponential, Matern52
 from algorithms import GPonRealSpace, RandomForest, KNN, UncertainRandomForest
+from visualization.plot_metric_for_mixtures import plot_metric_for_mixtures
 
 colorscheme = ['dimgrey', '#661100', '#332288', 'hotpink',  "cyan", '#117733', "lime", "tan", "orangered"]
 
