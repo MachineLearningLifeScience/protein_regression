@@ -50,9 +50,6 @@ def check_results(result_list: list, fill_with_na=True) -> Tuple[list, bool]:
     return result_list, correct
 
 
-
-
-
 def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, train_test_splitter: AbstractTrainTestSplitter, 
                     augmentation: list=[None], dim=None, dim_reduction=NON_LINEAR, seed=None, artifacts=False, experiment_ids=None) -> dict:
     experiment_ids = datasets if not experiment_ids else experiment_ids
@@ -72,13 +69,14 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                         filter_string += f" and tags.{SPLIT} = '{train_test_splitter.get_name()}'"
                     if aug:
                         filter_string += f" and tags.{AUGMENTATION} = '{aug}'"
-                    if dim and not (rep==VAE and dim >= 30):
+                    if dim and not (rep==VAE and dim >= 30) and not (rep==EVE and dim >= 50):
                         filter_string += f" and tags.{DIMENSION} = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'"
                     if seed:
                         filter_string += f" and tags.{SEED} = '{seed}'"
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
-                    while len(runs) != 1 and dim and dim >= 1: # for lower-dimensional experiments, if not exists: take next smaller in steps of 10:
-                        _dim = int(re.search(r'\d+', filter_string).group())
+                    _dim = dim
+                    while len(runs) != 1 and dim and _dim >= 1: # for lower-dimensional experiments, if not exists: take next smaller in steps of 10:
+                        _dim = int(re.search(r'\'\d+\'', filter_string).group()[1:-1]) # NOTE: \' to cover if other elements in the string have int elements
                         lower_dim = _dim - int(dim/10)
                         filter_string = filter_string.replace(f"tags.{DIMENSION} = '{_dim}'", f"tags.{DIMENSION} = '{lower_dim}'")
                         runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
