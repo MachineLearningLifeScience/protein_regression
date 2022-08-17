@@ -10,7 +10,7 @@ from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.uncertain_rf import UncertainRandomForest
 from algorithms.random_forest import RandomForest
 from algorithms.KNN import KNN
-from util.mlflow.constants import DATASET, METHOD, MSE, REPRESENTATION, STD_Y, TRANSFORMER, VAE, VAE_DENSITY, EVE_DENSITY, ESM
+from util.mlflow.constants import DATASET, METHOD, MSE, REPRESENTATION, STD_Y, TRANSFORMER, VAE, VAE_DENSITY, EVE_DENSITY, ESM, AT_RANDOM
 from util.mlflow.constants import SPLIT, ONE_HOT, NONSENSE, KNN_name, SEED, OPTIMIZATION, EXPERIMENT_TYPE, OBSERVED_Y
 from util.mlflow.convenience_functions import get_mlflow_results_optimization
 from data.load_dataset import load_dataset
@@ -19,7 +19,7 @@ from visualization.plot_metric_for_uncertainties import plot_uncertainty_optimiz
 
 # gathers all our results and saves them into a numpy array
 datasets = ["1FQG"]
-representations = [TRANSFORMER] # TRANSFORMER
+representations = [ONE_HOT] # TRANSFORMER, ESM, ONE_HOT, EVE
 plot_calibration = False
 seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245] # 11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245
 #seeds = [11]
@@ -27,11 +27,13 @@ reference_benchmark_rep = [EVE_DENSITY] # option: VAE_DENSITY
 
 algos = [GPonRealSpace(kernel_factory=lambda: Matern52()).get_name(), 
         GPonRealSpace(kernel_factory=lambda: Linear()).get_name(), 
-        UncertainRandomForest().get_name()]
+        UncertainRandomForest().get_name()] 
 
 results = get_mlflow_results_optimization(datasets=datasets, algos=algos, reps=representations, metrics=[OBSERVED_Y, STD_Y], seeds=seeds)
 # benchmark against VAE scored sorted list
 reference_results = get_mlflow_results_optimization(datasets=datasets, algos=reference_benchmark_rep, reps=[None], metrics=[OBSERVED_Y])
+random_reference_results = get_mlflow_results_optimization(datasets=datasets, algos=[AT_RANDOM], reps=[None], metrics=[OBSERVED_Y], seeds=seeds)
+
 
 def compute_metrics_optimization_results(results: dict, datasets: list=datasets, algos: list=algos, representations: list=representations, seeds: list=seeds) -> Tuple[dict, dict, dict, dict]:
     minObs_dict = {}
@@ -82,16 +84,21 @@ def compute_metrics_optimization_results(results: dict, datasets: list=datasets,
        
 minObs_dict, regret_dict, meanObs_dict, lastObs_dict = compute_metrics_optimization_results(results)
 ref_minObs_dict, ref_regret_dict, ref_meanObs_dict, ref_lastObs_dict = compute_metrics_optimization_results(reference_results, algos=reference_benchmark_rep, representations=[None], seeds=[None])
+random_minObs_dict, random_regret_dict, random_meanObs_dict, random_lastObs_dict = compute_metrics_optimization_results(random_reference_results, algos=[AT_RANDOM], representations=[None], seeds=seeds)
 # add reference to results
-minObs_dict[datasets[0]][reference_benchmark_rep[0]] = ref_minObs_dict[datasets[0]].get(reference_benchmark_rep[0])
-regret_dict[datasets[0]][reference_benchmark_rep[0]] = ref_regret_dict[datasets[0]].get(reference_benchmark_rep[0])
-meanObs_dict[datasets[0]][reference_benchmark_rep[0]] = ref_meanObs_dict[datasets[0]].get(reference_benchmark_rep[0])
-lastObs_dict[datasets[0]][reference_benchmark_rep[0]] = ref_lastObs_dict[datasets[0]].get(reference_benchmark_rep[0])
-
+for benchmark in reference_benchmark_rep:
+    minObs_dict[datasets[0]][benchmark] = ref_minObs_dict[datasets[0]].get(benchmark)
+    regret_dict[datasets[0]][benchmark] = ref_regret_dict[datasets[0]].get(benchmark)
+    meanObs_dict[datasets[0]][benchmark] = ref_meanObs_dict[datasets[0]].get(benchmark)
+    lastObs_dict[datasets[0]][benchmark] = ref_lastObs_dict[datasets[0]].get(benchmark)
+minObs_dict[datasets[0]][AT_RANDOM] = random_minObs_dict[datasets[0]].get(AT_RANDOM)
+regret_dict[datasets[0]][AT_RANDOM] = random_regret_dict[datasets[0]].get(AT_RANDOM)
+meanObs_dict[datasets[0]][AT_RANDOM] = random_meanObs_dict[datasets[0]].get(AT_RANDOM)
+lastObs_dict[datasets[0]][AT_RANDOM] = random_lastObs_dict[datasets[0]].get(AT_RANDOM)
 
 plot_optimization_task(metric_values=minObs_dict, name=f'Best_observed_{representations}_{datasets}')
 plot_optimization_task(metric_values=regret_dict, name=f'Regret_{representations}_{datasets}')
-plot_optimization_task(metric_values=meanObs_dict, name=f'Mean_observed_{representations}_{datasets}')
+plot_optimization_task(metric_values=meanObs_dict, name=f'Mean_observed_{representations}_{datasets}', legend=True)
 plot_optimization_task(metric_values=lastObs_dict, name=f'Last_observed_{representations}_{datasets}')
 
 if plot_calibration:

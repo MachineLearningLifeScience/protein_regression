@@ -10,9 +10,9 @@ from util.preprocess import scale_observations
 from util.log_uncertainty import prep_for_logdict
 from algorithm_factories import ALGORITHM_REGISTRY
 from data.load_dataset import load_dataset, get_alphabet
-from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, SEED, OPTIMIZATION, EXPERIMENT_TYPE, OBSERVED_Y, OPTIMIZATION, VAE_DENSITY, EVE_DENSITY
+from util.mlflow.constants import DATASET, METHOD, ONE_HOT, REPRESENTATION, SEED, OPTIMIZATION, EXPERIMENT_TYPE, OBSERVED_Y, OPTIMIZATION, VAE_DENSITY, EVE_DENSITY
 from util.mlflow.constants import GP_LEN, GP_L_VAR, GP_VAR, GP_D_PRIOR, GP_K_PRIOR, OPT_SUCCESS
-from util.mlflow.constants import MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, MEAN_Y, STD_Y
+from util.mlflow.constants import MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, MEAN_Y, STD_Y, AT_RANDOM
 from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
 from scipy import stats
 from gpflow.utilities import print_summary
@@ -29,7 +29,7 @@ def _expected_improvement(mean, variance, eta):
     return s * (gamma * normal.cdf(gamma) + normal.pdf(gamma))
 
 
-def run_single_optimization_task(dataset: str, method_key: str, seed: int, representation: str, max_iterations: int, log_interval: int=10, reference_ranks=False):
+def run_single_optimization_task(dataset: str, method_key: str, seed: int, representation: str, max_iterations: int, log_interval: int=10):
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     X, Y = load_dataset(dataset, representation=representation)
     np.random.seed(seed)
@@ -121,19 +121,24 @@ def _log_optimization_metrics_to_mlflow(method, remaining_Y, mean_y, std_y, _mu,
     mlflow.log_dict({'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}, 'split'+str(step)+'/output.json')
 
 
-def run_ranked_reference_task(dataset, max_iterations=500, log_interval=1, reference_task=EVE_DENSITY):
+def run_ranked_reference_task(dataset, max_iterations=500, log_interval=1, seed=42, reference_task=EVE_DENSITY):
     """
     Reference task to optimize / rank by dELBO density score.
     No EI computation, but simple best scores ranking
     Possible reference tasks: VAE_DENSITY, EVE_DENSITY
     """
-    X, Y = load_dataset(dataset, representation=reference_task)
+    np.random.seed(seed)
+    _reference_rep = reference_task if reference_task != AT_RANDOM else ONE_HOT
+    X, Y = load_dataset(dataset, representation=_reference_rep)
     tags = {EXPERIMENT_TYPE: OPTIMIZATION, 
             DATASET: dataset, 
             METHOD: reference_task,
             OPTIMIZATION: False,}
-    # sort by dELBO densities
-    sorted_idx = np.argsort(X, axis=0)
+    if reference_task == AT_RANDOM: # base reference
+        tags[SEED] = seed
+        sorted_idx = np.random.permutation(X.shape[0])
+    else: # sort by dELBO densities
+        sorted_idx = np.argsort(X, axis=0)
     X = X[sorted_idx, :]
     Y = Y[sorted_idx, :]
     # record experiments by dataset name and have the tags as logged parameters

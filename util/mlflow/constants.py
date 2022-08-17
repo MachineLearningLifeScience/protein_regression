@@ -53,3 +53,6 @@ VAE_DENSITY = "vae_density"
 EVE_DENSITY = "eve_density"
 ROSETTA = "rosetta"
 NO_AUGMENT = "None"
+
+# reference task
+AT_RANDOM = "random"
