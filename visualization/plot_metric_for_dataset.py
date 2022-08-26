@@ -11,7 +11,7 @@ from visualization import algorithm_colors as ac
 from visualization import augmentation_colors as aug_c
 from visualization import representation_colors as rc
 from util.mlflow.constants import GP_L_VAR, LINEAR, VAE, EVE, VAE_DENSITY, ONE_HOT, EVE_DENSITY
-from util.mlflow.constants import MLL, MSE, SPEARMAN_RHO, PAC_BAYES_EPS, STD_Y
+from util.mlflow.constants import MLL, MSE, SPEARMAN_RHO, PAC_BAYES_EPS, STD_Y, PAC_BAYES_EPS
 
 
 def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
@@ -83,7 +83,7 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
         axs[d].set_title(dataset_key, size=16)
         axs[d].set_xlabel('1-NMSE', size=14)
     handles, labels = axs[-1].get_legend_handles_labels()
-    fig.legend(handles[:len(reps)], reps, loc='lower right', prop={'size': 14})
+    fig.legend(handles[:len(reps)], reps, loc='lower right', ncol=len(reps), prop={'size': 14})
     plt.suptitle(plot_heading, size=12)
     plt.tight_layout()
     plt.savefig(filename+".png")
@@ -134,7 +134,7 @@ def errorplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, h
         axs[d].set_title(dataset_key, size=16)
         axs[d].set_xlabel('spearman r', size=14)
     handles, labels = axs[-1].get_legend_handles_labels()
-    fig.legend(handles[:len(reps)], reps, loc='lower right', prop={'size': 14})
+    fig.legend(handles[:len(reps)], reps, loc='lower right', ncol=len(reps), prop={'size': 14})
     plt.suptitle(plot_heading, size=12)
     plt.tight_layout()
     plt.savefig(filename+".png")
@@ -193,9 +193,71 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
     plt.show()
 
 
-def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE):
-    plot_heading = f'Comparison of algoritms and representations for MUTATION splitting \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
-    filename = 'results/figures/benchmark/'+'accuracy_of_methods_barplot_'+str(list(metric_values.keys()))
+def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE, dim=None, dataset="TOXI"):
+    """
+    Mutation plotting for TOXI data
+    """
+    plot_heading = f'Comparison of algoritms and representations for MUTATION splitting \n d={dim} scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
+    filename = 'results/figures/benchmark/'+f'accuracy_of_methods_barplot_d={dim}_'+str(list(metric_values.keys()))
+    splits = list(metric_values.keys())
+    methods = list(metric_values.get(splits[0]).get(dataset).keys())
+    representations = list(metric_values[splits[0]][dataset][methods[0]].keys())
+    fig, ax = plt.subplots(1, len(methods), figsize=(len(methods)*4,6))
+    axs = np.ravel(ax)
+    reps = []
+    previous_split_keys = []
+    n_reps = len(representations)
+    width = 1/(n_reps) # 3 elements (1 bar + 2 arrows) + 2 extra space
+    # first set of plots display absolute performance with indicators on previous performance
+    for i, algo in enumerate(methods):
+        for j, splitter_key in enumerate(splits):
+            seps = np.linspace(-width*n_reps*len(splits), width*n_reps*len(splits), n_reps*len(splits))
+            for k, rep in enumerate(representations):
+                k+=j*len(representations)
+                if rep not in reps and "density" not in rep:
+                    reps.append(rep)
+                mse_list = metric_values[splitter_key][dataset][algo][rep][None][metric]
+                neg_invert_mse = 1-np.mean(mse_list)
+                if rep in [VAE_DENSITY, EVE_DENSITY]: # overlay VAE density as reference on VAE row
+                    if rep == VAE_DENSITY:
+                        ref = VAE
+                    elif rep == EVE_DENSITY:
+                        ref = EVE
+                    pos = list(metric_values[splitter_key][dataset][algo].keys()).index(ref)
+                    axs[i].boxplot(np.ones(len(mse_list)) - mse_list, positions=[i+seps[pos]], widths=[width], labels=[rep], vert=False)
+                else: # if improvement, plot previous shaded and improvement solid
+                    axs[i].bar(j+seps[k], neg_invert_mse, width=width, label=rep, color=rc.get(rep),
+                                    facecolor=rc.get(rep), edgecolor=rc.get(rep), ecolor='black', capsize=5, hatch='//')
+                    # axs[i].annotate(f"{splitter_key}", xy=(i+seps[k], neg_invert_mse), xytext=(i+seps[k], neg_invert_mse+0.2))
+        previous_split_keys.append(splitter_key)
+        cols = len(splits)
+        axs[i].axhline(0, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
+        axs[i].axhline(-1, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
+        axs[i].axhline(1, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
+        axs[i].axhline(0.75, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
+        axs[i].axhline(0.5, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[i].axhline(0.25, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
+        axs[i].axhline(-0.5, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.25)
+        axs[i].axhline(-0.25, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
+        axs[i].axhline(-0.75, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
+        axs[i].set_xticks([x+s for x, s in zip(seps, range(len(splits)))])
+        axs[i].set_xticklabels([f"{split}" for split in splits])
+        axs[i].set_ylim((-0.251, 1.1))
+        axs[i].tick_params(axis='x', which='both', labelsize=9)
+        axs[i].set_xlabel(algo, size=14)
+        axs[i].set_ylabel("1-NMSE")
+    handles, labels = axs[-1].get_legend_handles_labels()
+    fig.legend(handles[:len(reps)], reps, loc='lower right', ncol=len(reps), prop={'size': 14})
+    plt.suptitle(plot_heading, size=12)
+    plt.savefig(filename+".png")
+    plt.savefig(filename+".pdf")
+    plt.show()
+
+
+def barplot_metric_functional_mutation_comparison(metric_values: dict, metric: str='mse', dim=None):
+    # TODO: code duplication with function above CLEAN-UP!
+    plot_heading = f'Comparison of algoritms for FUNCTIONAL MUTATION splitting \n t=-0.5, d={dim} scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
+    filename = 'results/figures/benchmark/functional/'+f'functional_acc_of_methods_barplot_d={dim}_'+str(list(metric_values.keys()))
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(len(metric_values.keys())*4,6))
     axs = np.ravel(ax)
     reps = []
@@ -210,10 +272,10 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE):
                 for j, rep in enumerate(metric_values[splitter_key][dataset_key][algo].keys()):
                     if rep not in reps and "density" not in rep:
                         reps.append(rep)
-                    mse_list = metric_values[splitter_key][dataset_key][algo][rep][None][metric]
+                    mse_list = metric_values[splitter_key][dataset_key][algo][rep][0][metric]
                     neg_invert_mse = 1-np.mean(mse_list)
-                    previous_metric = 1-np.mean(metric_values[previous_split_keys[-1]][dataset_key][algo][rep][None][metric]) if len(previous_split_keys) > 0 else 0.
-                    prev_previous_metric = 1-np.mean(metric_values[previous_split_keys[-2]][dataset_key][algo][rep][None][metric]) if len(previous_split_keys) > 1 else 0.
+                    previous_metric = 1-np.mean(metric_values[previous_split_keys[-1]][dataset_key][algo][rep][0][metric]) if len(previous_split_keys) > 0 else 0.
+                    prev_previous_metric = 1-np.mean(metric_values[previous_split_keys[-2]][dataset_key][algo][rep][0][metric]) if len(previous_split_keys) > 1 else 0.
                     if rep in [VAE_DENSITY, EVE_DENSITY]: # overlay VAE density as reference on VAE row
                         if rep == VAE_DENSITY:
                             ref = VAE
@@ -227,8 +289,6 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE):
                                         facecolor=rc.get(rep), edgecolor=rc.get(rep), ecolor='black', capsize=5, hatch='//')
                             axs[d].barh(i+seps[j], neg_invert_mse, height=height, color=rc.get(rep), alpha=0.125,
                                         facecolor=rc.get(rep), edgecolor=rc.get(rep), ecolor='black', capsize=5, hatch='//')
-                                # axs[d].arrow(previous_metric, i+seps[j], neg_invert_mse-previous_metric, 0, length_includes_head=True,
-                                # color=rc.get(rep), width=height, head_width=1.5*height, head_length=0.1*(neg_invert_mse-previous_metric), ec='black')
                         else: # if worse: plot diff to previous performance shaded and current performance solid
                             axs[d].barh(i+seps[j], neg_invert_mse - previous_metric, left=previous_metric, height=height, color=rc.get(rep),
                                         facecolor=rc.get(rep), edgecolor="red", ecolor='black', capsize=5, hatch='//', alpha=0.125)
@@ -245,9 +305,6 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE):
                                 axs[d].annotate("", xy=(previous_metric, i+seps[j]+height*0.1), 
                                                 xytext=(performance_diff_to_prev, i+seps[j]+height*0.1), 
                                                 arrowprops=dict(arrowstyle="<-"))
-                            # axs[d].arrow(previous_metric, i+seps[j], neg_invert_mse, 0, length_includes_head=True,
-                            #     color=rc.get(rep), width=height, head_width=1.5*height, head_length=0.1*(neg_invert_mse-previous_metric), ec='black',
-                            #     transform=Affine2D().rotate_deg_around(x=previous_metric, y=i+seps[j],degrees=180))
                         if d > 1:
                             performance_diff = prev_previous_metric+(neg_invert_mse-prev_previous_metric)
                             if performance_diff < -0.99: # cap arrows to xlim
@@ -284,7 +341,7 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE):
     plt.show()
 
 
-def plot_optimization_task(metric_values: dict, name: str, max_iterations=500):
+def plot_optimization_task(metric_values: dict, name: str, max_iterations=500, legend=False):
     plt.figure()
     for d, dataset_key in enumerate(metric_values.keys()):
         algos = []
@@ -308,7 +365,8 @@ def plot_optimization_task(metric_values: dict, name: str, max_iterations=500):
     plt.yticks(size=14)
     plt.title(' '.join(name.split("_")))
     markers = [plt.Line2D([0,0],[0,0],color=ac.get(algo), marker='o', linestyle='') for algo in algos]
-    plt.legend(markers, algos, loc="lower right", numpoints=1, ncol=len(algos), prop={'size':12})
+    if legend:
+        plt.legend(markers, algos, loc="lower right", numpoints=1, ncol=len(algos), prop={'size':8})
     plt.tight_layout()
     plt.savefig('results/figures/optim/'+name+'_optimization_plot.png')
     plt.savefig('results/figures/optim/'+name+'_optimization_plot.pdf')
@@ -320,7 +378,7 @@ def __parse_cumulative_results_dict(metrics_values: dict, metric: str, number_qu
     dataset = list(metrics_values[data_fractions[0]].keys())[0]
     methods = list(metrics_values[data_fractions[0]][dataset].keys())
     representations = list(metrics_values[data_fractions[0]][dataset][methods[0]].keys())
-    observations = {m: {'mean': [], 'std': [], 'eps': [],
+    observations = {m: {'mean': [], 'std': [], 'std_err': [], 'eps': [],
                         'mean_ece': [], 'ece_err': [], 'sharpness': []} for m in methods}
     for fraction in data_fractions:
         for method in methods:
@@ -335,10 +393,10 @@ def __parse_cumulative_results_dict(metrics_values: dict, metric: str, number_qu
                     mean_metric = np.clip(np.mean(_metric), 0, 1)
                 else:
                     mean_metric = np.mean(_metric)
-                # TODO: STD calculated w.r.t. clipped metric?
-                std_metric = np.std(_metric)/np.sqrt(len(_metric))
+                std_metric = np.std(_metric)
                 observations[method]['mean'].append(mean_metric)
                 observations[method]['std'].append(std_metric)
+                observations[method]['std_err'].append(std_metric/np.sqrt(len(_metric)))
                 if all(_eps) and (metric is MSE or metric is SPEARMAN_RHO):
                     epsilon_observation = np.mean(_eps)
                     observations[method]['eps'].append(epsilon_observation)
@@ -373,14 +431,18 @@ def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMA
             # TODO: keep index of NaNs and annotate with stars?
             y = np.nan_to_num(np.array(observations[method]['mean']))
             ece = np.nan_to_num(np.array(observations[method]['mean_ece']))
-            yerr = np.nan_to_num(np.array(observations[method]['std']))
+            yerr = np.nan_to_num(np.array(observations[method]['std_err']))
             ece_err = np.nan_to_num(np.array(observations[method]['ece_err']))
-            eps = np.nan_to_num(np.array(observations[method]['eps']))
+            if PAC_BAYES_EPS in metrics:
+                bound = np.nan_to_num(np.array(observations[method]['eps']))
+            else:
+                bound = np.nan_to_num(np.array(observations[method]['std']))
             ax[0].errorbar(data_fractions, y, yerr=yerr, lw=3, color=ac.get(method), label=method)
             if metric == MLL:
                 ax[0].set_yscale('log')
             if metric in [MSE, SPEARMAN_RHO] and method not in ['RF', 'KNN']:
-                ax[0].fill_between(data_fractions, y+eps, y-eps, alpha=0.2, color=ac.get(method), label=r"PAC $\lambda$-bound $\delta$=.05")
+                label = r"PAC $\lambda$-bound $\delta$=.05" if PAC_BAYES_EPS in metrics else "std"
+                ax[0].fill_between(data_fractions, y+bound, y-bound, alpha=0.2, color=ac.get(method), label=label)
                 ax[0].set_ylim((0, 1))
             ax[1].plot(data_fractions, np.cumsum(y), marker="o", lw=3, color=ac.get(method), label=method)
             ax[2].errorbar(data_fractions, ece, yerr=ece_err, lw=3, color=ac.get(method), label=method)
