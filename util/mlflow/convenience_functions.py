@@ -6,6 +6,7 @@ from os.path import join
 import numpy as np
 import mlflow
 from mlflow.entities import ViewType
+from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
 from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, SPLIT, SEED
 from util.mlflow.constants import AUGMENTATION, NO_AUGMENT, DIMENSION, LINEAR, NON_LINEAR, VAE, EVE
@@ -51,7 +52,7 @@ def check_results(result_list: list, fill_with_na=True) -> Tuple[list, bool]:
 
 
 def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, train_test_splitter: AbstractTrainTestSplitter, 
-                    augmentation: list=[None], dim=None, dim_reduction=NON_LINEAR, seed=None, artifacts=False, experiment_ids=None) -> dict:
+                    augmentation: list=[None], dim=None, dim_reduction=None, seed=None, artifacts=False, experiment_ids=None) -> dict:
     experiment_ids = datasets if not experiment_ids else experiment_ids
     results_dict = {}
     for i, dataset in enumerate(datasets):
@@ -73,22 +74,27 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                         filter_string += f" and tags.{DIMENSION} = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'"
                     if seed:
                         filter_string += f" and tags.{SEED} = '{seed}'"
-                    runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
+                    runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY)
+                    runs = runs[runs['status'] == 'FINISHED']
+                    if not dim and 'DIM' in runs.columns:
+                        runs = runs[runs['tags.DIM'].isnull()]
+                    if not aug and 'AUGMENTATION' in runs.columns:
+                        runs = runs[runs['tags.AUGMENTATION']==str(aug)]
                     _dim = dim
                     while len(runs) != 1 and dim and _dim >= 1: # for lower-dimensional experiments, if not exists: take next smaller in steps of 10:
                         _dim = int(re.search(r'\'\d+\'', filter_string).group()[1:-1]) # NOTE: \' to cover if other elements in the string have int elements
                         lower_dim = _dim - int(dim/10)
                         filter_string = filter_string.replace(f"tags.{DIMENSION} = '{_dim}'", f"tags.{DIMENSION} = '{lower_dim}'")
                         runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
-                    assert len(runs) == 1 , rep+a+dataset+str(augmentation)
+                    runs = runs.iloc[:1]
+                    assert len(runs) == 1 , str(rep)+str(a)+str(dataset)+str(augmentation)
                     metric_results = {metric: [] for metric in metrics}     
-                    for id in runs['run_id'].to_list():
-                        for metric in metrics:
-                            try:
-                                for r in mlflow.tracking.MlflowClient().get_metric_history(id, metric):
-                                    metric_results[metric].append(r.value)
-                            except MlflowException as e:
-                                continue
+                    for metric in metrics:
+                        try:
+                            for r in mlflow.tracking.MlflowClient().get_metric_history(runs.run_id.values[0], metric):
+                                metric_results[metric].append(r.value)
+                        except MlflowException as e:
+                            continue
                     aug_results[aug] = metric_results
                 reps_results[rep] = aug_results
             if a == 'GPsquared_exponential':
@@ -121,8 +127,15 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
                         filter_string += f" and tags.{AUGMENTATION} = '{aug}'"
                     if seed:
                         filter_string += f" and tags.{SEED} = '{seed}'"
-                    exps =  mlflow.tracking.MlflowClient().get_experiment_by_name(experiment_ids[i])
-                    runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
+                    exps = mlflow.tracking.MlflowClient().get_experiment_by_name(experiment_ids[i])
+                    runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY)
+                    runs = runs[runs['status'] == 'FINISHED']
+                    if not dim and 'DIM' in runs.columns:
+                        runs = runs[runs['tags.DIM'].isnull()]
+                    if not aug and 'AUGMENTATION' in runs.columns:
+                        runs = runs[runs['tags.AUGMENTATION']==str(aug)]
+                    # refine search, as query string does not allow for dim=None and we need very specific run
+                    runs = runs.iloc[:1]
                     assert len(runs) == 1 , rep+a+dataset+str(aug)
                     for id in runs['run_id'].to_list():
                         PATH = f"/Users/rcml/protein_regression/results/mlruns/{exps.experiment_id}/{id}" + "/" + "artifacts"
