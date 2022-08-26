@@ -20,7 +20,7 @@ class GMMRegression(AbstractAlgorithm):
         # covariances = [np.diag(_c) for _c in gmm.covariances_]
         # self.model = GMM(n_components=self.n_components, priors=gmm.weights_, means=gmm.means_, 
         #                 covariances=covariances, random_state=42)
-        self.model = GaussianMixtureRegressor(n_components=self.n_components)
+        self.model = GaussianMixtureRegressor(n_components=self.n_components, init_params="kmeans++")
         self.model.fit(X, Y)
 
     def predict(self, X):

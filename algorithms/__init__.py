@@ -4,3 +4,4 @@ from algorithms.KNN import KNN
 from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.random_forest import RandomForest
 from algorithms.uncertain_rf import Uncertain_RandomForestRegressor, UncertainRandomForest
+from algorithms.gmm_regression import GMMRegression
