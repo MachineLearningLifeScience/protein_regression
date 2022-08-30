@@ -1,5 +1,7 @@
 # IDE caching
 .idea/*
+.vscode/*
+
 # Pychaching
 __pycache__
 
