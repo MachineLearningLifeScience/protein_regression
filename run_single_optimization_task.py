@@ -7,7 +7,7 @@ import tensorflow as tf
 from tqdm import tqdm
 from scipy.stats import norm as normal
 from util.preprocess import scale_observations
-from util.log_uncertainty import prep_for_logdict
+from util.log import prep_for_logdict
 from algorithm_factories import ALGORITHM_REGISTRY
 from data.load_dataset import load_dataset, get_alphabet
 from util.mlflow.constants import DATASET, METHOD, ONE_HOT, REPRESENTATION, SEED, OPTIMIZATION, EXPERIMENT_TYPE, OBSERVED_Y, OPTIMIZATION, VAE_DENSITY, EVE_DENSITY

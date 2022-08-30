@@ -15,7 +15,7 @@ from protocol_factories import PROTOCOL_REGISTRY
 from data import load_dataset, get_alphabet, load_augmentation, get_load_function
 from data.train_test_split import AbstractTrainTestSplitter, BioSplitter, PositionSplitter, WeightedTaskSplitter
 from util import numpy_one_hot_2dmat
-from util import prep_for_logdict
+from util import prep_for_logdict, prep_for_mutation
 from util import prep_from_mixture
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, VAE_DENSITY
 from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS, NO_AUGMENT
@@ -101,7 +101,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         Y_test = Y[test_indices[split]]
         mean_y, std_y, scaled_y = scale_observations(Y_train)
         if dim and X_train.shape[1] > dim:
-            X_train, reducer = _dim_reduce_X(dim=dim, dim_reduction=dim_reduction, X_train=X_train, Y_train=Y_train)
+            X_train, reducer = _dim_reduce_X(dim=dim, dim_reduction=dim_reduction, X_train=X_train, Y_train=scaled_y)
             X_test = reducer.transform(X_test).astype(np.float64)
             mlflow.set_tags({"DIM_REDUCTION": dim_reduction, "DIM": reducer.n_components})
         if "GP" in method.get_name() and not dim and X_train.shape[0] > 1: # set initial parameters based on distance in space if using full latent space
@@ -161,12 +161,17 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             mlflow.log_metric(OPT_SUCCESS, float(method.opt_success))
             mlflow.set_tag(GP_D_PRIOR, method.gp.likelihood.variance.prior.name)
         trues, mus, uncs, errs = prep_for_logdict(Y_test, mu, unc, err2, baseline)
-        record_dict = {'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs}
+        train_mutations = prep_for_mutation(dataset, train_indices[split])
+        test_mutations = prep_for_mutation(dataset, test_indices[split])
+        record_dict = {'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs,
+                    'train_mutation': train_mutations, 'test_mutation': test_mutations,
+                    'train_trues': list(np.hstack(Y_train))}
         if "GMM" in method.get_name():
-            training_assignment, mu, cov, ws = prep_from_mixture(method, X_train, Y_train)
-            test_assignment, _, _, _ = prep_from_mixture(method, X_test, Y_test)
+            training_assignment, train_mu, train_cov, train_ws = prep_from_mixture(method, X_train, scaled_y)
+            test_assignment, test_mu, test_cov, test_ws = prep_from_mixture(method, X_test, Y_test/std_y-mean_y)
             assignment_dict = {"train_X": X_train.tolist(), "train_assign": training_assignment.tolist(), "test_assign": test_assignment.tolist(), 
-                            "means": mu.tolist(), "covariances": cov.tolist(), "weights": ws.tolist()}
+                            "train_means": train_mu.tolist(), "train_covariances": train_cov.tolist(), "train_weights": train_ws.tolist(),
+                            "test_means": test_mu.tolist(), "test_covariances": test_cov.tolist(), "test_weights": test_ws.tolist()}
             record_dict.update(assignment_dict)
         mlflow.log_dict(record_dict, 'split'+str(split)+'/output.json')
     mlflow.end_run()
