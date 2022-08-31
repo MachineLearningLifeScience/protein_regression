@@ -2,6 +2,7 @@ import numpy as np
 from itertools import combinations
 from typing import Tuple
 
+
 def filter_functional_variant_data(results_dict: dict, functional_threshold) -> dict:
     functional_observations = {protocol: {
                                 prot: {
@@ -18,7 +19,7 @@ def filter_functional_variant_data(results_dict: dict, functional_threshold) -> 
     return functional_observations
 
 
-def parse_additive_mutation_observations(results_dict: dict) -> Tuple[np.ndarray, np.ndarray]:
+def parse_baseline_mutation_observations(results_dict: dict, metric: callable=np.sum) -> Tuple[np.ndarray, np.ndarray]:
     """
     Parse mutation (test) observations  by its constituents (training).
     Return test observations and associated added training observations.
@@ -34,6 +35,7 @@ def parse_additive_mutation_observations(results_dict: dict) -> Tuple[np.ndarray
     true_observations = []
     for cv_split in _dict.keys():
         train_mutations = _dict.get(cv_split).get("train_mutation")
+        training_observations = np.array(_dict.get(cv_split).get("train_trues"))
         flat_train_mutations = [("".join(_m), i) for i, _m in enumerate(train_mutations)]
         for test_mutation, test_val in zip(_dict.get(cv_split).get("test_mutation"), _dict.get(cv_split).get("trues")):
             idx = []
@@ -43,16 +45,15 @@ def parse_additive_mutation_observations(results_dict: dict) -> Tuple[np.ndarray
                     if mutation==m:
                         idx.append(i)
             true_observations.append(test_val)
-            additive_training_values.append(np.sum(np.array(_dict.get(cv_split).get("train_trues"))[idx]))
+            additive_training_values.append(metric(training_observations[idx]))
             if len(test_mutation) > 2: # case of k variants look at combination 
-                idx = []
                 for mutation in combinations(test_mutation, len(test_mutation)-1): # TODO extend to k-mutations by combinations int is range
                     remainder = np.setdiff1d(test_mutation, mutation)
                     source_mutations_idx = [i for m, i in flat_train_mutations if m=="".join(mutation)]
                     remainder_idx = [i for m, i in flat_train_mutations if m==remainder]
-                    idx.append(source_mutations_idx + remainder_idx) # concatenate lists of indices
+                    idx = source_mutations_idx + remainder_idx # concatenate lists of indices
                     # for each combination one observation
                     true_observations.append(test_val)
-                    additive_training_values.append(np.sum(np.array(_dict.get(cv_split).get("train_trues"))[idx]))
+                    additive_training_values.append(metric(training_observations[idx]))
     assert len(additive_training_values) == len(true_observations)       
     return np.array(additive_training_values), np.array(true_observations)
