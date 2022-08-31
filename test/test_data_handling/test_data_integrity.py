@@ -1,5 +1,6 @@
 import pytest
 from data import load_dataset
+from data.load_dataset import __load_df
 import numpy as np
 from util.mlflow.constants import ONE_HOT, EVE, ESM, TRANSFORMER
 
@@ -14,5 +15,10 @@ def test_loading_representation_observations_equal_BLAT(dataset):
     np.testing.assert_equal(y_oh, y_esm)
 
 
-# def test_loaded_observations_against_original_TOXI():
-#     assert False
+@pytest.mark.parametrize("dataset", ["1FQG", "UBQT", "CALM", "TIMB", "BRCA", "MTH3", "TOXI"])
+def test_loaded_observations_against_data_DF(dataset):
+    df_name = dataset if dataset != "1FQG" else "blat" 
+    df_name = f"{df_name.lower()}_data_df"
+    _, y_df = __load_df(df_name, "seqs")
+    _, y_load = load_dataset(dataset, representation=ONE_HOT)
+    np.testing.assert_equal(-y_df, y_load)
