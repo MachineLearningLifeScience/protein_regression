@@ -15,8 +15,8 @@ from protocol_factories import PROTOCOL_REGISTRY
 from data import load_dataset, get_alphabet, load_augmentation, get_load_function
 from data.train_test_split import AbstractTrainTestSplitter, BioSplitter, PositionSplitter, WeightedTaskSplitter
 from util import numpy_one_hot_2dmat
-from util import prep_for_logdict, prep_for_mutation
-from util import prep_from_mixture
+from util.log import prep_for_logdict, prep_for_mutation
+from util.log import prep_from_mixture
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, VAE_DENSITY
 from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS, NO_AUGMENT
 from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR, MEAN_Y, STD_Y, PAC_BAYES_EPS
@@ -99,7 +99,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         Y_train = Y[train_indices[split], :]
         X_test = X[test_indices[split], :]
         Y_test = Y[test_indices[split]]
-        mean_y, std_y, scaled_y = scale_observations(Y_train)
+        mean_y, std_y, scaled_y = scale_observations(Y_train.copy())
         if dim and X_train.shape[1] > dim:
             X_train, reducer = _dim_reduce_X(dim=dim, dim_reduction=dim_reduction, X_train=X_train, Y_train=scaled_y)
             X_test = reducer.transform(X_test).astype(np.float64)
@@ -126,7 +126,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             post_cov = np.full(Y_train.shape, np.nan)
         # undo scaling
         mu = _mu*std_y + mean_y
-        unc = _unc * std_y
+        unc = _unc*std_y
         assert(mu.shape[1] == 1 == unc.shape[1])
         assert(mu.shape[0] == unc.shape[0] == len(test_indices[split]))
         # record mean and median smse and nll and spearman correlation
