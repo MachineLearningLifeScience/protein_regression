@@ -1,10 +1,11 @@
 from distutils.log import error
-import enum
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.transforms import Affine2D
+from sklearn.metrics import mean_squared_error
+from scipy.stats import spearmanr
 from data.load_dataset import load_dataset
 from visualization.plot_metric_for_uncertainties import prep_reliability_diagram
 from visualization import algorithm_colors as ac
@@ -193,11 +194,11 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
     plt.show()
 
 
-def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE, dim=None, dataset="TOXI"):
+def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, dim=None, dataset="TOXI"):
     """
     Mutation plotting for TOXI data
     """
-    plot_heading = f'Comparison of algoritms and representations for MUTATION splitting \n d={dim} scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
+    plot_heading = f'Comparison MUTATION splitting \n d={dim} scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
     filename = 'results/figures/benchmark/'+f'accuracy_of_methods_barplot_d={dim}_'+str(list(metric_values.keys()))
     splits = list(metric_values.keys())
     methods = list(metric_values.get(splits[0]).get(dataset).keys())
@@ -207,7 +208,7 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE, dim
     reps = []
     previous_split_keys = []
     n_reps = len(representations)
-    width = 1/(n_reps) # 3 elements (1 bar + 2 arrows) + 2 extra space
+    width = 0.15+1/(n_reps) # 3 elements (1 bar + 2 arrows) + 2 extra space
     # first set of plots display absolute performance with indicators on previous performance
     for i, algo in enumerate(methods):
         for j, splitter_key in enumerate(splits):
@@ -216,18 +217,29 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE, dim
                 k+=j*len(representations)
                 if rep not in reps and "density" not in rep:
                     reps.append(rep)
-                mse_list = metric_values[splitter_key][dataset][algo][rep][None][metric]
-                neg_invert_mse = 1-np.mean(mse_list)
+                metric_per_split = []
+                for split in metric_values[splitter_key][dataset][algo][rep][None].keys():
+                    if metric == SPEARMAN_RHO:
+                        trues = np.array(metric_values[splitter_key][dataset][algo][rep][None][split]['trues'])
+                        pred = np.array(metric_values[splitter_key][dataset][algo][rep][None][split]['pred'])
+                        metric_per_split.append(spearmanr(trues, pred))
+                    else:
+                        trues = np.array(metric_values[splitter_key][dataset][algo][rep][None][split]['trues'])
+                        pred = np.array(metric_values[splitter_key][dataset][algo][rep][None][split]['pred'])
+                        #idx = ~np.isnan(pred)
+                        metric_per_split.append(mean_squared_error(trues, pred))
+                _metric_val = np.mean(metric_per_split)
+                _metric_std_err = np.std(metric_per_split, ddof=1)/np.sqrt(len(pred)) if len(metric_per_split) > 1 else 0.
                 if rep in [VAE_DENSITY, EVE_DENSITY]: # overlay VAE density as reference on VAE row
                     if rep == VAE_DENSITY:
                         ref = VAE
                     elif rep == EVE_DENSITY:
                         ref = EVE
-                    pos = list(metric_values[splitter_key][dataset][algo].keys()).index(ref)
-                    axs[i].boxplot(np.ones(len(mse_list)) - mse_list, positions=[i+seps[pos]], widths=[width], labels=[rep], vert=False)
+                    pos = list(metric_values[splitter_key][dataset][algo].keys()).index(ref) # TODO: fix EVE boxplot if required
+                    #axs[i].boxplot(np.ones(len(metric_per_split)) - metric_per_split, positions=[i+seps[pos]], widths=[width], labels=[rep], vert=False)
                 else: # if improvement, plot previous shaded and improvement solid
-                    axs[i].bar(j+seps[k], neg_invert_mse, width=width, label=rep, color=rc.get(rep),
-                                    facecolor=rc.get(rep), edgecolor=rc.get(rep), ecolor='black', capsize=5, hatch='//')
+                    axs[i].bar(j+seps[k], _metric_val, yerr=_metric_std_err, width=width, label=rep, color=rc.get(rep),
+                                    facecolor=rc.get(rep), edgecolor="k", ecolor='black', capsize=5, hatch='//')
                     # axs[i].annotate(f"{splitter_key}", xy=(i+seps[k], neg_invert_mse), xytext=(i+seps[k], neg_invert_mse+0.2))
         previous_split_keys.append(splitter_key)
         cols = len(splits)
@@ -240,15 +252,17 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=MSE, dim
         axs[i].axhline(-0.5, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.25)
         axs[i].axhline(-0.25, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
         axs[i].axhline(-0.75, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
-        axs[i].set_xticks([x+s for x, s in zip(seps, range(len(splits)))])
+        axs[i].set_xticks([x for x in range(len(splits))])
         axs[i].set_xticklabels([f"{split}" for split in splits])
         axs[i].set_ylim((-0.251, 1.1))
         axs[i].tick_params(axis='x', which='both', labelsize=9)
         axs[i].set_xlabel(algo, size=14)
-        axs[i].set_ylabel("1-NMSE")
+        metric_name = metric if metric else "MSE"
+        axs[i].set_ylabel(metric_name)
     handles, labels = axs[-1].get_legend_handles_labels()
     fig.legend(handles[:len(reps)], reps, loc='lower right', ncol=len(reps), prop={'size': 14})
     plt.suptitle(plot_heading, size=12)
+    plt.tight_layout()
     plt.savefig(filename+".png")
     plt.savefig(filename+".pdf")
     plt.show()
