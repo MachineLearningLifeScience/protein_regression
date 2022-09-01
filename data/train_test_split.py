@@ -1,12 +1,14 @@
 from builtins import ValueError
 from typing import Tuple
 import numpy as np
+from itertools import combinations
 from numba import jit, float64
 from sklearn.model_selection import KFold
 from scipy.optimize import minimize
 from scipy.spatial.distance import euclidean
 from scipy.spatial import distance_matrix
 from data.load_dataset import get_wildtype_and_offset, load_dataset, load_sequences_of_representation
+from util.log import prep_for_mutation
 from util.mlflow.constants import ONE_HOT
 
 
@@ -69,13 +71,13 @@ class BioSplitter(AbstractTrainTestSplitter):
     Splitting Protocol that splits by amount of mutations compared to reference sequence.
     From n_mutations_train to n_mutations_test.
     """
-    def __init__(self, dataset, n_mutations_train: int=3, n_mutations_test: int=4, test_fraction: float=0.8):
+    def __init__(self, dataset, n_mutations_train: int=3, n_mutations_test: int=4, n_splits=5):
         super().__init__()
         self.dataset = dataset
         self.wt, _ = get_wildtype_and_offset(dataset)
         self.n_mutations_train = n_mutations_train
         self.n_mutations_test = n_mutations_test
-        self.test_fraction = test_fraction
+        self.n_splits = n_splits
     
     def split(self, X, representation=ONE_HOT, missed_indices=None):
         """
@@ -90,13 +92,15 @@ class BioSplitter(AbstractTrainTestSplitter):
         assert _X.shape[0] == X.shape[0]
         diff_to_wt = np.sum(self.wt != _X, axis=1)
         if self.n_mutations_train == self.n_mutations_test:
+            train_indices, test_indices = [], []
             all_indices = np.where(diff_to_wt <= self.n_mutations_train)[0]
             n_mutants_indices = np.where(diff_to_wt == self.n_mutations_test)[0]
+            N_test = len(n_mutants_indices) // self.n_splits
             np.random.shuffle(n_mutants_indices) # random permutation of target mutations
-            test_indices = n_mutants_indices[-int(len(all_indices)*self.test_fraction):]
-            train_indices = np.setdiff1d(all_indices, test_indices)[np.newaxis, :]
-            test_indices = test_indices[np.newaxis, :]
-        else:
+            for idx in range(self.n_splits):
+                test_indices.append(n_mutants_indices[N_test*idx:N_test*idx+N_test])
+                train_indices.append(np.setdiff1d(all_indices, test_indices))
+        else: # No CV splitting possible for change in domains, case is: from all available k-M to k+1M
             train_indices = np.where(diff_to_wt <= self.n_mutations_train)[0][np.newaxis, :]
             test_indices = np.where(diff_to_wt == self.n_mutations_test)[0][np.newaxis, :]
         return train_indices, None, test_indices
