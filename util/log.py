@@ -2,7 +2,7 @@ import numpy as np
 from typing import Tuple
 from numpy import ndarray, hstack
 from algorithms import AbstractAlgorithm
-from data.load_dataset import get_wildtype_and_offset, load_dataset
+from data import get_wildtype_and_offset, load_dataset
 from data import get_alphabet
 from util.mlflow.constants import ONE_HOT
 
