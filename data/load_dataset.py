@@ -544,13 +544,14 @@ def __load_eve_mutations_and_observations_df(name: str) -> pd.DataFrame:
     assert df.iloc[0].evol_indices == 0.0
     df = df.iloc[1:] # drop WT - should be zero/NaN for observations and zero for EVE computation
     multivariates = df.mutations.str.contains(":").any()
+    _, _offset = get_wildtype_and_offset(name)
     if multivariates:
         adjusted_mutations = []
         for mutant in assay_df.mutant:
             _m = []
             for mut in mutant.split(":"):
                 from_aa, m_idx, to_aa = mut[0], mut[1:-1], mut[-1]
-                _m.append(from_aa + str(int(m_idx))+ to_aa)
+                _m.append(from_aa + str(int(m_idx)+_offset)+ to_aa) # offset required for TOXI
             adjusted_mutations.append(":".join(_m))
         assay_df["adjusted_mutations"] = adjusted_mutations
         joined_df = pd.merge(df, assay_df, how="right", left_on=["mutations"], 
