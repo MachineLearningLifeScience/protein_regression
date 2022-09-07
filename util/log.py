@@ -40,13 +40,13 @@ def prep_for_mutation(dataset: str, test_idx:np.ndarray):
     Parse mutations from datasets against WT.
     Return list of mutations in test-datset.
     """
-    wt, _ = get_wildtype_and_offset(dataset)
+    wt, offset = get_wildtype_and_offset(dataset)
     X, _ = load_dataset(dataset, representation=ONE_HOT)
     alphabet = {v: k for k, v in get_alphabet(dataset).items()}
     mutations = []
     for seq in X[test_idx,:]:
         m_idx = np.where(seq!=wt)[0]
         from_aa, to_aa = wt[m_idx], seq[m_idx]
-        mutations.append(["".join([alphabet.get(wt_aa), str(idx+1), alphabet.get(m_aa)]) # adjust for +1 offset from zero index
+        mutations.append(["".join([alphabet.get(wt_aa), str(idx+1+offset), alphabet.get(m_aa)]) # adjust for +1 offset from zero index
                             for wt_aa, idx, m_aa in zip(from_aa, m_idx, to_aa)])
     return mutations

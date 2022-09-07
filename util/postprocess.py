@@ -3,18 +3,23 @@ from itertools import combinations
 from typing import Tuple
 
 
-def filter_functional_variant_data(results_dict: dict, functional_threshold) -> dict:
+def filter_functional_variant_data_less_than(results_dict: dict, functional_thresholds: list) -> dict:
+    """
+    In experimental setup observations are inverted, thus functional candidates are less equal to threshold
+    """
     functional_observations = {protocol: {
                                 prot: {
                                     method: {
                                         rep: {
+                                            None: {
                                             cv_split: {
-                                                'trues': [val for val in split_val.get('trues') if val > functional_threshold], 
-                                                'mse': [val for true_val, val in zip(split_val.get('trues'), split_val.get('mse')) if true_val > functional_threshold],
-                                    } for cv_split, split_val in rep_val.get(None).items()
+                                                'trues': [val for val in split_val.get('trues') if val <= f_threshold], 
+                                                'mse': [val for true_val, val in zip(split_val.get('trues'), split_val.get('mse')) if true_val <= f_threshold],
+                                                'pred': [val for true_val, val in zip(split_val.get('trues'), split_val.get('pred')) if true_val <= f_threshold]
+                                    } for cv_split, split_val in rep_val.get(None).items()}
                                 } for rep, rep_val in method_val.items()
                         } for method, method_val in prot_val.items()
-                    } for prot, prot_val in protocol_val.items()
+                    } for (prot, prot_val), f_threshold in zip(protocol_val.items(), functional_thresholds) # one threshold value per Protein
                 } for protocol, protocol_val in results_dict.items()}
     return functional_observations
 
