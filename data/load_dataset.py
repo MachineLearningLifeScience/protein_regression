@@ -320,6 +320,9 @@ def get_wildtype_and_offset(name: str) -> Tuple[str, int]:
 
 
 def __parse_sequence_offset_from_alignment(alignment_filename: str):
+    """
+    Utility function to get reference sequence index from FASTA alignment file.
+    """
     # first line is wildtype, get sequence identifier from fasta alignment
     wt_alignment = open(join(base_path, alignment_filename)).readline().rstrip()
     seq_range = re.findall(r"\b\d+-\d+\b", wt_alignment)[0]
@@ -329,7 +332,8 @@ def __parse_sequence_offset_from_alignment(alignment_filename: str):
 
 def compute_mutations_csv_from_observations(observations_file: str, offset: int=0) -> None:
     """
-    Read in observation CSV, parse mutations from observation CSV to 'mutations' column csv, required by EVE.
+    Utility Function as required by EVE.
+    Read in observation CSV, parse mutations from observation CSV to 'mutations' column csv.
     DeepSequence reference data had 'mutant' column. ProteinGym has 'mutations' and 'mutant'
     Adjust by optional offset - required to compute TOXI: ParD mutations
     """
@@ -532,26 +536,27 @@ def __load_eve_mutations_and_observations_df(name: str) -> pd.DataFrame:
     """
     Load EVE dataframe from CSV and index mutation for mutations and observation assay join.
     """
+    assay_df = __load_assay_df(name)
+    assay_df = assay_df.drop_duplicates(subset=["last_mutation_position", "mut_aa", "assay"])
+    if name.upper() == "BRCA":
+        name = "BRCA_BRCT"
     df = pd.read_csv(join(base_path, f"EVE_{name}_2000_samples.csv"))
     assert df.iloc[0].evol_indices == 0.0
     df = df.iloc[1:] # drop WT - should be zero/NaN for observations and zero for EVE computation
-    assay_df = __load_assay_df(name)
-    assay_df = assay_df.drop_duplicates(subset=["last_mutation_position", "mut_aa", "assay"])
     multivariates = df.mutations.str.contains(":").any()
-    _, offset = get_wildtype_and_offset(name)
     if multivariates:
         adjusted_mutations = []
         for mutant in assay_df.mutant:
             _m = []
             for mut in mutant.split(":"):
                 from_aa, m_idx, to_aa = mut[0], mut[1:-1], mut[-1]
-                _m.append(from_aa + str(int(m_idx)+offset)+ to_aa)
+                _m.append(from_aa + str(int(m_idx))+ to_aa)
             adjusted_mutations.append(":".join(_m))
         assay_df["adjusted_mutations"] = adjusted_mutations
         joined_df = pd.merge(df, assay_df, how="right", left_on=["mutations"], 
                                                 right_on=["adjusted_mutations"], validate="one_to_one")
     else:
-        df["last_mutation_position"] = df.mutations.str.slice(1, -1).astype(int) + offset
+        df["last_mutation_position"] = df.mutations.str.slice(1, -1).astype(int)
         df["mut_aa"] = df.mutations.str.slice(-1)
         joined_df = pd.merge(df, assay_df, how="right", left_on=["last_mutation_position", "mut_aa"], 
                                                 right_on=["last_mutation_position", "mut_aa"], validate="one_to_one")
