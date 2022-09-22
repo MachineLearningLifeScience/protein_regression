@@ -174,14 +174,13 @@ def multi_dim_reliabilitydiagram(metric_values: dict, number_quantiles: int, cvt
     """
     colors = ac.values()
     markers = [plt.Line2D([0,0],[0,0], color=color, marker='o', linestyle='') for color in colors]
-    filename = f'results/figures/uncertainties/dim_{str(list(metric_values.keys()))}_{cvtype}_reliabilitydiagram_{dataset}_{representation}_opt_{optimize_flag}_d_{str(dimensions)}{dim_reduction}'
     algos = []
     dim = list(metric_values.keys())[0]
     data = list(metric_values[dim].keys())[0]
     alg = list(metric_values[dim][data].keys())[0]
     n_algs = len(metric_values[dim][data].keys())
     n_reps = len(metric_values[dim][data][alg].keys())
-    fig, axs = plt.subplots(n_algs*2, n_reps, figsize=(17,7), gridspec_kw={'height_ratios': [4, 1]*n_algs})
+    fig, axs = plt.subplots(n_algs*2, n_reps, figsize=(21,25), gridspec_kw={'height_ratios': [4, 1]*n_algs})
     dimensions = list(metric_values.keys())[:-1] + [1128]
     shade = np.arange(0.2, 1.1, step=1/len(dimensions))
     for d_idx, (dim, _results) in enumerate(metric_values.items()):
@@ -216,15 +215,17 @@ def multi_dim_reliabilitydiagram(metric_values: dict, number_quantiles: int, cvt
                             axs[row_idx, 0].set_ylabel('cm. confidence', size=9)
                             axs[row_idx+1, 0].set_ylabel('count', size=9)
                         axs[row_idx, j].set_title(f"{algo} on {rep}")
-                        axs[row_idx+1, j].hist(uncertainties, 100, label=f"{algo}; {rep}", alpha=shade[d_idx], color=c[i])
+                        axs[row_idx+1, j].hist(uncertainties, 100, label=f"{rep} d={dim}", alpha=shade[d_idx], color=ac.get(algo))
                         axs[row_idx, j].set_xlabel('percentile', size=12)
                         axs[row_idx+1, j].set_xlabel('std', size=12)
+                        if d_idx+1 == len(metric_values.keys()):
+                            axs[row_idx, j].legend(loc="lower right", prop={'size':4})
                 row_idx += 2
-    plt.legend(loc="lower right", prop={'size':5})
     plt.suptitle(f"{str(dataset)} Calibration Split: {cvtype}, {dim_reduction}")
     plt.xticks(size=14)
     plt.yticks(size=14)
     plt.tight_layout()
+    filename = f'results/figures/uncertainties/dim_{str(list(metric_values.keys()))}_{cvtype}_reliabilitydiagram_{dataset}_{representation}_opt_{optimize_flag}_d_{str(dimensions)}{dim_reduction}'
     plt.savefig(filename+'.png')
     plt.savefig(filename+'.pdf')
     plt.show()
@@ -283,15 +284,14 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
 
 
 def multi_dim_confidencecurve(metric_values: dict, number_quantiles: int, cvtype: str='', dataset='', representation='', optimize_flag=True, dim_reduction=None):
-    filename = f'results/figures/uncertainties/{algo}_{cvtype}_confidence_curve_{dataset}_{representation}_opt_{optimize_flag}_d_{str(dimensions)}_{dim_reduction}'
+    dimensions = list(metric_values.keys())[:-1] + [1128]
     qs = np.linspace(0,1,1+number_quantiles)
     dim = list(metric_values.keys())[0]
     data = list(metric_values[dim].keys())[0]
     rep = list(metric_values[dim][data].keys())[0]
     n_algo = len(metric_values[dim][data].keys())
     n_reps = len(metric_values[dim][data][rep].keys())
-    fig, axs = plt.subplots(n_algo, n_reps, figsize=(15,5))
-    dimensions = list(metric_values.keys())[:-1] + [1128]
+    fig, axs = plt.subplots(n_algo, n_reps, figsize=(15,15))
     shade = np.arange(0.2, 1.1, step=1/len(dimensions))
     for d_idx, (dim, _results) in enumerate(metric_values.items()):
         for d, dataset_key in enumerate(_results.keys()):
@@ -320,11 +320,12 @@ def multi_dim_confidencecurve(metric_values: dict, number_quantiles: int, cvtype
                         axs[i,j].set_xlabel('Percentile', size=11)
                         axs[i,j].set_title(f"Rep: {rep} Algo: {algo}", size=12)
                         axs[i,j].set_ylim([0, 1.75])
-    plt.legend() 
+            axs[i,j].legend()
     plt.suptitle(f"{str(dataset)} Split: {cvtype} ; {dim_reduction}")
     plt.tight_layout()
-    plt.savefig(filename+".png")
-    plt.savefig(filename+".pdf")
+    filename = f'results/figures/uncertainties/{algo}_{cvtype}_confidence_curve_{dataset}_{representation}_opt_{optimize_flag}_d_{str(dimensions)}_{dim_reduction}'
+    plt.savefig(filename+".png", bbox_inches='tight')
+    plt.savefig(filename+".pdf", bbox_inches='tight')
     plt.show()
 
 
@@ -334,7 +335,7 @@ def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str]
                         optimize=True, d=None, dim_reduction=None, metrics=[GP_L_VAR, STD_Y]):
     results_dict = get_mlflow_results_artifacts(datasets=datasets, reps=reps, metrics=metrics, algos=algos, train_test_splitter=train_test_splitter, augmentation=augmentations,
                                                 dim=d, dim_reduction=dim_reduction, optimize=optimize)
-    # confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
     reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
 
 
@@ -344,8 +345,8 @@ def plot_uncertainty_eval_across_dimensions(datasets: List[str], reps: List[str]
     for d in dimensions:
         dim_results_dict[d] = get_mlflow_results_artifacts(datasets=datasets, reps=reps, metrics=metrics, train_test_splitter=train_test_splitter, algos=algos, augmentation=augmentation,
                                                             dim=d, dim_reduction=dim_reduction, optimize=optimize)
-    #multi_dim_confidencecurve(dim_results_dict, number_quantiles, cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim_reduction=dim_reduction)
-    multi_dim_reliabilitydiagram(dim_results_dict, number_quantiles=number_quantiles, cvtype=train_test_splitter(datasets[-1]).get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim_reduction=dim_reduction)
+    multi_dim_confidencecurve(dim_results_dict, number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim_reduction=dim_reduction)
+    multi_dim_reliabilitydiagram(dim_results_dict, number_quantiles=number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim_reduction=dim_reduction)
 
 
 def plot_uncertainty_optimization(dataset: str, rep: str, seeds: List[int], algos: List[str], number_quantiles: int,

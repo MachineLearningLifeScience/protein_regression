@@ -3,6 +3,7 @@ from util.mlflow.constants import ROSETTA, VAE_DENSITY, EVE_DENSITY
 from gpflow.kernels import SquaredExponential, Matern52
 from algorithms import GPonRealSpace, RandomForest, KNN, UncertainRandomForest
 from visualization.plot_metric_for_mixtures import plot_metric_for_mixtures
+from visualization.plot_metric_for_mixtures import plot_metric_against_threshold
 
 colorscheme = ['dimgrey', '#661100', '#332288', 'hotpink',  "cyan", '#117733', "lime", "tan", "orangered"]
 
@@ -12,7 +13,8 @@ representation_colors = {ONE_HOT: colorscheme[0],
             EVE: colorscheme[1],
             VAE_AUX: colorscheme[2],
             TRANSFORMER: colorscheme[3],
-            ESM: colorscheme[4]}
+            ESM: colorscheme[4],
+            EVE_DENSITY: colorscheme[5],}
 
 augmentation_colors = {VAE_DENSITY: 'pink', EVE_DENSITY: 'cornflowerblue', ROSETTA: 'lightgreen'}
 
