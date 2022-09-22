@@ -6,10 +6,11 @@ from algorithms.abstract_algorithm import AbstractAlgorithm
 
 
 class GMMRegression(AbstractAlgorithm):
-    def __init__(self, n_components: int=2):
+    def __init__(self, n_components: int=2, threshold=0.5):
         self.model = None
         self.optimize = False
         self.n_components = n_components
+        self.threshold = threshold
 
     def get_name(self):
         return f"GMMRegression_n{self.n_components}"
@@ -20,8 +21,10 @@ class GMMRegression(AbstractAlgorithm):
         # covariances = [np.diag(_c) for _c in gmm.covariances_]
         # self.model = GMM(n_components=self.n_components, priors=gmm.weights_, means=gmm.means_, 
         #                 covariances=covariances, random_state=42)
+        prior_assignments = np.concatenate([np.array(Y<self.threshold).astype(np.float64),
+                                            np.array(Y>=self.threshold).astype(np.float64)], axis=1)
         self.model = GaussianMixtureRegressor(n_components=self.n_components, init_params="kmeans++")
-        self.model.fit(X, Y)
+        self.model.fit(X, Y, initial_assignment=prior_assignments)
 
     def predict(self, X):
         pred = self.model.predict(X)
