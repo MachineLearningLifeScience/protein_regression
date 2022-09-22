@@ -93,15 +93,29 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.show()
 
 
+def _compute_missing_reference(df, observation_column):
+    """
+    Utility function to compute missing ranked correlations
+    """
+    _df = df[[observation_column, "mutation_effect_prediction_vae_ensemble"]].dropna()
+    x = _df[observation_column].str.replace(",", ".").astype(float)
+    y = _df["mutation_effect_prediction_vae_ensemble"].str.replace(",", ".").astype(float)
+    return spearmanr(x,y)[0]
+
+
 def errorplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, height=0.075, plot_reference=False):
     plot_heading = f'Comparison of algoritms and representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ U[0.01, 1.0]'
     filename = 'results/figures/benchmark/'+'correlation_of_methods_errorbar_'+cvtype+str(list(metric_values.keys()))
     if plot_reference:
-        ref_df = pd.read_excel("data/riesselman_ref/41592_2018_138_MOESM6_ESM.xlsx")
+        ref_dir = "data/deep_sequence/"
+        ref_df = pd.read_excel(f"{ref_dir}41592_2018_138_MOESM6_ESM.xlsx")
         ref_dict = {"1FQG": ref_df[ref_df.dataset=="BLAT_ECOLX_Ranganathan2015"].spearmanr_VAE.values[0],
                     "UBQT": ref_df[ref_df.dataset=="RL401_YEAST_Bolon2013"].spearmanr_VAE.values[0],
                     "MTH3": ref_df[ref_df.protein=="MTH3_HAEAESTABILIZED"].spearmanr_VAE.values[0],
-                    #"BRCA": ref_df[ref_df.dataset=="BRCA1_HUMAN_Fields2015" & ref_df.feature=="hdr"].spearmanr_VAE.values[0],
+                    "CALM": _compute_missing_reference(pd.read_csv(f"{ref_dir}41592_2018_138_MOESM4_ESM/CALM1_HUMAN_Roth2017.csv", sep=";"), observation_column="screenscore"),
+                    "BRCA": _compute_missing_reference(pd.read_csv(f"{ref_dir}41592_2018_138_MOESM4_ESM/BRCA1_HUMAN_BRCT.csv", sep=";"), observation_column="function_score"),
+                    "TIMB": _compute_missing_reference(pd.read_csv(f"{ref_dir}41592_2018_138_MOESM4_ESM/TIM_THEMA_b0.csv", sep=";"), observation_column="fitness"),
+                    "TOXI": _compute_missing_reference(pd.read_csv(f"{ref_dir}41592_2018_138_MOESM4_ESM/parEparD_Laub2015_all.csv", sep=";"), observation_column="fitness"),
                     }
     fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(20,6))
     axs = np.ravel(ax)
@@ -115,11 +129,15 @@ def errorplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, h
                 if rep not in reps:
                     reps.append(rep)
                 rho_list = metric_values[dataset_key][algo][rep][None][metric]
+                nan_values = np.sum(np.isnan(rho_list))
+                rho_list = np.array(rho_list)[np.where(~np.isnan(rho_list))[0]]
                 rho_mean = np.mean(rho_list)
                 error_on_mean = np.std(rho_list, ddof=1)/np.sqrt(len(rho_list))
                 axs[d].errorbar(rho_mean, i+seps[j], xerr=error_on_mean, label=rep, color=rc.get(rep), mec='black', ms=8, capsize=5)
+                if bool(nan_values):
+                    axs[d].annotate(f"*{nan_values} DNC", xy=(rho_mean+error_on_mean,i+seps[j]))
         if plot_reference and ref_dict.get(dataset_key):
-            axs[d].vlines(ref_dict.get(dataset_key), seps[0], len(metric_values[dataset_key].keys())+seps[-1], colors="k", linestyles="dotted", label="DeepSequence")
+            axs[d].vlines(ref_dict.get(dataset_key), seps[0]-0.2, len(metric_values[dataset_key].keys())-0.1, colors="r", linestyles="dotted", label="DeepSequence")
         axs[d].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
         axs[d].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
         axs[d].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
@@ -148,7 +166,7 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
                                         dim=None, dim_reduction=LINEAR, reference_values: dict=None):
     plot_heading = f'Augmented models and representations, cv-type: {cvtype.get_name()}, augmentation {str(augmentation)} \n d={dim} {dim_reduction}'
     filename = f'results/figures/augmentation/accuracy_of_methods_barplot_{cvtype.get_name()}_{str(augmentation)}_d={dim}_{dim_reduction}'
-    fig, ax = plt.subplots(1, len(metric_values.keys()), figsize=(15,5))
+    fig, ax = plt.subplots(1, len(metric_values.keys())*len(augmentation), figsize=(20,10))
     axs = np.ravel(ax)
     representations = []
     for i, dataset_key in enumerate(metric_values.keys()):
@@ -158,9 +176,10 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
             idx = 0
             for k, rep in enumerate(representation_keys):
                 augmentation_keys = metric_values[dataset_key][algo][rep].keys()
+                n_bars = len(algorithm_keys)*len(representation_keys)*len(augmentation)
                 seps = np.linspace(-height*0.9*len(algorithm_keys), 
                                 height*0.9*len(algorithm_keys), 
-                                len(algorithm_keys)*len(representation_keys)*len(augmentation_keys))
+                                n_bars)
                 for l, aug in enumerate(augmentation_keys):
                     repname = f"{rep}_{aug}"
                     if repname not in representations:
@@ -168,13 +187,14 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
                     mse_list = metric_values[dataset_key][algo][rep][aug][metric]
                     neg_invert_mse = 1-np.mean(mse_list)
                     error_on_mean = np.std(mse_list, ddof=1)/np.sqrt(len(mse_list))
-                    if reference_values: # overlay by mean reference benchmark
-                        neg_reference_mse = 1-np.mean(reference_values[dataset_key][algo][rep][None][metric])
-                        axs[i].barh(j+seps[idx], neg_reference_mse-neg_invert_mse, label=repname, xerr=error_on_mean, height=height*0.25, color=rc.get(rep), alpha=0.8,
-                                    facecolor=rc.get(rep), edgecolor=aug_c.get(aug), ecolor='black', capsize=5, hatch='/', linewidth=2)
-                    else:
-                        axs[i].barh(j+seps[idx], neg_invert_mse, xerr=error_on_mean, height=height*0.25, label=repname, color=rc.get(rep), 
+                    axs[i].barh(j+seps[idx], neg_invert_mse, xerr=error_on_mean, height=height*0.25, label=repname, color=rc.get(rep), 
                             facecolor=rc.get(rep), edgecolor=aug_c.get(aug), ecolor='black', capsize=5, hatch='/', linewidth=2)
+                    if reference_values: # set reference benchmark next to augmented benchmark
+                        ref_mse_list = reference_values[dataset_key][algo][rep][None][metric]
+                        neg_reference_mse = 1-np.mean(ref_mse_list)
+                        ref_error_on_mean = np.std(ref_mse_list, ddof=1)/np.sqrt(len(ref_mse_list))
+                        axs[i].barh(j+seps[idx]+1, neg_reference_mse, label=repname, xerr=ref_error_on_mean, height=height*0.25, color=rc.get(rep),
+                                    facecolor=rc.get(rep), edgecolor=aug_c.get(aug), ecolor='black', capsize=5, hatch='/', linewidth=2)
                     axs[i].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
                     axs[i].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
                     axs[i].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
@@ -210,6 +230,8 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, di
     n_reps = len(representations)
     width = 0.15+1/(n_reps) # 3 elements (1 bar + 2 arrows) + 2 extra space
     # first set of plots display absolute performance with indicators on previous performance
+    all_avrg_metric_vals = []
+    all_avrg_metric_errs = []
     for row, dataset in enumerate(datasets):
         for i, algo in enumerate(methods):
             plt_idx = (row, i) if len(datasets) > 1 else i
@@ -240,35 +262,34 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, di
                             metric_per_split.append(mean_squared_error(trues, pred))
                     _metric_val = np.mean(metric_per_split)
                     _metric_std_err = np.std(metric_per_split, ddof=1)/np.sqrt(len(metric_per_split)) if len(metric_per_split) > 1 else 0.
+                    all_avrg_metric_vals.append(_metric_val)
+                    all_avrg_metric_errs.append(_metric_std_err)
                     #n_total = len(mutations) **20
-                    if rep in [VAE_DENSITY, EVE_DENSITY]: # overlay VAE density as reference on VAE row
-                        if rep == VAE_DENSITY:
-                            ref = VAE
-                        elif rep == EVE_DENSITY:
-                            ref = EVE
-                        pos = list(metric_values[splitter_key][dataset][algo].keys()).index(ref) # TODO: fix EVE boxplot if required
-                        #axs[i].boxplot(np.ones(len(metric_per_split)) - metric_per_split, positions=[i+seps[pos]], widths=[width], labels=[rep], vert=False)
-                    else: # if improvement, plot previous shaded and improvement solid
-                        ax[plt_idx].bar(j+seps[k], _metric_val, yerr=_metric_std_err, width=width, label=rep, color=rc.get(rep),
-                                        facecolor=rc.get(rep), edgecolor="k", ecolor='black', capsize=5, hatch='//')
+                    ax[plt_idx].bar(j+seps[k], _metric_val, yerr=_metric_std_err, width=width, label=rep, color=rc.get(rep),
+                                    facecolor=rc.get(rep), edgecolor="k", ecolor='black', capsize=5, hatch='//')
             previous_split_keys.append(splitter_key)
             cols = len(splits)
-            ax[plt_idx].axhline(0, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
-            ax[plt_idx].axhline(-1, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
-            ax[plt_idx].axhline(1, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
-            ax[plt_idx].axhline(0.75, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
-            ax[plt_idx].axhline(0.5, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.25)
-            ax[plt_idx].axhline(0.25, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
-            ax[plt_idx].axhline(-0.5, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.25)
-            ax[plt_idx].axhline(-0.25, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
-            ax[plt_idx].axhline(-0.75, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
+            abs_min, abs_max = min(all_avrg_metric_vals)-max(all_avrg_metric_errs), max(all_avrg_metric_vals)+max(all_avrg_metric_errs)
+            abs_min = abs_min if abs_min < 0. else 0.
+            # main markers:
+            ax[plt_idx].axhline(0., seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.75)
+            for x in np.arange(-30, 15.1, 1):
+                ax[plt_idx].axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
+            # secondary markers:
+            for x in np.arange(-30, 15.1, 0.5):
+                ax[plt_idx].axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
+            for x in np.arange(-30, 15.1, 0.25):
+                ax[plt_idx].axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.025)
             ax[plt_idx].set_xticks([x for x in range(len(splits))])
             ax[plt_idx].set_xticklabels([f"{split} \n frac.: {n}/{c}" for split, n, c in zip(splits, training_variants, N_combinations)])
-            ax[plt_idx].set_ylim((-0.201, 1.01))
+            if metric == SPEARMAN_RHO:
+                ax[plt_idx].set_ylim((-0.251, 1.1))
+            else:
+                ax[plt_idx].set_ylim((abs_min, abs_max))
             ax[plt_idx].tick_params(axis='x', which='both', labelsize=9)
             # ax[plt_idx].set_xlabel(algo, size=14)
-            metric_name = "NMSE" if metric == MSE else metric
-            metric_name = metric if metric else "MSE" # base-case
+            metric_name = "1-NMSE" if metric == MSE else metric
+            metric_name = metric_name if metric else "MSE" # base-case
             ax[plt_idx].set_ylabel(metric_name)
             ax[plt_idx].set_title(f"{algo} - {dataset}\n{testing_variants}")
     handles, labels = ax[plt_idx].get_legend_handles_labels()
