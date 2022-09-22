@@ -124,6 +124,9 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         except OverflowError as _:
             warnings.warn(f"Experiment: {dataset}, {representation} at d={dim} posterior is NOT COMPUTABLE!")
             post_cov = np.full(Y_train.shape, np.nan)
+        except tf.errors.InvalidArgumentError as _:
+            warnings.warn(f"Experiment: {dataset}, {representation} at d={dim} posterior is NOT COMPUTABLE!")
+            post_cov = np.full(Y_train.shape, np.nan)
         # undo scaling
         mu = _mu*std_y + mean_y
         unc = _unc*std_y
