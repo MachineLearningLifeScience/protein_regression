@@ -11,6 +11,8 @@ data/tmp/*
 # deep sequence data
 data/deep_sequence/*
 
+data/eve/*
+
 #Mlflow output
 mlruns/
 bak_mlruns/

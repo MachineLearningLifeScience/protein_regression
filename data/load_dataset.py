@@ -287,7 +287,7 @@ def get_wildtype_and_offset(name: str) -> Tuple[str, int]:
         d = pickle.load(open(join(base_path, "blat_data_df.pkl"), "rb"))
         sequence_offset = __parse_sequence_offset_from_alignment("alignments/BLAT_ECOLX_hmmerbit_plmc_n5_m30_f50_t0.2_r24-286_id100_b105.a2m")
         wt = d['seqs'][0].astype(np.int64)
-    elif name == "BRCA":
+    elif name == "BRCA" or name == "BRCA_BRCT":
         d = pickle.load(open(join(base_path, "brca_data_df.pkl"), "rb"))
         #sequence_offset = __parse_sequence_offset_from_alignment("alignments/BRCA1_HUMAN_1_b0.5.a2m") # This is a different BRCA sequence reference
         sequence_offset = __parse_sequence_offset_from_alignment("alignments/BRCA1_HUMAN_BRCT_1_b0.3.a2m")
