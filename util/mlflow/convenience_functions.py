@@ -9,7 +9,7 @@ from mlflow.entities import ViewType
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
 from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, SPLIT, SEED
-from util.mlflow.constants import AUGMENTATION, NO_AUGMENT, DIMENSION, LINEAR, NON_LINEAR, VAE, EVE
+from util.mlflow.constants import AUGMENTATION, NO_AUGMENT, DIMENSION, LINEAR, NON_LINEAR, VAE, EVE, THRESHOLD
 from data.train_test_split import AbstractTrainTestSplitter
 from typing import List, Tuple
 
@@ -52,7 +52,8 @@ def check_results(result_list: list, fill_with_na=True) -> Tuple[list, bool]:
 
 
 def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, train_test_splitter: AbstractTrainTestSplitter, 
-                    augmentation: list=[None], dim=None, dim_reduction=None, seed=None, artifacts=False, experiment_ids=None) -> dict:
+                    augmentation: List[str]=[None], dim: int=None, dim_reduction: str=None, seed: int=None, artifacts=False, 
+                    experiment_ids=None, threshold:List[float]=[None]) -> dict:
     experiment_ids = datasets if not experiment_ids else experiment_ids
     results_dict = {}
     for i, dataset in enumerate(datasets):
@@ -74,12 +75,16 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                         filter_string += f" and tags.{DIMENSION} = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'"
                     if seed:
                         filter_string += f" and tags.{SEED} = '{seed}'"
+                    if threshold[i]:
+                        filter_string += f" and tags.{THRESHOLD} = '{threshold}'"
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY)
                     runs = runs[runs['status'] == 'FINISHED']
-                    if not dim and 'DIM' in runs.columns:
-                        runs = runs[runs['tags.DIM'].isnull()]
-                    if not aug and 'AUGMENTATION' in runs.columns:
-                        runs = runs[runs['tags.AUGMENTATION']==str(aug)]
+                    if not dim and f'tags.{DIMENSION}' in runs.columns:
+                        runs = runs[runs[f'tags.{DIMENSION}'].isnull()]
+                    if not aug and f'tags.{AUGMENTATION}' in runs.columns:
+                        runs = runs[runs[f'tags.{AUGMENTATION}']==str(aug)]
+                    if not threshold[i] and f'tags.{THRESHOLD}' in runs.columns:
+                        runs = runs[runs[f'tags.{THRESHOLD}'].isnull()]
                     _dim = dim
                     while len(runs) != 1 and dim and _dim >= 1: # for lower-dimensional experiments, if not exists: take next smaller in steps of 10:
                         _dim = int(re.search(r'\'\d+\'', filter_string).group()[1:-1]) # NOTE: \' to cover if other elements in the string have int elements
@@ -106,7 +111,8 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
 
 # TODO: Refactor mlflow functions such that there is a string builder for queries, a query function which returns experiment and a artifact function which uses these experiments/runs
 def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metrics: list, train_test_splitter: AbstractTrainTestSplitter, 
-                    augmentation: list=[None], dim=None, dim_reduction=NON_LINEAR, seed=None, optimize=True, experiment_ids=None) -> dict:
+                    augmentation: list=[None], dim: int=None, dim_reduction: str=NON_LINEAR, seed: int=None, optimize: bool=True, 
+                    experiment_ids=None, threshold: List[float]=[None]) -> dict:
     experiment_ids = datasets if not experiment_ids else experiment_ids
     results_dict = {}
     for i, dataset in enumerate(datasets):
@@ -122,18 +128,22 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
                     if 'GP' in a and not 'optimization' in experiment_ids[0]:
                         filter_string += f" and tags.OPTIMIZE = '{optimize}'"
                     if dim and not (rep==VAE and dim >= 30) and not (rep==EVE and dim >= 50): # default results for VAE, EVE is highest dim
-                        filter_string += f" and tags.DIM = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'"
+                        filter_string += f" and tags.{DIMENSION} = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'"
                     if aug:
                         filter_string += f" and tags.{AUGMENTATION} = '{aug}'"
                     if seed:
                         filter_string += f" and tags.{SEED} = '{seed}'"
+                    if threshold[i]:
+                        filter_string += f" and tags.{THRESHOLD} = '{threshold}'"
                     exps = mlflow.tracking.MlflowClient().get_experiment_by_name(experiment_ids[i])
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY)
                     runs = runs[runs['status'] == 'FINISHED']
-                    if not dim and 'DIM' in runs.columns:
+                    if not dim and f'tags.{DIMENSION}' in runs.columns:
                         runs = runs[runs['tags.DIM'].isnull()]
-                    if not aug and 'AUGMENTATION' in runs.columns:
+                    if not aug and f'tags.{AUGMENTATION}' in runs.columns:
                         runs = runs[runs['tags.AUGMENTATION']==str(aug)]
+                    if not threshold[i] and f'tags.{THRESHOLD}' in runs.columns:
+                        runs = runs[runs[f'tags.{THRESHOLD}'].isnull()]
                     # refine search, as query string does not allow for dim=None and we need very specific run
                     runs = runs.iloc[:1]
                     assert len(runs) == 1 , rep+a+dataset+str(aug)
