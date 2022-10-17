@@ -155,7 +155,7 @@ def load_eve(name):
 
 
 def __load_eve_df(name) -> Tuple[np.ndarray, np.ndarray]:
-    if name == "1FQG":
+    if name == "1FQG" or name == "BLAT":
         d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
     elif name == "BRCA":
         d = pickle.load(open(join(base_path, "brca_seq_reps_n_phyla.pkl"), "rb"))
@@ -433,9 +433,9 @@ def load_augmentation(name: str, augmentation: str, representation: str):
         if name not in ["1FQG", "CALM", "UBQT"]:
             raise ValueError("Unknown dataset: %s" % name)
         if name == "1FQG":
-            A, Y, idx_miss = _load_rosetta_augmentation(name="BLAT", rep=representation)
+            A, Y = _load_rosetta_augmentation(name="BLAT", rep=representation)
         else:
-            A, Y, idx_miss = _load_rosetta_augmentation(name=name.upper(), rep=representation)
+            A, Y = _load_rosetta_augmentation(name=name.upper(), rep=representation)
     elif augmentation == VAE_DENSITY:
         if name not in ["1FQG", "CALM", "UBQT"]:
             raise ValueError("Unknown dataset: %s" % name)
@@ -447,10 +447,10 @@ def load_augmentation(name: str, augmentation: str, representation: str):
             raise ValueError("Unknown dataset: %s" % name)
         if name == "1FQG":
             name = "BLAT"
-        A, Y, idx_miss = _load_eve_augmentation(name=name.upper())
+        A, Y = _load_eve_augmentation(name=name.upper())
     else:
         raise NotImplementedError(f"Augmentation {augmentation} | {name} not implemented !")
-    return A.astype(np.float64) , Y.astype(np.float64), idx_miss
+    return A.astype(np.float64) , Y.astype(np.float64)
 
 
 def __load_assay_df(name: str):
@@ -479,12 +479,10 @@ def __load_assay_df(name: str):
 
 
 def _load_rosetta_augmentation(name: str, rep: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    rosetta_df = __load_rosetta_augmentation_df(name, rep)
-    idx_missing = rosetta_df['DDG'].index[rosetta_df['DDG'].apply(np.isnan)]
-    rosetta_df = rosetta_df.dropna(subset=["assay", "DDG"])                             
+    rosetta_df = __load_rosetta_augmentation_df(name, rep)                         
     A = np.vstack(rosetta_df["DDG"])  
     Y = np.vstack(rosetta_df["assay"])
-    return A, Y, idx_missing # select only matching data
+    return A, Y
     
 
 def __load_rosetta_augmentation_df(name: str, rep: str) -> pd.DataFrame:
@@ -495,6 +493,10 @@ def __load_rosetta_augmentation_df(name: str, rep: str) -> pd.DataFrame:
         Y: np.ndarray : observation array values
     """
     rosetta_df = pd.read_csv(join(base_path, "{}_single_mutation_rosetta.csv".format(name.lower())))
+    wt_sequence, offset = get_wildtype_and_offset(name)
+    if offset != 0. and rosetta_df.position.astype(int)[0] == 1:
+        warnings.warn(f"{name} Rosetta positions require offset += {offset}!")
+    rosetta_df['position'] = rosetta_df.position.astype(int)+offset
     rosetta_df["DDG"] = rosetta_df.DDG.astype(float)
     observations_df = __load_assay_df(name)
     observations_df = observations_df[["assay", "last_mutation_position", "mut_aa"]].drop_duplicates()
@@ -524,12 +526,10 @@ def __load_vae_augmentation_df(name: str):
 
 def _load_eve_augmentation(name: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     eve_augmentation_df = __load_eve_mutations_and_observations_df(name)
-    idx_missing = eve_augmentation_df['evol_indices'].index[eve_augmentation_df['evol_indices'].apply(np.isnan)]
-    eve_augmentation_df = eve_augmentation_df.dropna(subset=["assay", "evol_indices"])
-    # add WT                
+    assert eve_augmentation_df[["assay", "evol_indices"]].isna().all().all() == False             
     A = np.vstack(eve_augmentation_df['evol_indices'])
     Y = np.vstack(eve_augmentation_df['assay'])
-    return A, Y, idx_missing
+    return A, Y
 
 
 def __load_eve_mutations_and_observations_df(name: str) -> pd.DataFrame:
