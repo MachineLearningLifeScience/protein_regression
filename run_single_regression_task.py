@@ -52,24 +52,33 @@ def _dim_reduce_X(dim: int, dim_reduction: str, X_train: np.ndarray, Y_train: np
 
 
 def run_single_regression_task(dataset: str, representation: str, method_key: str, protocol: AbstractTrainTestSplitter, 
-                                augmentation: str, dim: int=None, dim_reduction=NON_LINEAR, plot_cv=False):
+                                augmentation: str, dim: int=None, dim_reduction: str=NON_LINEAR, threshold: float=None, plot_cv=False):
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     missed_assay_indices: np.ndarray = None
     # load X for CV splitting
     X, Y = load_dataset(dataset, representation=representation)
     seq_len = X.shape[1]
 
+    if threshold is not None: # filter by observation threshold
+        t_idx = np.where(Y<threshold)[0] # y-values are inverted
+        X = X[t_idx]
+        Y = Y[t_idx]
+
     if representation is ONE_HOT:
         X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
         # normalize by sequence length
         X = X / seq_len
         
-    if augmentation: # add augmentation vector from Rosetta, EVE, VAE
-        A, Y, missed_assay_indices = load_augmentation(name=dataset, augmentation=augmentation, representation=representation)
-        if missed_assay_indices is not None and len(A) != len(X):
-            X = np.delete(X, missed_assay_indices, axis=0) 
+    if augmentation: # add augmentation vector from Rosetta | EVE | VAE
+        A, Y = load_augmentation(name=dataset, augmentation=augmentation, representation=representation)
+        assert len(A) == len(Y) == len(X)
         A /= seq_len
         X = np.concatenate([X, A], axis=1)
+        if np.isnan(X).any():
+            warnings.warn(f"NaN values encountered in augmentation! Shape: {X.shape}")
+            missed_assay_indices = np.where(np.isnan(X).sum(axis=1).astype(bool))[0]
+            X = X[~np.isnan(X).sum(axis=1).astype(bool)]
+            warnings.warn(f"Removing entries... => Shape: {X.shape}")
 
     if type(protocol) in [PositionSplitter, BioSplitter]: # special case mismatches in position splitting
         if missed_assay_indices is not None:
@@ -87,6 +96,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             SPLIT: protocol.get_name(), 
             AUGMENTATION: augmentation,
             "OPTIMIZE": method.optimize,
+            "THRESHOLD": threshold,
             }
 
     # record experiments by dataset name and have the tags as logged parameters
