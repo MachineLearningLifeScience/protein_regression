@@ -20,6 +20,7 @@ from uncertainty_quantification.confidence import quantile_and_oracle_errors
 from uncertainty_quantification.calibration import prep_reliability_diagram, confidence_based_calibration
 from visualization import representation_colors as rc
 from visualization import algorithm_colors as ac
+from visualization import algorithm_markers as am
 
 # MLFLOW CODE ONLY WORKS WITH THE BELOW LINE:
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
@@ -100,15 +101,17 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     AUTHOR: Jacob KH, 
     LAST CHANGES: Richard M
     """
-    colors = ac.values()
     filename = f'results/figures/uncertainties/{cvtype}_reliabilitydiagram_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}{dim_reduction}'
     algos = []
     for d in metric_values.keys():
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
-    fig, axs = plt.subplots(2, n_reps, figsize=(15,5), gridspec_kw={'height_ratios': [4, 1]})
+    fig, axs = plt.subplots(1, n_reps, figsize=(15,5)) #gridspec_kw={'height_ratios': [4, 1]})
+    algos = []
     for d, dataset_key in enumerate(metric_values.keys()):
-        for i, algo in enumerate(metric_values[dataset_key].keys()):           
+        for i, algo in enumerate(metric_values[dataset_key].keys()):     
+            if algo not in algos:
+                algos.append(algo)      
             for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
                 for aug in metric_values[dataset_key][algo][rep].keys():
                     number_splits = len(list(metric_values[dataset_key][algo][rep][aug].keys()))
@@ -142,23 +145,22 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     ece_err = np.std(ece) / np.sqrt(number_splits)
                     sharpness_mean = np.mean(sharpness)
                     sharpness_err = np.std(sharpness) / np.sqrt(number_splits)
-                    axs[0, j].plot(perc, count, c=ac.get(algo), lw=2, linestyle='-')
-                    axs[0, j].scatter(perc, count, c=ac.get(algo), s=25)
-                    axs[0, j].plot(perc,perc, ls=':', color='k', label='Perfect Calibration')
-                    axs[0, j].set_title(rep)
-                    axs[1, j].hist(uncertainties, 100, label=f"{algo}; {rep}", alpha=0.7, color=ac.get(algo))
+                    axs[j].plot(perc, count, c=ac.get(algo), marker=am.get(algo), fillstyle='none', ms=8, lw=2, linestyle='-', label=algo)
+                    axs[j].plot(perc,perc, ls=':', color='k', label='Perfect Calibration')
+                    axs[j].set_title(rep, fontsize=20)
+                    #axs[1, j].hist(uncertainties, 100, label=f"{algo}; {rep}", alpha=0.7, color=ac.get(algo))
                     if nan_count != 0.:
-                        axs[0, j].text(1.0, count[-1]-i/10, f"*{int(nan_count)} failed", fontsize=9, c=ac.get(algo))
-                    axs[0, j].set_xlabel('percentile', size=12)
-                    axs[1, j].set_xlabel('std', size=12)
-                    axs[0, j].text(0.8, 0.3-(0.27*i), f"ECE:{np.round(ece_mean,3)}\nSharp:{np.round(sharpness_mean,3)}", #±{np.round(ece_err,2)}
-                                    fontsize=8, bbox=dict(facecolor=ac.get(algo), alpha=0.2))
-                    axs[1, j].set_xlim(0, 1.5)
-    markers = [plt.Line2D([0,0],[0,0], color=ac.get(algo), marker='o', linestyle='') for algo in algos]
-    plt.legend(markers, algos, loc="lower right", prop={'size':5})
-    plt.suptitle(f"{str(dataset)} Calibration Split: {cvtype}, d={dim} {dim_reduction}")
-    axs[0, 0].set_ylabel('confidence', size=12)
-    axs[1, 0].set_ylabel('count', size=12)
+                        axs[j].text(1.0, count[-1]-i/10, f"*{int(nan_count)} failed", fontsize=12, c=ac.get(algo))
+                    axs[j].set_xlabel('percentile', size=12)
+                    #axs[1, j].set_xlabel('std', size=12)
+                    axs[j].text((0.27*i), -0.25, f"ECE={np.round(ece_mean,3)}\nsharp={np.round(sharpness_mean,3)}",
+                                    fontsize=12, bbox=dict(facecolor=ac.get(algo), alpha=0.2))
+                    axs[j].set_xlim(0, 1.)
+    handles, labels = axs[-1].get_legend_handles_labels()
+    fig.legend(handles[:len(algos)+1], labels[:len(algos)+1], loc='lower right', ncol=len(algos), prop={'size': 14})
+    plt.suptitle(f"{str(dataset)} Calibration Split: {cvtype}, d={dim} {dim_reduction}", fontsize=22)
+    axs[0].set_ylabel('confidence', size=12)
+    #axs[1, 0].set_ylabel('count', size=12)
     plt.xticks(size=14)
     plt.yticks(size=14)
     plt.tight_layout()
