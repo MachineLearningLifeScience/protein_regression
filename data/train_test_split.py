@@ -7,7 +7,7 @@ from sklearn.model_selection import KFold
 from scipy.optimize import minimize
 from scipy.spatial.distance import euclidean
 from scipy.spatial import distance_matrix
-from data.load_dataset import get_wildtype_and_offset, load_dataset, load_sequences_of_representation
+from data.load_dataset import get_wildtype_and_offset, load_sequences_of_representation
 from util.log import prep_for_mutation
 from util.mlflow.constants import ONE_HOT
 
@@ -266,8 +266,7 @@ class WeightedTaskSplitter(AbstractTrainTestSplitter):
         return w
 
     def get_name(self):
-        return f"{self.name}_cv{self.n_splits}_k{self.threshold}" 
-        
+        return f"{self.name}_cv{self.n_splits}_k{self.threshold}"  
 
 
 class PositionSplitter(AbstractTrainTestSplitter):
@@ -280,7 +279,7 @@ class PositionSplitter(AbstractTrainTestSplitter):
         self.dataset = dataset
         self.positions = positions
 
-    def split(self, X, representation=ONE_HOT, missed_indices=None):
+    def split(self, X, setting: Tuple, missed_indices: np.ndarray=None):
         """
         Splitting routine of Positionsplitter.
         Input: X - representation matrix
@@ -289,7 +288,8 @@ class PositionSplitter(AbstractTrainTestSplitter):
         Requires internal filtering.
         Either missing_idx exists, enforcing subselection with boolean mask.
         """
-        _X = load_sequences_of_representation(self.dataset, representation)
+        representation, augmentation = setting
+        _X = load_sequences_of_representation(self.dataset, representation=representation, augmentation=augmentation) # position splitting by original sequence positions - not encoding
         if missed_indices is not None and len(_X) != len(X):
             _X = np.delete(_X, missed_indices, axis=0) 
         assert _X.shape[0] == X.shape[0]

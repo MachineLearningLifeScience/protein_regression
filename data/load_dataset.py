@@ -6,6 +6,7 @@ import pickle
 from typing import Tuple, Callable
 from os.path import join, dirname
 from data.get_alphabet import get_alphabet
+from util import numpy_one_hot_2dmat
 from util.aa2int import map_alphabets
 from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM, EVE
 from util.mlflow.constants import VAE_DENSITY, VAE_AUX, VAE_RAND, EVE_DENSITY, ROSETTA
@@ -57,20 +58,21 @@ def load_transformer(name: str, desired_alphabet=None) -> Tuple[np.ndarray, np.n
     return X, Y
 
 
-def load_vae(name: str, vae_suffix: str) -> Tuple[np.ndarray, np.ndarray]:
-    if name not in ["1FQG", "BRCA", "CALM", "MTH3", "TIMB", "UBQT", "TOXI"]:
-        raise ValueError("Unknown dataset: %s" % name)
-    if name == "1FQG":
-        name = "blat"
-    df_filename = f"{name.lower()}_seq_reps_n_phyla.pkl"
-    vae_filename = f"{name.lower()}_{vae_suffix}.pkl"
-    d = pickle.load(open(join(base_path, df_filename), "rb"))
-    idx = np.logical_not(np.isnan(d["assay"]))
-    Y = np.vstack(d["assay"].loc[idx])
-    X = pickle.load(open(join(base_path, vae_filename), "rb"))[idx[idx==True].index]
-    if name == "toxi": # TODO make X selection more elegant!
-        X = np.load(join(base_path, "toxi_VAE_reps.npy"))[idx]
-    return X, Y
+# def load_vae(name: str, vae_suffix: str) -> Tuple[np.ndarray, np.ndarray]:
+#     if name not in ["1FQG", "BRCA", "CALM", "MTH3", "TIMB", "UBQT", "TOXI"]:
+#         raise ValueError("Unknown dataset: %s" % name)
+#     if name == "1FQG":
+#         name = "blat"
+#     df_filename = f"{name.lower()}_seq_reps_n_phyla.pkl"
+#     vae_filename = f"{name.lower()}_{vae_suffix}.pkl"
+#     d = pickle.load(open(join(base_path, df_filename), "rb"))
+#     idx = np.logical_not(np.isnan(d["assay"]))
+#     Y = np.vstack(d["assay"].loc[idx])
+#     X = pickle.load(open(join(base_path, vae_filename), "rb"))[idx[idx==True].index]
+#     if name == "toxi": # TODO make X selection more elegant!
+#         X = np.load(join(base_path, "toxi_VAE_reps.npy"))[idx]
+#     A = None # TODO: compute A
+#     return X, Y, A
 
 
 def __compute_observation_and_deduplication_indices(df) -> Tuple[np.ndarray, np.ndarray]:
@@ -151,10 +153,13 @@ def load_eve(name):
         warnings.warn(f"no. EVE mutants {len(latent_z)} != no. observations {len(Y)}! \n Diff: {len(Y)-len(latent_z)} ...")
         Y = np.vstack(eve_df['assay'])
     X = np.array([np.fromstring(seq[1:-1], np.float64, sep=",") for seq in latent_z])
-    return X, Y 
+    A = eve_df['evol_indices'].to_numpy()
+    S = np.vstack(eve_df.seqs).astype(int)
+    return S, X, Y, A
 
 
 def __load_eve_df(name) -> Tuple[np.ndarray, np.ndarray]:
+    name = name.upper()
     if name == "1FQG" or name == "BLAT":
         d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
     elif name == "BRCA":
@@ -192,7 +197,7 @@ def __load_eve_df(name) -> Tuple[np.ndarray, np.ndarray]:
     else:
         merged_df_eve_observations["last_mutation_position"] = merged_df_eve_observations.mutations.str[1:-1].astype(int) + offset
         merged_df_eve_observations["mut_aa"] = merged_df_eve_observations.mutations.str[-1]
-    merged_df_eve_observations = merged_df_eve_observations.append(wt)
+    merged_df_eve_observations = pd.concat([merged_df_eve_observations, wt])
     return merged_df_eve_observations
 
 
@@ -205,18 +210,19 @@ def load_nonsense(name) -> Tuple[np.ndarray, np.ndarray]:
     return X, Y
 
 
-def load_sequences_of_representation(name, representation):
+def load_sequences_of_representation(name, representation, augmentation=None):
     """
-    Assay sequence encodings may have mismatches with loaded representations.
+    Assay sequence encodings may have mismatches with loaded representations. 
+    Case: UBQT+eve density, where fewer observations than eve values exist
     This function returns the sequences associated with the representation.
     """
-    if representation == EVE:
+    if representation == EVE or augmentation == EVE:
         ref_df = __load_eve_df(name)
         X = np.vstack(ref_df.seqs)
-    elif representation == EVE_DENSITY:
+    elif representation == EVE_DENSITY or augmentation == EVE_DENSITY:
         if name.upper() == "1FQG":
             name = "BLAT"
-        ref_df = __load_eve_mutations_and_observations_df(name)
+        ref_df = __load_eve_df(name)
         ref_df = ref_df.dropna(subset=["assay", "evol_indices"])
         X = np.vstack(ref_df.seqs)
     else:
@@ -224,58 +230,105 @@ def load_sequences_of_representation(name, representation):
     return X
 
 
-def get_load_function(representation) -> Callable:
-    if representation is ONE_HOT:
-        return load_one_hot
-    elif representation == TRANSFORMER:
-            return load_transformer
-    elif "vae" in representation:
-        return load_vae
-    elif representation == ESM:
-        return load_esm
-    elif representation == EVE:
-        return load_eve
-    elif representation == VAE_DENSITY:
-        return load_augmentation
-    elif representation == EVE_DENSITY:
-        return load_augmentation
-    elif representation == NONSENSE:
-        return load_nonsense
-
-
-def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT):
+def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT, augmentation=None) -> tuple:
     if desired_alphabet is not None and representation is not ONE_HOT:
         raise ValueError("Desired alphabet can only have a value when representation is one hot!")
+    # Representation Loading
     if representation is ONE_HOT:
         X, Y = load_one_hot(name, desired_alphabet=desired_alphabet)
+        X = numpy_one_hot_2dmat(X, max=len(get_alphabet(name)))
+        # normalize by sequence length
+        X = X / X.shape[1]
     else:
         if representation == TRANSFORMER:
             X, Y = load_transformer(name)
-        elif representation == VAE:
-            X, Y = load_vae(name, vae_suffix="VAE_reps")
-        elif representation == VAE_AUX: # THIS IS THE VAE WITH AUXILIARY ELBO NN
-            X, Y = load_vae(name, vae_suffix="AUX_VAE_reps_RANDOM_VAL")
-        elif representation == VAE_RAND: # THIS IS THE REFERENCE VAE REPRESENTATION
-            X, Y = load_vae(name, vae_suffix="VAE_reps_RANDOM_VAL")
+        # elif representation == VAE:
+        #     X, Y, A = load_vae(name, vae_suffix="VAE_reps")
+        # elif representation == VAE_AUX: # VAE WITH AUXILIARY ELBO NN
+        #     X, Y, A = load_vae(name, vae_suffix="AUX_VAE_reps_RANDOM_VAL")
         elif representation == ESM:
             X, Y = load_esm(name)
         elif representation == EVE:
-            X, Y = load_eve(name)
-        elif representation == VAE_DENSITY:
-            X, Y, _ = load_augmentation(name=name, augmentation=VAE_DENSITY, representation=representation)
-        elif representation == EVE_DENSITY:
-            X, Y, _ = load_augmentation(name=name, augmentation=EVE_DENSITY, representation=representation)
+            eve_S, X, Y, A = load_eve(name)
+            missed_assay_indices = None # EVE protocol covers all possible single variants
+        elif representation == EVE_DENSITY: # TODO: add VAE_Density representation again
+            eve_S, _, Y, X = load_eve(name)
+            X = X[:, np.newaxis]
+            missed_assay_indices = None
         elif representation == NONSENSE:
             X, Y = load_nonsense(name)
         else:
             raise ValueError("Unknown value for representation: %s" % representation)
         X = X.astype(np.float64)  # in the one-hot case we want int64, that's why the cast is in this position
     Y = Y.astype(np.float64)
-    assert(X.shape[0] == Y.shape[0])
+    # Augmentation Loading: 
+    if augmentation == ROSETTA or (augmentation == EVE_DENSITY and representation is not EVE):
+        S, A, = load_augmentation(name, augmentation)
+        data_S = load_one_hot(name, desired_alphabet=desired_alphabet)[0] if representation != EVE else eve_S # EVE sequences are distinct from base data sequences
+        X, Y, A, missed_assay_indices = join_X_A_by_available_sequences(X, Y, data_S=data_S, S=S, A=A, name=name)
     assert(Y.shape[1] == 1)
-    # We flip the sign of Y so our optimization experiment is a minimazation problem
-    # literature review of modelled proteins showed higher values are better
+    assert X.shape[0] == Y.shape[0]
+    # We flip the sign of Y so our optimization experiment is a minimization problem
+    # lit.-review of proteins: higher values are better
+    if augmentation:
+        return X, (-Y, missed_assay_indices)
     return X, -Y
+
+
+def load_augmentation(name:str, augmentation: str) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Load requested augmentation. Available either Rosetta or EVE vectors.
+    TODO: extend to other VAE vectors.
+    Return Tuple: S: sequence for which vector was computed, A: augmentation vector
+    """
+    if augmentation == ROSETTA:
+        S, A = _load_rosetta_augmentation(name)
+    elif augmentation == EVE_DENSITY:
+        S, _, _, A = load_eve(name)
+    else:
+        raise NotImplementedError(f"Requested augmentation {augmentation} does not exist!")
+    return S, A
+
+
+def join_X_A_by_available_sequences(X: np.ndarray, Y: np.ndarray, data_S: np.ndarray, S: np.ndarray, A: np.ndarray, name: str) -> tuple:
+    """
+    Filters representation and entries by available sequences,
+    given augmentation sequences S,
+    Input: 
+        X: merged data-matrix,
+        Y: observations,
+        data_S: sequences from data-loading
+        S: augmentation sequences
+        A: augmentation vector
+        name: str name
+    Returns:
+        X: merged and filtered data matrix
+        Y: filtered observations
+        A: augmentation vector
+        missing_assay_indices: mismatch indices between loaded data and augmentation for later splitting protocol
+    """
+    missed_assay_indices = None
+    A = A if A.shape[-1] == 1 else A[:, np.newaxis] # add augmentation vector from Rosetta | EVE | VAE to data-matrix
+    # intersection of observed sequences and augmentation vector
+    _lh_sequences, _rh_sequences = (data_S, S) if len(data_S) >= len(S) else (S, data_S)
+    idx_join = np.in1d([str(_os) for _os in _lh_sequences], [str(_s) for _s in _rh_sequences]) # str representation required for "in" assessment
+    if X.shape[0] > A.shape[0]: 
+        X = X[idx_join]
+        Y = Y[idx_join]
+    else:
+        A = A[idx_join]
+    A /= X.shape[1] # normalize by length of sequence
+    X = np.concatenate([X, A], axis=1)
+    if np.isnan(X).any():
+        warnings.warn(f"NaN values encountered in {name} augmentation! Shape: {X.shape}")
+        missed_assay_indices = np.where(np.isnan(X).sum(axis=1).astype(bool))[0]
+        not_nan_idx = np.setdiff1d(np.arange(X.shape[0]), missed_assay_indices)
+        X = X[not_nan_idx]
+        Y = Y[not_nan_idx]
+        A = A[not_nan_idx]
+        warnings.warn(f"Removing entries... => Shape: {X.shape}")
+    assert len(A) == len(Y) == len(X)
+    return X, Y, A, missed_assay_indices
 
 
 def get_wildtype_and_offset(name: str) -> Tuple[str, int]:
@@ -283,13 +336,13 @@ def get_wildtype_and_offset(name: str) -> Tuple[str, int]:
     Get encoded wildtype from sequence alignment.
     Get offset with respect to wild-type sequence from alignment FASTA identifier.
     """
+    name = name.upper()
     if name == "1FQG" or name == "BLAT":  # beta-lactamase
         d = pickle.load(open(join(base_path, "blat_data_df.pkl"), "rb"))
         sequence_offset = __parse_sequence_offset_from_alignment("alignments/BLAT_ECOLX_hmmerbit_plmc_n5_m30_f50_t0.2_r24-286_id100_b105.a2m")
         wt = d['seqs'][0].astype(np.int64)
     elif name == "BRCA" or name == "BRCA_BRCT":
         d = pickle.load(open(join(base_path, "brca_data_df.pkl"), "rb"))
-        #sequence_offset = __parse_sequence_offset_from_alignment("alignments/BRCA1_HUMAN_1_b0.5.a2m") # This is a different BRCA sequence reference
         sequence_offset = __parse_sequence_offset_from_alignment("alignments/BRCA1_HUMAN_BRCT_1_b0.3.a2m")
         wt = d['seqs'][0].astype(np.int64)
     elif name == "CALM":
@@ -414,47 +467,9 @@ def make_debug_se_dataset():
     return X, Y
 
 
-def load_augmentation(name: str, augmentation: str, representation: str):
-    """
-    Load data augmentation vectors.
-    For Rosetta, VAE densities, EVE evo-scores.
-    Data augmentation vectors for VAE and EVE also used as 1D representations.
-    Not all assay data has a value due to DeepSequence/EVE setup. Therefore idx_miss is vector of not-computed values.
-    Input:
-    name: str - of system's augmentations to be loaded
-    augmentation: str - type of augmentation [Rosetta, EVE, VAE]
-    representation: str - type of representation in use, too keep dimensions in-line
-    Returns:
-    A: np.ndarray - augmentation vector
-    Y: np.ndarray - assay observations
-    idx_miss: np.ndarray - index of missings w.r.t. assay dataframe
-    """
-    if augmentation == ROSETTA:
-        if name not in ["1FQG", "CALM", "UBQT"]:
-            raise ValueError("Unknown dataset: %s" % name)
-        if name == "1FQG":
-            A, Y = _load_rosetta_augmentation(name="BLAT", rep=representation)
-        else:
-            A, Y = _load_rosetta_augmentation(name=name.upper(), rep=representation)
-    elif augmentation == VAE_DENSITY:
-        if name not in ["1FQG", "CALM", "UBQT"]:
-            raise ValueError("Unknown dataset: %s" % name)
-        if name == "1FQG":
-            name = "BLAT"
-        A, Y, idx_miss = _load_vae_augmentation(name=name.upper())
-    elif augmentation == EVE_DENSITY:
-        if name not in ["1FQG", "CALM", "UBQT", "BRCA", "TIMB", "MTH3", "TOXI"]:
-            raise ValueError("Unknown dataset: %s" % name)
-        if name == "1FQG":
-            name = "BLAT"
-        A, Y = _load_eve_augmentation(name=name.upper())
-    else:
-        raise NotImplementedError(f"Augmentation {augmentation} | {name} not implemented !")
-    return A.astype(np.float64) , Y.astype(np.float64)
-
-
 def __load_assay_df(name: str):
-    df = pickle.load(open(join(base_path, "{}_data_df.pkl".format(name.lower())), "rb"))
+    name = name.lower() if not name.lower() == "1fqg" else "BLAT"
+    df = pickle.load(open(join(base_path, f"{name}_data_df.pkl"), "rb"))
     alphabet = dict((v, k) for k,v in get_alphabet(name=name).items())
     idx_array = np.logical_not(np.isnan(df["assay"]))
     df = df[idx_array]
@@ -478,14 +493,15 @@ def __load_assay_df(name: str):
     return df
 
 
-def _load_rosetta_augmentation(name: str, rep: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    rosetta_df = __load_rosetta_augmentation_df(name, rep)                         
+def _load_rosetta_augmentation(name: str) -> Tuple[np.ndarray, np.ndarray]:
+    name = name.lower() if not name.lower() == "1fqg" else "blat"
+    rosetta_df = __load_rosetta_augmentation_df(name) 
+    S = np.vstack(rosetta_df["seqs"]).astype(int)                        
     A = np.vstack(rosetta_df["DDG"])  
-    Y = np.vstack(rosetta_df["assay"])
-    return A, Y
-    
+    return S, A
 
-def __load_rosetta_augmentation_df(name: str, rep: str) -> pd.DataFrame:
+
+def __load_rosetta_augmentation_df(name: str) -> pd.DataFrame:
     """
     Load persisted DataFrames and join Rosetta simulations on mutations.
     returns 
@@ -498,68 +514,47 @@ def __load_rosetta_augmentation_df(name: str, rep: str) -> pd.DataFrame:
         warnings.warn(f"{name} Rosetta positions require offset += {offset}!")
     rosetta_df['position'] = rosetta_df.position.astype(int)+offset
     rosetta_df["DDG"] = rosetta_df.DDG.astype(float)
+    # if rep == EVE: # special case: does not guarantee same data loaded for representations, due to EVE-internal df construction
+    #     observations_df = __filter_eve_by_observations_join(name)
+    # else:
     observations_df = __load_assay_df(name)
-    observations_df = observations_df[["assay", "last_mutation_position", "mut_aa"]].drop_duplicates()
-    if rep == EVE: # special case: does not guarantee same data loaded for representations, due to EVE-internal df construction
-        _name = name if name.upper() != "1FQG" else "BLAT"
-        rep_df = __load_eve_df(_name)
-        rep_df = rep_df[["assay", "mutations", "last_mutation_position", "mut_aa"]].drop_duplicates() # TODO: fix root-cause
-        observations_df = pd.merge(rep_df, observations_df, how="inner", on=["last_mutation_position", "mut_aa"], suffixes=["_eve", ""], validate="one_to_one")
+    observations_df = observations_df[["seqs", "assay", "last_mutation_position", "mut_aa"]].drop_duplicates(subset=["assay", "last_mutation_position", "mut_aa"])
     joined_df = pd.merge(rosetta_df, observations_df, how="right", left_on=["position", "mut_aa"], 
-                                            right_on=["last_mutation_position", "mut_aa"], 
-                                            suffixes=('_rosetta', '_assay'), validate="one_to_one")  
+                        right_on=["last_mutation_position", "mut_aa"], 
+                        suffixes=('_rosetta', '_assay'), validate="one_to_one")  
     return joined_df
 
-def _load_vae_augmentation(name):
-    vae_data = __load_vae_augmentation_df(name)
-    assay_df = __load_assay_df(name)
-    A = np.vstack(vae_data)
-    Y = np.vstack(assay_df["assay"])
-    return A, Y, None
 
-
-def __load_vae_augmentation_df(name: str):
-    with open(join(base_path, "vae_results.pkl"), "rb") as infile:
-        vae_data = pickle.load(infile).get(name.lower())
-    return vae_data
-
-
-def _load_eve_augmentation(name: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    eve_augmentation_df = __load_eve_mutations_and_observations_df(name)
-    assert eve_augmentation_df[["assay", "evol_indices"]].isna().all().all() == False             
-    A = np.vstack(eve_augmentation_df['evol_indices'])
-    Y = np.vstack(eve_augmentation_df['assay'])
-    return A, Y
-
-
-def __load_eve_mutations_and_observations_df(name: str) -> pd.DataFrame:
-    """
-    Load EVE dataframe from CSV and index mutation for mutations and observation assay join.
-    """
-    assay_df = __load_assay_df(name)
-    assay_df = assay_df.drop_duplicates(subset=["last_mutation_position", "mut_aa", "assay"])
-    if name.upper() == "BRCA":
-        name = "BRCA_BRCT"
-    df = pd.read_csv(join(base_path, f"EVE_{name}_2000_samples.csv"))
-    assert df.iloc[0].evol_indices == 0.0
-    df = df.iloc[1:] # drop WT - should be zero/NaN for observations and zero for EVE computation
-    multivariates = df.mutations.str.contains(":").any()
-    _, _offset = get_wildtype_and_offset(name)
-    if multivariates:
-        adjusted_mutations = []
-        for mutant in assay_df.mutant:
-            _m = []
-            for mut in mutant.split(":"):
-                from_aa, m_idx, to_aa = mut[0], mut[1:-1], mut[-1]
-                _m.append(from_aa + str(int(m_idx)+_offset)+ to_aa) # offset required for TOXI
-            adjusted_mutations.append(":".join(_m))
-        assay_df["adjusted_mutations"] = adjusted_mutations
-        joined_df = pd.merge(df, assay_df, how="right", left_on=["mutations"], 
-                                                right_on=["adjusted_mutations"], validate="one_to_one")
-    else:
-        df["last_mutation_position"] = df.mutations.str.slice(1, -1).astype(int)
-        df["mut_aa"] = df.mutations.str.slice(-1)
-        joined_df = pd.merge(df, assay_df, how="right", left_on=["last_mutation_position", "mut_aa"], 
-                                                right_on=["last_mutation_position", "mut_aa"], validate="one_to_one")
-    return joined_df
+# def __load_eve_mutations_and_observations_df(name: str) -> pd.DataFrame:
+#     """
+#     Load EVE dataframe from CSV and index mutation for mutations and observation assay join.
+#     """
+#     assay_df = __load_assay_df(name)
+#     assay_df = assay_df.drop_duplicates(subset=["last_mutation_position", "mut_aa", "assay"])
+#     if name.upper() == "BRCA":
+#         name = "BRCA_BRCT"
+#     if name.upper() == "1FQG":
+#         name = "BLAT"
+#     df = pd.read_csv(join(base_path, f"EVE_{name}_2000_samples.csv"))
+#     assert df.iloc[0].evol_indices == 0.0 # Test WT is present
+#     df = df.iloc[1:] # drop WT - should be zero/NaN for observations and zero for EVE computation
+#     multivariates = df.mutations.str.contains(":").any()
+#     _, _offset = get_wildtype_and_offset(name)
+#     if multivariates: # TODO: test multivariate case for TOXI with current loading
+#         adjusted_mutations = []
+#         for mutant in assay_df.mutant:
+#             _m = []
+#             for mut in mutant.split(":"):
+#                 from_aa, m_idx, to_aa = mut[0], mut[1:-1], mut[-1]
+#                 _m.append(from_aa + str(int(m_idx)+_offset)+ to_aa) # offset required for TOXI
+#             adjusted_mutations.append(":".join(_m))
+#         assay_df["adjusted_mutations"] = adjusted_mutations
+#         joined_df = pd.merge(df, assay_df, how="right", left_on=["mutations"], 
+#                                                 right_on=["adjusted_mutations"], validate="one_to_one")
+#     else:
+#         df["last_mutation_position"] = df.mutations.str.slice(1, -1).astype(int)
+#         df["mut_aa"] = df.mutations.str.slice(-1)
+#         joined_df = pd.merge(df, assay_df, how="right", left_on=["last_mutation_position", "mut_aa"], 
+#                                                 right_on=["last_mutation_position", "mut_aa"], validate="one_to_one")
+#     return joined_df
 

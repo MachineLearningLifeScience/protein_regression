@@ -2,8 +2,6 @@ from data.load_dataset import get_alphabet
 from data.load_dataset import load_dataset
 from data.load_dataset import get_wildtype_and_offset
 from data.get_alphabet import get_alphabet
-from data.load_dataset import load_augmentation
-from data.load_dataset import get_load_function
 from data.train_test_split import AbstractTrainTestSplitter
 from data.train_test_split import PositionSplitter
 from data.train_test_split import RandomSplitter

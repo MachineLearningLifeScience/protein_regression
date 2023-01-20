@@ -12,7 +12,7 @@ import warnings
 from typing import Tuple
 from algorithm_factories import ALGORITHM_REGISTRY
 from protocol_factories import PROTOCOL_REGISTRY
-from data import load_dataset, get_alphabet, load_augmentation, get_load_function
+from data import load_dataset, get_alphabet
 from data.train_test_split import AbstractTrainTestSplitter, BioSplitter, PositionSplitter, WeightedTaskSplitter
 from util import numpy_one_hot_2dmat
 from util.log import prep_for_logdict, prep_for_mutation
@@ -52,39 +52,24 @@ def _dim_reduce_X(dim: int, dim_reduction: str, X_train: np.ndarray, Y_train: np
 
 
 def run_single_regression_task(dataset: str, representation: str, method_key: str, protocol: AbstractTrainTestSplitter, 
-                                augmentation: str, dim: int=None, dim_reduction: str=NON_LINEAR, threshold: float=None, plot_cv=False):
+                                augmentation: str, dim: int=None, dim_reduction: str=NON_LINEAR, threshold: float=None, mock: bool=False):
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
     missed_assay_indices: np.ndarray = None
     # load X for CV splitting
-    X, Y = load_dataset(dataset, representation=representation)
-    seq_len = X.shape[1]
+    X, Y = load_dataset(dataset, representation=representation, augmentation=augmentation)
+    if augmentation: # augmentation call requires Y unpacking
+        Y, missed_assay_indices = Y
+    print(f"Protein {dataset}: N={X.shape[0]}; L={X.shape[1]}")
+    if mock:
+        return
 
     if threshold is not None: # filter by observation threshold
         t_idx = np.where(Y<threshold)[0] # y-values are inverted
         X = X[t_idx]
         Y = Y[t_idx]
 
-    if representation is ONE_HOT:
-        X = numpy_one_hot_2dmat(X, max=len(get_alphabet(dataset)))
-        # normalize by sequence length
-        X = X / seq_len
-        
-    if augmentation: # add augmentation vector from Rosetta | EVE | VAE
-        A, Y = load_augmentation(name=dataset, augmentation=augmentation, representation=representation)
-        assert len(A) == len(Y) == len(X)
-        A /= seq_len
-        X = np.concatenate([X, A], axis=1)
-        if np.isnan(X).any():
-            warnings.warn(f"NaN values encountered in augmentation! Shape: {X.shape}")
-            missed_assay_indices = np.where(np.isnan(X).sum(axis=1).astype(bool))[0]
-            X = X[~np.isnan(X).sum(axis=1).astype(bool)]
-            warnings.warn(f"Removing entries... => Shape: {X.shape}")
-
-    if type(protocol) in [PositionSplitter, BioSplitter]: # special case mismatches in position splitting
-        if missed_assay_indices is not None:
-            train_indices, _, test_indices = protocol.split(X, representation, missed_assay_indices)
-        else:
-            train_indices, _, test_indices = protocol.split(X, representation)
+    if type(protocol) in [PositionSplitter, BioSplitter]:
+        train_indices, _, test_indices = protocol.split(X, (representation, augmentation), missed_assay_indices)
     elif type(protocol) == WeightedTaskSplitter:
         train_indices, _, test_indices = protocol.split(X, Y)
     else: # BASE CASE splitting:
@@ -144,7 +129,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         assert(mu.shape[0] == unc.shape[0] == len(test_indices[split]))
         # record mean and median smse and nll and spearman correlation
         assert mu.shape == Y_test.shape, "shape mismatch "+str(mu.shape)+' '+str(Y_test.flatten().shape)
-        
+        # compute result metrics:
         baseline = np.mean(np.square(Y_test - np.repeat(mean_y, len(Y_test)).reshape(-1,1)))
         err2 = np.square(Y_test - mu)
         mse = np.mean(err2)/baseline
