@@ -1,7 +1,7 @@
 
 # located here due to circular import between load_augmentation and load_dataset
 def get_alphabet(name: str):
-    if name in ["1FQG", "BLAT", "BRCA", "CALM", "MTH3", "TIMB", "UBQT", "TOXI"]:
+    if name.upper() in ["1FQG", "BLAT", "BRCA", "CALM", "MTH3", "TIMB", "UBQT", "TOXI"]:
         data_alphabet = list(enumerate([
             "A",
             "C",
