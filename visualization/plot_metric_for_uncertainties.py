@@ -103,10 +103,11 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     """
     filename = f'results/figures/uncertainties/{cvtype}_reliabilitydiagram_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}{dim_reduction}'
     algos = []
+    n_prot = len(metric_values.keys())
     for d in metric_values.keys():
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
-    fig, axs = plt.subplots(1, n_reps, figsize=(15,5)) #gridspec_kw={'height_ratios': [4, 1]})
+    fig, axs = plt.subplots(n_prot, n_reps, figsize=(20,5)) #gridspec_kw={'height_ratios': [4, 1]})
     algos = []
     for d, dataset_key in enumerate(metric_values.keys()):
         for i, algo in enumerate(metric_values[dataset_key].keys()):     
@@ -145,21 +146,23 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     ece_err = np.std(ece) / np.sqrt(number_splits)
                     sharpness_mean = np.mean(sharpness)
                     sharpness_err = np.std(sharpness) / np.sqrt(number_splits)
-                    axs[j].plot(perc, count, c=ac.get(algo), marker=am.get(algo), fillstyle='none', ms=8, lw=2, linestyle='-', label=algo)
-                    axs[j].plot(perc,perc, ls=':', color='k', label='Perfect Calibration')
-                    axs[j].set_title(rep, fontsize=20)
+                    axs[d,j].plot(perc, count, c=ac.get(algo), marker=am.get(algo), fillstyle='none', ms=8, lw=2, linestyle='-', label=algo)
+                    axs[d,j].plot(perc, perc, ls=':', color='k', label='Perfect Calibration')
+                    axs[d,j].set_title(rep, fontsize=20)
                     #axs[1, j].hist(uncertainties, 100, label=f"{algo}; {rep}", alpha=0.7, color=ac.get(algo))
                     if nan_count != 0.:
-                        axs[j].text(1.0, count[-1]-i/10, f"*{int(nan_count)} failed", fontsize=12, c=ac.get(algo))
-                    axs[j].set_xlabel('percentile', size=12)
+                        axs[d,j].text(1.0, count[-1]-i/10, f"*{int(nan_count)} failed", fontsize=12, c=ac.get(algo))
+                    axs[d,j].set_xlabel('percentile', size=12)
                     #axs[1, j].set_xlabel('std', size=12)
-                    axs[j].text((0.27*i), -0.25, f"ECE={np.round(ece_mean,3)}\nsharp={np.round(sharpness_mean,3)}",
+                    # align text in pairs of two around curves: upper left two, lower right two
+                    axs[d,j].text((0.05+0.55*(i//2)), 0.9-(0.2*i)-(0.3*(i//2)), f"ECE={np.round(ece_mean,3)}\nsharp={np.round(sharpness_mean,3)}",
                                     fontsize=12, bbox=dict(facecolor=ac.get(algo), alpha=0.2))
-                    axs[j].set_xlim(0, 1.)
-    handles, labels = axs[-1].get_legend_handles_labels()
-    fig.legend(handles[:len(algos)+1], labels[:len(algos)+1], loc='lower right', ncol=len(algos), prop={'size': 14})
-    plt.suptitle(f"{str(dataset)} Calibration Split: {cvtype}, d={dim} {dim_reduction}", fontsize=22)
-    axs[0].set_ylabel('confidence', size=12)
+                    axs[d,j].set_xlim(0, 1.)
+    handles, labels = axs[-1, -1].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='lower right', ncol=len(algos)+1, prop={'size': 14})
+    plt.suptitle(f"{str(dataset)} Calibration Split: {cvtype}", fontsize=22)
+    axs[0,0].set_ylabel('confidence', size=12)
+    axs[1,0].set_ylabel('confidence', size=12)
     #axs[1, 0].set_ylabel('count', size=12)
     plt.xticks(size=14)
     plt.yticks(size=14)
@@ -236,11 +239,12 @@ def multi_dim_reliabilitydiagram(metric_values: dict, number_quantiles: int, cvt
 def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', 
                     optimize_flag=True, dim=None, dim_reduction=None):
     qs = np.linspace(0,1,1+number_quantiles)
+    n_prot = len(list(metric_values.keys()))
     for d in metric_values.keys():
         n_algo = len(metric_values[d].keys())
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
-    fig, axs = plt.subplots(n_algo, n_reps, figsize=(15,5))
+    fig, axs = plt.subplots(n_prot, n_reps, figsize=(25,12.5))
     for d, dataset_key in enumerate(metric_values.keys()):
         algos = []
         for i, algo in enumerate(metric_values[dataset_key].keys()):          
@@ -268,18 +272,17 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
                         print("ERROR building Polygon with")
                         print(f"Quantile: {quantile_errs}")
                         print(f"Oracle: {oracle_errs}")
-                    plot_polygon(axs[i,j], pgon, facecolor='red', edgecolor='red', alpha=0.12)
-                    axs[i,j].plot(qs, np.flip(quantile_errs), lw=2, 
-                    label='AUCO: '+str(np.round(pgon.area,3))+'\nError drop: '+str(np.round(quantile_errs[-1]/quantile_errs[0],3)))
-                    axs[i,j].plot(qs, np.flip(oracle_errs), "k--", lw=2, label='Oracle') 
-                    axs[i,j].set_ylabel('NMSE', size=14)
-                    axs[i,j].set_title(f"Algo: {algo}", size=12)
-                axs[0, j].set_title(f"Rep: {rep} \n Algo: {algo}", size=12)
+                    # plot_polygon(axs[d,j], pgon, facecolor='red', edgecolor='red', alpha=0.12)
+                    axs[d,j].plot(qs, np.flip(quantile_errs), c=ac.get(algo), marker=am.get(algo), fillstyle='none', ms=8, lw=2, linestyle='-', label=algo)
+                    #axs[d,j].text(0, 0-i, f'AUCO {algo}: {np.round(pgon.area,3)}\nError drop: {np.round(quantile_errs[-1]/quantile_errs[0],3)}', transform=axs[d,j].transAxes)
+                    axs[d,j].plot(qs, np.flip(oracle_errs), "k--", lw=2, label='Oracle') 
+                    axs[d,j].set_ylabel('NMSE', size=14)
+                    axs[d,j].set_title(f"{dataset_key} Algo: {algo}  Rep: {rep}", size=12)
                 axs[-1,j].set_xlabel('Percentile', size=14)
     filename = f'results/figures/uncertainties/{algo}_{cvtype}_confidence_curve_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}_{dim_reduction}'
     plt.legend() 
     plt.suptitle(f"{str(dataset)} Split: {cvtype} , d={dim} {dim_reduction}")
-    plt.tight_layout()
+    #plt.tight_layout()
     plt.savefig(filename+'.png')
     plt.savefig(filename+'.pdf')
     plt.show()
@@ -337,8 +340,8 @@ def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str]
                         optimize=True, d=None, dim_reduction=None, metrics=[GP_L_VAR, STD_Y]):
     results_dict = get_mlflow_results_artifacts(datasets=datasets, reps=reps, metrics=metrics, algos=algos, train_test_splitter=train_test_splitter, augmentation=augmentations,
                                                 dim=d, dim_reduction=dim_reduction, optimize=optimize)
-    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
-    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=datasets[-1], representation=reps[-1], optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
 
 
 def plot_uncertainty_eval_across_dimensions(datasets: List[str], reps: List[str], algos: List[str], train_test_splitter, dimensions: List[int], augmentation = [NO_AUGMENT], number_quantiles=10,
