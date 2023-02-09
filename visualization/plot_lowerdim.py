@@ -20,7 +20,6 @@ def plot_lower_dim_results(datasets: List[str], algorithms: List[str], represent
     for metric in tqdm(metrics):
         for dim in tqdm(dimensions):
             for split in tqdm(cv_types, leave=False):
-                # TODO what happens if multiple metrics are queried?
                 results = get_mlflow_results(datasets=datasets, algos=algorithms, reps=representations, metrics=[metric], 
                                             train_test_splitter=split, dim=dim, dim_reduction=dim_reduction)
                 dim_results[metric][dim][split.get_name()] = results
@@ -82,6 +81,7 @@ def plot_lower_dim_results(datasets: List[str], algorithms: List[str], represent
     ax[i, j_idx-1].legend(legend_set, prop={'size': 6})
     plt.suptitle(f"Regression in lower dimensions {dim_reduction} \n on {str(datasets)}")
     plt.tight_layout()
-    plt.savefig(f"./results/figures/dim_reduction/lower_dim{dimensions}_{datasets}_{representations}_{metrics}_{dim_reduction}", bbox_inches='tight')
+    plt.savefig(f"./results/figures/dim_reduction/lower_dim{dimensions}_{datasets}_{representations}_{metrics}_{dim_reduction}.pdf", bbox_inches='tight')
+    plt.savefig(f"./results/figures/dim_reduction/lower_dim{dimensions}_{datasets}_{representations}_{metrics}_{dim_reduction}.png", bbox_inches='tight')
     plt.show()
 
