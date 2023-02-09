@@ -23,22 +23,25 @@ def plot_cumulative_comparison(datasets: List[str],
                             reps: List[str],
                             train_test_splitters,
                             dimension=None,
-                            dim_reduction=None):
+                            dim_reduction=None,
+                            threshold: float=None):
     results_dict = {}
     for frac, splitter in zip(testing_fractions, train_test_splitters):
         splitter_dict = get_mlflow_results_artifacts(datasets=datasets, algos=algos, reps=reps, 
-                                                metrics=metrics, train_test_splitter=splitter, dim=dimension, dim_reduction=dim_reduction)
+                                                metrics=metrics, train_test_splitter=splitter, dim=dimension, 
+                                                dim_reduction=dim_reduction, threshold=threshold)
         results_dict[frac] = splitter_dict
-    cumulative_performance_plot(results_dict)
+    cumulative_performance_plot(results_dict, threshold=threshold)
 
 
 if __name__ == "__main__":
-    datasets = ["CALM"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
+    datasets = ["UBQT"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
+    thresholds = [None] # [0.] # 
     algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(), 
         #GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), 
         UncertainRandomForest().get_name()]
-    metrics = [MLL, MSE, GP_L_VAR, STD_Y, SPEARMAN_RHO, PAC_BAYES_EPS] # MSE
-    representations = [ESM, TRANSFORMER, ONE_HOT, EVE] # SPECIAL CASE [UBQT, BLAT]: VAE+"_clusterval" 
+    metrics = [MLL, MSE, GP_L_VAR, STD_Y, SPEARMAN_RHO] # MSE OPTIONAL: PAC_BAYES_EPS
+    representations = [TRANSFORMER, ESM, ONE_HOT, EVE] # SPECIAL CASE [UBQT, BLAT]: VAE+"_clusterval" 
     dim = None
     dim_reduction = LINEAR # LINEAR, NON_LINEAR
     # gathers all our results and saves them into a numpy array
@@ -46,4 +49,5 @@ if __name__ == "__main__":
     train_test_splitters = [FractionalRandomSplitter(datasets[0], n) for n in testing_fractions]
     for rep in representations:    
         plot_cumulative_comparison(datasets=datasets, algos=algos, metrics=metrics, reps=[rep], 
-                            train_test_splitters=train_test_splitters, dimension=dim, dim_reduction=dim_reduction)
+                            train_test_splitters=train_test_splitters, dimension=dim,
+                            dim_reduction=dim_reduction, threshold=thresholds)

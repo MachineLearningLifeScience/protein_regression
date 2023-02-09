@@ -71,11 +71,11 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                         filter_string += f" and tags.{SPLIT} = '{train_test_splitter.get_name()}'"
                     if aug:
                         filter_string += f" and tags.{AUGMENTATION} = '{aug}'"
-                    if dim and not (rep==VAE and dim >= 30) and not (rep==EVE and dim >= 50):
+                    if dim and not (rep==VAE and dim >= 30): #and not (rep==EVE and dim >= 50):
                         filter_string += f" and tags.{DIMENSION} = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'"
                     if seed:
                         filter_string += f" and tags.{SEED} = '{seed}'"
-                    if threshold[i]:
+                    if threshold[0] and threshold[i]:
                         filter_string += f" and tags.{THRESHOLD} = '{threshold}'"
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY)
                     runs = runs[runs['status'] == 'FINISHED']
@@ -83,15 +83,20 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                         runs = runs[runs[f'tags.{DIMENSION}'].isnull()]
                     if not aug and f'tags.{AUGMENTATION}' in runs.columns:
                         runs = runs[runs[f'tags.{AUGMENTATION}']==str(aug)]
-                    if not threshold[i] and f'tags.{THRESHOLD}' in runs.columns:
-                        runs = runs[runs[f'tags.{THRESHOLD}'].isnull()]
-                    _dim = dim
-                    while len(runs) != 1 and dim and _dim >= 1: # for lower-dimensional experiments, if not exists: take next smaller in steps of 10:
-                        _dim = int(re.search(r'\'\d+\'', filter_string).group()[1:-1]) # NOTE: \' to cover if other elements in the string have int elements
-                        lower_dim = _dim - int(dim/10)
-                        filter_string = filter_string.replace(f"tags.{DIMENSION} = '{_dim}'", f"tags.{DIMENSION} = '{lower_dim}'")
+                    if not threshold[0] and f'tags.{THRESHOLD}' in runs.columns:
+                        runs = runs[(runs[f'tags.{THRESHOLD}'].isnull()) | (runs["tags.THRESHOLD"] == "None")]
+                    # DEFAULT EVE case: no reduction
+                    if len(runs) == 0 and rep == EVE and dim > 50:
+                        filter_string = filter_string.replace(f"and tags.{DIMENSION} = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'", "")
                         runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
-                    runs = runs.iloc[:1]
+                    else: # dimensions lower
+                        _dim = dim
+                        while len(runs) == 0 and dim and _dim >= 1: # for lower-dimensions, if not exists: take next smaller in steps of 10, e.g. one-hot reduction d=1000 may not compute
+                            _dim = int(re.search(r'\'\d+\'', filter_string).group()[1:-1]) # NOTE: \' to cover if other elements in the string have int elements
+                            lower_dim = _dim - int(dim/10)
+                            filter_string = filter_string.replace(f"tags.{DIMENSION} = '{_dim}'", f"tags.{DIMENSION} = '{lower_dim}'")
+                            runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
+                    runs = runs.iloc[:1] # pick latest run
                     assert len(runs) == 1 , str(rep)+str(a)+str(dataset)+str(augmentation)
                     metric_results = {metric: [] for metric in metrics}     
                     for metric in metrics:
@@ -133,7 +138,7 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
                         filter_string += f" and tags.{AUGMENTATION} = '{aug}'"
                     if seed:
                         filter_string += f" and tags.{SEED} = '{seed}'"
-                    if threshold[i]:
+                    if threshold[0] and threshold[i]:
                         filter_string += f" and tags.{THRESHOLD} = '{threshold}'"
                     exps = mlflow.tracking.MlflowClient().get_experiment_by_name(experiment_ids[i])
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY)
@@ -142,7 +147,7 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
                         runs = runs[runs['tags.DIM'].isnull()]
                     if not aug and f'tags.{AUGMENTATION}' in runs.columns:
                         runs = runs[runs['tags.AUGMENTATION']==str(aug)]
-                    if not threshold[i] and f'tags.{THRESHOLD}' in runs.columns:
+                    if not threshold[0] and f'tags.{THRESHOLD}' in runs.columns:
                         runs = runs[runs[f'tags.{THRESHOLD}'].isnull()]
                     # refine search, as query string does not allow for dim=None and we need very specific run
                     runs = runs.iloc[:1]
@@ -175,4 +180,49 @@ def get_mlflow_results_optimization(datasets: list, algos: list, reps: list, met
     results_dict = {seed: get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, 
                                             train_test_splitter=None, augmentation=augmentation, dim=dim, dim_reduction=dim_reduction, seed=seed, experiment_ids=experiment_ids) 
                     for seed in seeds} # in reference case / or if seed unset -> key=None
+    return results_dict
+
+
+def aggregate_fractional_splitter_results(split_results: list, metrics: list, augmentation=None) -> dict:
+    """
+    Collect all fractional spliter results: for each split concatenate results in 2D array s.t.
+    axis 0: is CV results on fraction
+    axis 1: concatenates MSE results at fractions, s.t. first mse is first split, etc.
+    """
+    metric_results = {}
+    for split in split_results:
+        for dataset in split:
+            for method in split.get(dataset):
+                for representation in split.get(dataset).get(method):
+                    for metric in metrics:
+                        if metric not in metric_results.keys():
+                            metric_results[metric] = []
+                        metric_results[metric].append(np.array(split.get(dataset).get(method).get(representation).get(augmentation).get(metric)))
+    # 2D observations:
+    for metric in metric_results.keys():
+        metric_results[metric] = np.vstack(metric_results[metric])
+    results_dict = {dataset: {method: {representation: {augmentation: metric_results}}}}
+    return results_dict
+
+
+def aggregate_optimization_results(opt_results: list, metrics: list, augmentation=None,) -> dict:
+    """
+    Collect all optimization results across seeds: for each split concatenate results in 2D array s.t.
+    axis 0: is seeds results on fraction
+    axis 1: concatenates MSE results at fractions, s.t. first mse is first step, etc.
+    """
+    metric_results = {}
+    for seed in opt_results: # drop seeds from results_dict
+        for dataset in opt_results.get(seed):
+            for method in opt_results.get(seed).get(dataset):
+                for representation in opt_results.get(seed).get(dataset).get(method):
+                    for metric in metrics:
+                        if metric not in metric_results.keys():
+                            metric_results[metric] = []
+                        metric_results[metric].append(np.array(opt_results.get(seed).get(dataset).get(method).get(representation).get(augmentation).get(metric)))
+    # convert to 2D observation arrays:
+    for metric in metric_results.keys():
+        metric_results[metric] = np.vstack(metric_results[metric])
+    # Optimization recorded results only have 1 dataset, 1 method, 1 representation in current setup, hence no dict-comprehension
+    results_dict = {dataset: {method: {representation: {augmentation: metric_results}}}}
     return results_dict

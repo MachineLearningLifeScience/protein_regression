@@ -1,5 +1,8 @@
 from distutils.log import error
+from sys import stderr
+from warnings import warn
 from typing import List
+from itertools import product
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -14,8 +17,10 @@ from visualization import algorithm_markers as am
 from visualization import augmentation_colors as aug_c
 from visualization import representation_colors as rc
 from visualization import representation_markers as rm
+from visualization import task_colors as tc
 from util.mlflow.constants import GP_L_VAR, LINEAR, VAE, EVE, VAE_DENSITY, ONE_HOT, EVE_DENSITY
 from util.mlflow.constants import MLL, MSE, SPEARMAN_RHO, PAC_BAYES_EPS, STD_Y, PAC_BAYES_EPS
+from util.postprocess import filter_functional_variant_data_less_than
 
 
 def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
@@ -63,8 +68,6 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
                 error_on_mean = np.std(mse_list, ddof=1)/np.sqrt(len(mse_list))
                 axs[d].errorbar(neg_invert_mse, i+seps[j], xerr=error_on_mean, color=rc.get(rep), ecolor="black",
                                 marker=rm.get(rep), fillstyle='none', markersize=14, lw=5, capsize=6, label=rep)
-                # axs[d].barh(i+seps[j], neg_invert_mse, xerr=error_on_mean, height=height, label=rep, color=rc.get(rep), 
-                #             facecolor=rc.get(rep), edgecolor=rc.get(rep), ecolor='black', capsize=5, hatch='//')
             axs[d].axhline(i+seps[0]-0.2, -1, 1, c='grey', ls='-', alpha=0.75)
         axs[d].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
         axs[d].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
@@ -88,6 +91,98 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.savefig(filename+".png")
     plt.savefig(filename+".pdf")
     plt.show()
+
+
+def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.2, color_by: str="algo", x_axis: str="rep", augmentation=None) -> None:
+    plot_heading = f'Comparison of Algoritms and Representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
+    filename = 'results/figures/benchmark/'+f'BAR_accuracy_{metric}_methods_{x_axis}'
+    if color_by.lower() not in ["algo", "rep", "task"]:
+        warn("Misspecified color-scheme. Defaulting to color by algorithm.")
+        color_by = "algo"
+    if x_axis.lower() not in ["algo", "rep", "task"]:
+        warn("Misspecified the plotting groups. Default to representations.")
+        x_axis = "rep"
+    splitters = list(metric_values.keys())
+    datasets = list(metric_values[splitters[0]])
+    methods = list(metric_values[splitters[0]][datasets[0]])
+    representations = list(metric_values[splitters[0]][datasets[0]][methods[0]])
+    if x_axis == "rep":
+        n_cols = len(representations)*len(splitters)
+    elif x_axis == "algo":
+        n_cols = len(methods)*len(splitters)
+    else:
+        n_cols = len(splitters)
+    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*3, 7))
+    axs = np.ravel(ax)
+    labels = []
+    column_spacing = 4
+    for d, dataset_key in enumerate(metric_values[splitters[0]].keys()):
+        idx = 0
+        for s, splitter in enumerate(metric_values.keys()):
+            for i, algo in enumerate(metric_values[splitter][dataset_key].keys()):
+                seps = np.linspace(-width*column_spacing*n_cols, width*column_spacing*n_cols, n_cols)
+                for j, rep in enumerate(metric_values[splitter][dataset_key][algo].keys()):
+                    if x_axis.lower() == "rep":
+                        label = rep
+                    elif x_axis.lower() == "algo":
+                        label = algo
+                    else:
+                        label = splitter
+                    if label not in labels:
+                        labels.append(label)
+                    mean, std_err = _compute_metric_results(metric_values[splitter][dataset_key][algo][rep][augmentation][metric], metric=metric)
+                    selected_color = ac.get(algo) if color_by.lower() == "algo" else rc.get(rep) 
+                    if x_axis == "task":
+                        selected_color = tc.get(splitter)
+                    selected_marker = am.get(algo) if color_by.lower() == "algo" else rm.get(rep)
+                    for k, (_m, _std_err) in enumerate(zip(mean, std_err)):
+                        axs[d].errorbar(seps[idx]+k*0.125, _m, yerr=_std_err, color=selected_color, ecolor=selected_color,
+                                markersize=12, lw=6, capsize=6, label=label, marker=selected_marker, fillstyle='none')
+                    idx += 1
+        axs[d].axvline((seps[int(len(seps)/2)-1]+seps[int(len(seps)/2)])/2, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.5)
+        axs[d].axhline(0, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.5)
+        axs[d].axhline(0.5, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
+        axs[d].axhline(-0.5, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
+        axs[d].axhline(0.75, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
+        axs[d].axhline(-0.75, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
+        axs[d].axhline(0.25, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
+        axs[d].axhline(-0.25, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
+        axs[d].set_xticks(seps)
+        tick_labels = [label + "_" + splitter for splitter, label in product(splitters, labels)] if x_axis.lower() in ["rep", "algo"] else labels
+        assert len(seps) == len(tick_labels)
+        axs[d].set_xticklabels(tick_labels, size=12, rotation=90)
+        axs[d].set_ylim((-1.1, 1.1))
+        axs[d].set_xlim((seps[0]-0.5, seps[-1]+0.5))
+        axs[d].tick_params(axis='y', which='both', labelsize=22)
+        axs[d].set_title(dataset_key, size=25)
+        metric_label = "1-NMSE" if metric == MSE else SPEARMAN_RHO
+        axs[d].set_ylabel(metric_label, size=25)
+    handles, labels = axs[-1].get_legend_handles_labels()
+    fig.legend(handles[:len(labels)], labels[:len(labels)], loc='lower right', ncol=len(labels), prop={'size': 14})
+    plt.suptitle(plot_heading, size=12)
+    #plt.tight_layout()
+    plt.savefig(filename+".png")
+    plt.savefig(filename+".pdf")
+    plt.show()
+
+
+def _compute_metric_results(metric_result_list, metric: str, n_quantiles=3):
+    obs = np.array(metric_result_list)
+    if obs.ndim == 2: # Case: Fraction Splitter or Optimization aggregate results
+        if obs.shape[0] < obs.shape[1]:
+            obs = np.swapaxes(obs,0,1)
+        mu = np.mean(obs, axis=1)
+        std_err = np.std(obs, ddof=1, axis=1)/np.sqrt(obs.shape[1]) # std-error on metric across splits/seeds
+        if n_quantiles: # in quantiles across all observations
+            quantile_len = obs.shape[1]//n_quantiles
+            mu = np.mean([mu[i:(i+quantile_len)] for i in range(n_quantiles)], axis=1) # mean across quantiles
+            std_err = np.mean([std_err[i:(i+quantile_len)] for i in range(n_quantiles)], axis=1) # std err. across quantiles
+    else:
+        mu = np.array([np.mean(obs)])
+        std_err = np.array([np.std(obs, ddof=1)/np.sqrt(len(obs))]) # std-error on metric
+    if metric == MSE: # case 1-NMSE, works for both 1D and 2D case
+        mu = 1-mu
+    return mu, std_err
 
 
 def _compute_missing_reference(df, observation_column):
@@ -159,24 +254,25 @@ def errorplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, h
     plt.show()
 
 
-def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, augmentation: dict, metric: str, height=0.3, 
+def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, augmentation: dict, metric: str, height=0.5, 
                                         dim=None, dim_reduction=LINEAR, reference_values: dict=None):
     plot_heading = f'Augmented models and representations, cv-type: {cvtype.get_name()}, augmentation {str(augmentation)} \n d={dim} {dim_reduction}'
     filename = f'results/figures/augmentation/accuracy_of_methods_barplot_{cvtype.get_name()}_{str(augmentation)}_d={dim}_{dim_reduction}'
-    fig, ax = plt.subplots(1, len(metric_values.keys())*len(augmentation), figsize=(20,10))
-    axs = np.ravel(ax)
+    dataset_key = list(metric_values.keys())[0]
+    algorithm_key = list(metric_values[dataset_key].keys())[0]
+    representation_keys = list(metric_values[dataset_key][algorithm_key].keys())
+    fig, axs = plt.subplots(len(metric_values.keys()), len(representation_keys), figsize=(20,15)) # proteins rows, representations columns
     representations = []
     for i, dataset_key in enumerate(metric_values.keys()):
-        algorithm_keys = metric_values[dataset_key].keys()
-        for j, algo in enumerate(algorithm_keys):
-            representation_keys = metric_values[dataset_key][algo].keys()
-            idx = 0
-            for k, rep in enumerate(representation_keys):
-                augmentation_keys = metric_values[dataset_key][algo][rep].keys()
-                n_bars = len(algorithm_keys)*len(representation_keys)*len(augmentation)
-                seps = np.linspace(-height*0.9*len(algorithm_keys), 
-                                height*0.9*len(algorithm_keys), 
-                                n_bars)
+        algorithm_keys = list(metric_values[dataset_key].keys())
+        augmentation_keys = list(metric_values[dataset_key][algorithm_key][representation_keys[0]].keys())
+        n_bars = len(algorithm_keys)*len(augmentation_keys)
+        if reference_values:
+            n_bars += len(algorithm_keys) # for each algorithm add one reference value
+        seps = np.linspace(-height*0.9*len(algorithm_keys), height*0.9*len(algorithm_keys), n_bars)
+        for j, rep in enumerate(representation_keys):
+            for k, algo in enumerate(algorithm_keys):
+                idx = 0
                 for l, aug in enumerate(augmentation_keys):
                     repname = f"{rep}_{aug}"
                     if repname not in representations:
@@ -184,26 +280,31 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
                     mse_list = metric_values[dataset_key][algo][rep][aug][metric]
                     neg_invert_mse = 1-np.mean(mse_list)
                     error_on_mean = np.std(mse_list, ddof=1)/np.sqrt(len(mse_list))
-                    axs[i].barh(j+seps[idx], neg_invert_mse, xerr=error_on_mean, height=height*0.25, label=repname, color=rc.get(rep), 
-                            facecolor=rc.get(rep), edgecolor=aug_c.get(aug), ecolor='black', capsize=5, hatch='/', linewidth=2)
-                    if reference_values: # set reference benchmark next to augmented benchmark
-                        ref_mse_list = reference_values[dataset_key][algo][rep][None][metric]
-                        neg_reference_mse = 1-np.mean(ref_mse_list)
-                        ref_error_on_mean = np.std(ref_mse_list, ddof=1)/np.sqrt(len(ref_mse_list))
-                        axs[i].barh(j+seps[idx]+1, neg_reference_mse, label=repname, xerr=ref_error_on_mean, height=height*0.25, color=rc.get(rep),
-                                    facecolor=rc.get(rep), edgecolor=aug_c.get(aug), ecolor='black', capsize=5, hatch='/', linewidth=2)
-                    axs[i].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
-                    axs[i].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
-                    axs[i].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
-                    axs[i].axvline(-0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
-                    axs[i].set_yticks(np.arange(0, len(list(metric_values[dataset_key].keys())))-0.5, ['' for i in range(len(list(metric_values[dataset_key].keys())))])
-                    axs[0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
-                    axs[i].set_xlim((-1, 1.))
-                    axs[i].tick_params(axis='x', which='both', labelsize=12)
-                    axs[i].set_title(dataset_key, size=12)
-                    axs[i].set_xlabel('1 minus normalized MSE', size=12)
+                    axs[i,j].errorbar(neg_invert_mse, k+seps[idx], xerr=error_on_mean, color=aug_c.get(aug), ecolor="black",
+                                marker=rm.get(rep), fillstyle='none', markersize=14, lw=5, capsize=6, label=repname)
+                    axs[i,j].text(neg_invert_mse+0.04, k+seps[idx]+0.03, aug[:1].upper(), fontsize=10) # label with capitalized first letter
                     idx += 1
-    handles, labels = axs[-1].get_legend_handles_labels()
+                if reference_values: # set reference benchmark next to augmented benchmark
+                    repname = f"{rep}_reference"
+                    representations.append(repname)
+                    ref_mse_list = reference_values[dataset_key][algo][rep][None][metric]
+                    neg_reference_mse = 1-np.mean(ref_mse_list)
+                    ref_error_on_mean = np.std(ref_mse_list, ddof=1)/np.sqrt(len(ref_mse_list))
+                    axs[i,j].errorbar(neg_reference_mse, k+seps[idx], xerr=ref_error_on_mean, color="black", ecolor="black",
+                            marker=rm.get(rep), fillstyle='none', markersize=14, lw=5, capsize=6, label=repname)
+                    idx += 1
+                axs[i,j].axhline(k+seps[0]-0.1, -1, 1, c='grey', ls='-', alpha=0.75) # algo separation line
+            axs[i,j].axvline(0, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
+            axs[i,j].axvline(-1, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.5)
+            axs[i,j].axvline(0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+            axs[i,j].axvline(-0.5, seps[0], len(metric_values[dataset_key].keys())-1+seps[-1], c='grey', ls='--', alpha=0.25)
+            axs[i,j].set_yticks(np.arange(seps[0], seps[-1], 1), ['' for i in range(len(list(metric_values[dataset_key].keys())))])
+            axs[i,0].set_yticklabels(list(metric_values[dataset_key].keys()), size=16)
+            axs[i,j].set_xlim((-1, 1.))
+            axs[i,j].tick_params(axis='x', which='both', labelsize=12)
+            axs[i,j].set_title(f"{dataset_key} {rep}", size=12)
+            axs[i,j].set_xlabel('1 minus normalized MSE', size=12)
+    handles, labels = axs[-1,-1].get_legend_handles_labels()
     fig.legend(handles[:len(representations)], labels[:len(representations)], loc='lower right', ncol=len(representations), prop={'size': 9})
     plt.suptitle(plot_heading, size=20)
     plt.tight_layout()
@@ -212,9 +313,65 @@ def barplot_metric_augmentation_comparison(metric_values: dict, cvtype: str, aug
     plt.show()
 
 
+def threshold_metric_comparison(metric_values: dict, metric: str, datasets: List[str], eps=0.1):
+    """
+    Figure for threshold comparison across data
+    """
+    splitter = list(metric_values.keys())[0]
+    plot_heading = f"Comparison threshold performance"
+    filename = f"results/figures/benchmark/threshold/threshold_comparison_data={datasets[0]}_{metric}"
+    for method, data in metric_values.get(splitter).get(datasets[0]).items():
+        rep = list(data.keys())[0]
+        true_obs_values = data.get(rep).get(None).get(0).get('trues') + data.get(rep).get(None).get(0).get('train_trues') 
+        thresholds = np.arange(start=min(true_obs_values)+eps, stop=max(true_obs_values))
+        if thresholds[0] < 0 and thresholds[-1] > 0:
+            thresholds = np.append(thresholds, 0)
+        filtered_results = {}
+        for t in thresholds:
+            results_dict = filter_functional_variant_data_less_than(metric_values, functional_thresholds=[t])
+            filtered_results[t] = results_dict
+        break
+    n_reps = len(list(metric_values.get(splitter).get(datasets[0]).get('RF').keys())) # TODO: make method name a variable
+    fig, ax = plt.subplots(2, n_reps, figsize=(15, 10))
+    repnames = []
+    for i, (algo, algo_results) in enumerate(metric_values.get(splitter).get(datasets[0]).items()):
+        for idx, rep in enumerate(algo_results.keys()):
+            ax[1,idx].hist(true_obs_values, int(np.sqrt(len(true_obs_values))), color="black") # histogram of observed values
+            if rep not in repnames:
+                repnames.append(rep)
+            for t_val in thresholds:
+                metric_across_splits = []
+                for split in filtered_results.get(t_val).get(splitter).get(datasets[0]).get(algo).get(rep).get(None):
+                    if MSE == metric[0]:
+                        metric_across_splits += filtered_results.get(t_val).get(splitter).get(datasets[0]).get(algo).get(rep).get(None).get(split).get(metric[0].lower())
+                    elif SPEARMAN_RHO == metric[0]:
+                        metric_across_splits += [spearmanr(filtered_results.get(t_val).get(splitter).get(datasets[0]).get(algo).get(rep).get(None).get(split).get('trues'), 
+                        filtered_results.get(t_val).get(splitter).get(datasets[0]).get(algo).get(rep).get(None).get(split).get('pred'))[0]]
+                    else:
+                        raise ValueError("Misspecified Metric")
+                metric_val = 1-np.mean(metric_across_splits) if metric[0] == MSE else np.mean(metric_across_splits) # 1-NMSE or rho
+                error_on_mean = np.std(metric_across_splits, ddof=1)/np.sqrt(len(metric_across_splits))
+                ax[0,idx].errorbar(t_val+i*0.125, metric_val, yerr=error_on_mean, label=algo, color=ac.get(algo), marker=am.get(algo)) # barplot of performance at threshold
+                # TODO: add std-err across splits
+                ax[1,idx].set_xlim(min(true_obs_values), max(true_obs_values))
+                ax[0,idx].set_xlim(min(true_obs_values), max(true_obs_values))
+                ax[0,idx].set_ylim(-1., 1.)
+                ax[0,idx].set_xlabel("t threshold value")
+                metricname = "1-NMSE" if metric[0] == MSE else "spearman rho"
+                ax[0,idx].set_ylabel(metricname)
+                ax[0,idx].set_title(rep)
+    handles, labels = ax[0,-1].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='lower right', ncol=len(repnames), prop={'size': 14})
+    plt.suptitle(plot_heading, size=12)
+    plt.tight_layout()
+    plt.savefig(filename+".png")
+    plt.savefig(filename+".pdf")
+    plt.show()
+
+
 def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, dim=None, datasets: List[str]=["TOXI"], thresholds=None, N_combinations=[]):
     """
-    Mutation plotting for TOXI data
+    Figure for mutation plotting for TOXI data
     """
     plot_heading = f'Comparison MUTATION splitting \n d={dim}; t={thresholds}, scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
     filename = 'results/figures/benchmark/'+f'accuracy_{metric}_of_methods_barplot_d={dim}_t={thresholds}'+str(list(metric_values.keys()))
@@ -247,7 +404,7 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, di
                         reps.append(rep)
                     metric_per_split = []
                     for split in _results_dict.keys():
-                        if metric == MSE: # 1-NMSE
+                        if metric == MSE: # Make 1-NMSE
                             metric_per_split.append(1-np.mean(_results_dict[split]['mse']))
                         elif metric == SPEARMAN_RHO:
                             trues = np.array(_results_dict[split]['trues'])
@@ -302,7 +459,7 @@ def scatterplot_metric_threshold_comparison(metric_values: dict, metric: str=Non
     Prediction plotting given thresholds
     """
     plot_heading = f'Predictions given t={thresholds}'
-    filename = 'results/figures/benchmark/'+f'accuracy_{metric}_of_methods_barplot_d={dim}_t={thresholds}'+str(list(metric_values.keys()))
+    filename = f'results/figures/benchmark/threshold_{metric}_of_methods_barplot_d={dim}_t={thresholds}_{datasets}'+str(list(metric_values.keys()))
     splits = list(metric_values.keys())
     methods = list(metric_values.get(splits[0]).get(datasets[0]).keys())
     representations = list(metric_values[splits[0]][datasets[0]][methods[0]].keys())
@@ -317,7 +474,9 @@ def scatterplot_metric_threshold_comparison(metric_values: dict, metric: str=Non
             plt_idx = (row, i) if len(datasets) > 1 else i
             training_variants = []
             testing_variants = []
+            mse_vals = []
             for j, splitter_key in enumerate(splits):
+                spearman_rs = []
                 for k, rep in enumerate(representations):
                     _results_dict = metric_values[splitter_key][dataset][algo][rep][None]
                     if k==0 and rep != "additive": # collect how many elements in training and test set
@@ -332,17 +491,22 @@ def scatterplot_metric_threshold_comparison(metric_values: dict, metric: str=Non
                     for split in _results_dict.keys():
                         true_per_rep += _results_dict[split]['trues']
                         pred_per_rep += _results_dict[split]['pred']
+                        if MSE.lower() in _results_dict[split].keys():
+                            mse_vals += _results_dict[split]['mse']
                     ax[plt_idx].scatter(true_per_rep, pred_per_rep, 
-                                label=rep, color=rc.get(rep),alpha=0.125)
+                                label=rep, color=rc.get(rep))
+                    r, _ = spearmanr(true_per_rep, pred_per_rep)
+                    spearman_rs.append(np.round(r, 2))
             previous_split_keys.append(splitter_key)
             cols = len(splits)
-            ax[plt_idx].set_xticks([x for x in range(len(splits))])
-            ax[plt_idx].set_xticklabels([f"{split} \n frac.: {n}/{c}" for split, n, c in zip(splits, training_variants, N_combinations)])
+            # ax[plt_idx].set_xticks([x for x in range(len(splits))])
+            # ax[plt_idx].set_xticklabels([f"{split} \n frac.: {n}/{c}" for split, n, c in zip(splits, training_variants, N_combinations)])
             ax[plt_idx].tick_params(axis='x', which='both', labelsize=9)
             # ax[plt_idx].set_xlabel(algo, size=14)
             ax[plt_idx].set_ylabel("prediction")
             ax[plt_idx].set_xlabel("observation")
-            ax[plt_idx].set_title(f"{algo} - {dataset}\n{testing_variants}")
+            rep_to_r = [(rep, r) for rep, r in zip(representations, spearman_rs)]
+            ax[plt_idx].set_title(f"{algo} - {dataset}\n{rep_to_r}\nMSE:{np.round(np.mean(mse_vals), 2)}\n{testing_variants}")
     handles, labels = ax[plt_idx].get_legend_handles_labels()
     fig.legend(handles[:len(reps)], labels[:len(reps)], loc='lower right', ncol=len(reps), prop={'size': 14})
     plt.suptitle(plot_heading, size=12)
@@ -458,7 +622,10 @@ def plot_optimization_task(metric_values: dict, name: str, max_iterations=500, l
     plt.xlabel('Iterations', size=21)
     plt.ylabel('observed value', size=21)
     if 'best' in name.lower():
-        plt.ylim(-0.4, 0.2)
+        if 'fqg' in name.lower():
+            plt.ylim(-0.4, 0.2)
+        else:
+            plt.ylim(-0.1, 0.2)
     if 'regret' in name.lower():
         plt.ylabel('cumulative regret', size=21)
     plt.xticks(size=14)
@@ -519,7 +686,7 @@ def __parse_cumulative_results_dict(metrics_values: dict, metric: str, number_qu
     return observations
 
 
-def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMAN_RHO], number_quantiles=10):
+def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMAN_RHO], number_quantiles=10, threshold=None):
     data_fractions = list(metrics_values.keys())
     dataset = list(metrics_values[data_fractions[0]].keys())[0]
     methods = list(metrics_values[data_fractions[0]][dataset].keys())
@@ -561,6 +728,9 @@ def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMA
         for label_x0, label_x1 in zip(ax[1].xaxis.get_ticklabels()[1::2], ax[3].xaxis.get_ticklabels()[1::2]):
             label_x0.set_visible(False)
             label_x1.set_visible(False)
+        title_string = f"{dataset}: {metric} on {representation} \n over training-fractions"
+        if threshold:
+            title_string += f" t={threshold}"
         plt.suptitle(f"{dataset}: {metric} on {representation} \n over training-fractions")
         plt.legend()
         plt.tight_layout()
