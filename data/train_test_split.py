@@ -66,6 +66,23 @@ class FractionalRandomSplitter(AbstractTrainTestSplitter):
         return splitter_name
 
 
+class OptimizationSplitter(AbstractTrainTestSplitter):
+    """
+    Optimization as Splitting Protocol, NOT IMPLEMENTED.
+    For optimization see run_optimization scripts.
+    This class is used for plotting and loading of results.
+    """
+    def __init__(self, dataset:str, seed: int = 42):
+        self.seed = seed
+        self.dataset = dataset
+
+    def split(self, X):
+        raise NotImplementedError
+
+    def get_name(self):
+        return f"{self.dataset}_optimization"
+
+
 class BioSplitter(AbstractTrainTestSplitter):
     """
     Splitting Protocol that splits by amount of mutations compared to reference sequence.

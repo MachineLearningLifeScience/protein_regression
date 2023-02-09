@@ -5,7 +5,7 @@ from algorithms import GPonRealSpace, RandomForest, KNN, UncertainRandomForest
 from visualization.plot_metric_for_mixtures import plot_metric_for_mixtures
 from visualization.plot_metric_for_mixtures import plot_metric_against_threshold
 
-colorscheme = ['dimgrey', '#661100', '#332288', '#054709',  "#126160", '#117733', "lime", "tan", "orangered"]
+colorscheme = ['dimgrey', '#661100', '#332288', '#054709',  "#126160", '#117733', "lime", "darkmagenta", "deeppink"]
 
 colorscheme_alternate = ['purple', 'chocolate', 'lightgreen', 'indigo', 'orange', 'darkblue', 'cyan', 'olive', 'brown', 'pink', 'darkred', 'dimgray', 'blue', 'darkorange', 'k', 'lightblue', 'green']
 
@@ -15,6 +15,13 @@ representation_colors = {ONE_HOT: colorscheme[0],
             TRANSFORMER: colorscheme[3],
             ESM: colorscheme[4],
             EVE_DENSITY: colorscheme[5],}
+
+
+task_colors = {"RandomSplitter": colorscheme[-1],
+            "PositionSplitter_p15": colorscheme[-2],
+            "Fractional": colorscheme[-3],
+            "Optimization": colorscheme[-4]}
+
 
 representation_markers = {ONE_HOT: "o",
                         EVE: "D",
