@@ -1,14 +1,10 @@
 from builtins import ValueError
 from typing import Tuple
 import numpy as np
-from itertools import combinations
-from numba import jit, float64
 from sklearn.model_selection import KFold
 from scipy.optimize import minimize
-from scipy.spatial.distance import euclidean
 from scipy.spatial import distance_matrix
 from data.load_dataset import get_wildtype_and_offset, load_sequences_of_representation
-from util.log import prep_for_mutation
 from util.mlflow.constants import ONE_HOT
 
 
