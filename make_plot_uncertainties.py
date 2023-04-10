@@ -16,7 +16,7 @@ from util.mlflow.constants import NO_AUGMENT, ROSETTA, TRANSFORMER, VAE, VAE_RAN
 from util.mlflow.constants import SPLIT, ONE_HOT, ESM, NONSENSE, KNN_name, VAE_DENSITY
 from visualization.plot_metric_for_uncertainties import plot_uncertainty_eval, plot_uncertainty_eval_across_dimensions
 
-datasets = ["UBQT", "CALM"] # 1FQG, UBQT, CALM
+datasets = ["1FQG", "UBQT"] # 1FQG, UBQT, CALM
 # datasets = ["TOXI"]
 # train_test_splitter = BioSplitter(datasets[0], 3, 4) # BlockPostionSplitter # PositionSplitter # RandomSplitter # BlockPostionSplitter # BioSplitter
 

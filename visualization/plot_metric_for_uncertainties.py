@@ -2,6 +2,7 @@ from cProfile import label
 import numpy as np
 import os
 import json
+import pickle
 from os.path import join, dirname
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
@@ -107,10 +108,10 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     for d in metric_values.keys():
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
-    fig, axs = plt.subplots(n_prot, n_reps, figsize=(20,5)) #gridspec_kw={'height_ratios': [4, 1]})
+    fig, axs = plt.subplots(n_prot, n_reps, figsize=(5*n_reps,5*n_prot)) #gridspec_kw={'height_ratios': [4, 1]})
     algos = []
     for d, dataset_key in enumerate(metric_values.keys()):
-        for i, algo in enumerate(metric_values[dataset_key].keys()):     
+        for i, algo in enumerate(metric_values[dataset_key].keys()):
             if algo not in algos:
                 algos.append(algo)      
             for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
@@ -118,6 +119,13 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     number_splits = len(list(metric_values[dataset_key][algo][rep][aug].keys()))
                     if algo not in algos:
                         algos.append(algo)
+                    if n_prot > 1:
+                        plt_idx = (d,j)
+                    else:
+                        plt_idx = j
+                    if j == 0: # first column annotate y-axis
+                        axs[plt_idx].set_ylabel('confidence', size=12)
+                        axs[plt_idx].set_ylabel('confidence', size=12)
                     count = []
                     uncertainties_list = [] # point of investigation
                     ece = []
@@ -146,23 +154,21 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     ece_err = np.std(ece) / np.sqrt(number_splits)
                     sharpness_mean = np.mean(sharpness)
                     sharpness_err = np.std(sharpness) / np.sqrt(number_splits)
-                    axs[d,j].plot(perc, count, c=ac.get(algo), marker=am.get(algo), fillstyle='none', ms=8, lw=2, linestyle='-', label=algo)
-                    axs[d,j].plot(perc, perc, ls=':', color='k', label='Perfect Calibration')
-                    axs[d,j].set_title(rep, fontsize=20)
+                    axs[plt_idx].plot(perc, count, c=ac.get(algo), marker=am.get(algo), fillstyle='none', ms=8, lw=2, linestyle='-', label=algo)
+                    axs[plt_idx].plot(perc, perc, ls=':', color='k', label='Perfect Calibration')
+                    axs[plt_idx].set_title(rep, fontsize=20)
                     #axs[1, j].hist(uncertainties, 100, label=f"{algo}; {rep}", alpha=0.7, color=ac.get(algo))
                     if nan_count != 0.:
-                        axs[d,j].text(1.0, count[-1]-i/10, f"*{int(nan_count)} failed", fontsize=12, c=ac.get(algo))
-                    axs[d,j].set_xlabel('percentile', size=12)
+                        axs[plt_idx].text(1.0, count[-1]-i/10, f"*{int(nan_count)} failed", fontsize=12, c=ac.get(algo))
+                    axs[plt_idx].set_xlabel('percentile', size=12)
                     #axs[1, j].set_xlabel('std', size=12)
                     # align text in pairs of two around curves: upper left two, lower right two
-                    axs[d,j].text((0.05+0.55*(i//2)), 0.9-(0.2*i)-(0.3*(i//2)), f"ECE={np.round(ece_mean,3)}\nsharp={np.round(sharpness_mean,3)}",
+                    axs[plt_idx].text((0.05+0.55*(i//2)), 0.9-(0.2*i)-(0.3*(i//2)), f"ECE={np.round(ece_mean,3)}\nsharp={np.round(sharpness_mean,3)}",
                                     fontsize=12, bbox=dict(facecolor=ac.get(algo), alpha=0.2))
-                    axs[d,j].set_xlim(0, 1.)
-    handles, labels = axs[-1, -1].get_legend_handles_labels()
+                    axs[plt_idx].set_xlim(0, 1.)
+    handles, labels = axs[plt_idx].get_legend_handles_labels()
     fig.legend(handles, labels, loc='lower right', ncol=len(algos)+1, prop={'size': 14})
     plt.suptitle(f"{str(dataset)} Calibration Split: {cvtype}", fontsize=22)
-    axs[0,0].set_ylabel('confidence', size=12)
-    axs[1,0].set_ylabel('confidence', size=12)
     #axs[1, 0].set_ylabel('count', size=12)
     plt.xticks(size=14)
     plt.yticks(size=14)
@@ -277,7 +283,7 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
                     #axs[d,j].text(0, 0-i, f'AUCO {algo}: {np.round(pgon.area,3)}\nError drop: {np.round(quantile_errs[-1]/quantile_errs[0],3)}', transform=axs[d,j].transAxes)
                     axs[d,j].plot(qs, np.flip(oracle_errs), "k--", lw=2, label='Oracle') 
                     axs[d,j].set_ylabel('NMSE', size=14)
-                    axs[d,j].set_title(f"{dataset_key} Algo: {algo}  Rep: {rep}", size=12)
+                    axs[d,j].set_title(f"Confidence Curves: {dataset_key} Algo: {algo}  Rep: {rep}", size=12)
                 axs[-1,j].set_xlabel('Percentile', size=14)
     filename = f'results/figures/uncertainties/{algo}_{cvtype}_confidence_curve_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}_{dim_reduction}'
     plt.legend() 
@@ -336,12 +342,21 @@ def multi_dim_confidencecurve(metric_values: dict, number_quantiles: int, cvtype
 
 
 def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str], 
-                        train_test_splitter,  augmentations = [NO_AUGMENT], number_quantiles: int = 10, 
-                        optimize=True, d=None, dim_reduction=None, metrics=[GP_L_VAR, STD_Y]):
-    results_dict = get_mlflow_results_artifacts(datasets=datasets, reps=reps, metrics=metrics, algos=algos, train_test_splitter=train_test_splitter, augmentation=augmentations,
-                                                dim=d, dim_reduction=dim_reduction, optimize=optimize)
-    confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+                        train_test_splitter,  augmentations: str = [NO_AUGMENT], number_quantiles: int = 10, 
+                        optimize: bool=True, d: int=None, dim_reduction: str=None, metrics: str=[GP_L_VAR, STD_Y],
+                        cached_results: bool=False, confidence_plot: bool=False):
+    filename = f"./results/cache/results_calibration_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={train_test_splitter.get_name()}.pkl"
+    if cached_results and os.path.exists(filename):
+        with open(filename, "rb") as infile:
+            results_dict = pickle.load(infile)
+    else:
+        results_dict = get_mlflow_results_artifacts(datasets=datasets, reps=reps, metrics=metrics, algos=algos, train_test_splitter=train_test_splitter, augmentation=augmentations,
+                                                    dim=d, dim_reduction=dim_reduction, optimize=optimize)
+        with open(filename, "wb") as outfile:
+            pickle.dump(results_dict, outfile)
     reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    if confidence_plot:
+        confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
 
 
 def plot_uncertainty_eval_across_dimensions(datasets: List[str], reps: List[str], algos: List[str], train_test_splitter, dimensions: List[int], augmentation = [NO_AUGMENT], number_quantiles=10,

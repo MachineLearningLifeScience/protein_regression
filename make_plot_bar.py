@@ -1,19 +1,13 @@
-import mlflow
+from os.path import exists
+import pickle
 import numpy as np
 from scipy.special import comb
 from gpflow.kernels import SquaredExponential, Matern52
-from mlflow.entities import ViewType
-from sklearn.impute import KNNImputer
-from sklearn.metrics import mean_squared_error
-from algorithm_factories import UncertainRFFactory
 from data.train_test_split import PositionSplitter, RandomSplitter, BioSplitter, AbstractTrainTestSplitter, WeightedTaskSplitter, FractionalRandomSplitter, OptimizationSplitter
 from protocol_factories import FractionalSplitterFactory
 from algorithms.gp_on_real_space import GPonRealSpace
-from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.random_forest import RandomForest
-from algorithms.uncertain_rf import Uncertain_RandomForestRegressor, UncertainRandomForest
 from algorithms.KNN import KNN
-from algorithms.gmm_regression import GMMRegression
 from util.mlflow.constants import AUGMENTATION, DATASET, LINEAR, METHOD, MSE, SPEARMAN_RHO
 from util.mlflow.constants import NON_LINEAR, REPRESENTATION, ROSETTA, TRANSFORMER, VAE, ESM, VAE_AUX, VAE_RAND, EVE, EVE_DENSITY
 from util.mlflow.constants import SPLIT, ONE_HOT, NONSENSE, KNN_name, VAE_DENSITY, VAE_AUX, NO_AUGMENT, LINEAR, NON_LINEAR, MEAN_Y, STD_Y, OBSERVED_Y
@@ -43,14 +37,21 @@ def plot_metric_comparison(datasets: List[str],
         if metric == SPEARMAN_RHO:
             errorplot_metric_comparison(metric_values=results_dict, cvtype=cvtype, metric=metric, plot_reference=True)
 
-def plot_metric_comparison_bar(datasets: List[str], 
+
+def load_cached_results(cached_results_filename: str) -> dict:
+    with open(cached_results_filename, "rb") as infile:
+        results_dict = pickle.load(infile)
+    return results_dict
+
+
+def load_results_dict_from_mlflow(datasets: List[str], 
                             algos: List[str],
-                            metrics: str,  
+                            metrics: List[str],  
                             reps: List[str],
                             train_test_splitter: list,
                             seeds: List[int]=None,
-                            color_by="algo",
-                            x_axis="algo") -> None:
+                            cache=False,
+                            cache_fname=None) -> dict:
     results_dict = {}
     fractional_splitter_results = []
     optimization_dict = None
@@ -69,7 +70,27 @@ def plot_metric_comparison_bar(datasets: List[str],
     if optimization_dict:
         _opt_results = aggregate_optimization_results(optimization_dict, metrics=metrics)
         results_dict["Optimization"] = _opt_results
-    cvtype = str([splitter.get_name() for splitter in train_test_splitter]) + f"d=full"   
+    if cache and cache_fname:
+        with open(cache_fname, "wb") as outfile:
+            pickle.dump(results_dict, outfile, protocol=pickle.HIGHEST_PROTOCOL)
+    return results_dict
+
+
+def plot_metric_comparison_bar(datasets: List[str], 
+                            algos: List[str],
+                            metrics: List[str],  
+                            reps: List[str],
+                            train_test_splitter: list,
+                            seeds: List[int]=None,
+                            color_by="algo",
+                            x_axis="algo",
+                            cached_results=False) -> None:
+    cached_filename = f"./results/cache/results_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={'_'.join([s.get_name()[:5] for s in train_test_splitter[:5]])}_{str(seeds)}.pkl"
+    if cached_results and exists(cached_filename):
+        results_dict = load_cached_results(cached_filename)
+    else:
+        results_dict = load_results_dict_from_mlflow(datasets, algos, metrics, reps, train_test_splitter, seeds, cache=cached_results, cache_fname=cached_filename)
+    cvtype = str(set([splitter.get_name()[:12] for splitter in train_test_splitter])) + f"d=full"   
     for metric in metrics:
         barplot_metric_comparison_bar(metric_values=results_dict, cvtype=cvtype, metric=metric, color_by=color_by, x_axis=x_axis) # TODO
 
@@ -80,16 +101,21 @@ def plot_metric_mutation_comparison(datasets: List[str],
                             reps: List[str],
                             train_test_splitter: List[AbstractTrainTestSplitter],
                             dimension=None,
-                            dim_reduction=None) -> None:
-    results_dict = {}
-    for splitter in train_test_splitter:
-        _dict = get_mlflow_results_artifacts(datasets=datasets, algos=algos, reps=reps, metrics=metrics, train_test_splitter=splitter, dim=dimension, dim_reduction=dim_reduction)
-        added_train_observations, test_observations = parse_baseline_mutation_observations(_dict)
-        for method in _dict.get(datasets[0]).keys():
-            _dict[datasets[0]][method]["additive"] = {None: {}}
-            for split, (test_obs, train_obs) in enumerate(zip(added_train_observations, test_observations)):
-                _dict[datasets[0]][method]["additive"][None][split] = {"trues": test_obs, "pred": train_obs}
-        results_dict[splitter.get_name()] = _dict
+                            dim_reduction=None,
+                            cached_results=False) -> None:
+    cached_filename = f"./results/cache/results_mutation_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={'_'.join([s.get_name()[:5] for s in train_test_splitter[:5]])}.pkl"
+    if cached_results and exists(cached_filename):
+        results_dict = load_cached_results(cached_filename)
+    else: # TODO: refactor into dedicated loading function
+        results_dict = {}
+        for splitter in train_test_splitter:
+            _dict = get_mlflow_results_artifacts(datasets=datasets, algos=algos, reps=reps, metrics=metrics, train_test_splitter=splitter, dim=dimension, dim_reduction=dim_reduction)
+            added_train_observations, test_observations = parse_baseline_mutation_observations(_dict)
+            for method in _dict.get(datasets[0]).keys():
+                _dict[datasets[0]][method]["additive"] = {None: {}}
+                for split, (test_obs, train_obs) in enumerate(zip(added_train_observations, test_observations)):
+                    _dict[datasets[0]][method]["additive"][None][split] = {"trues": test_obs, "pred": train_obs}
+            results_dict[splitter.get_name()] = _dict
     n_mutation_sites = 4
     n_combinations = np.cumsum([np.power(np.power(20, comb(n_mutation_sites, k)), k) for k in range(1, 5)]) # M = 20**(4 choose i)**i AND each domain sum of previous combinations (cumsum)
     barplot_metric_mutation_comparison(results_dict, dim=dimension, metric=SPEARMAN_RHO, N_combinations=n_combinations)
@@ -137,21 +163,23 @@ if __name__ == "__main__":
     dim = None
     dim_reduction = LINEAR # LINEAR, NON_LINEAR
     ### MAIN FIGURES
-    # # compare embeddings:
-    # plot_metric_comparison_bar(datasets=["MTH3", "TIMB", "UBQT", "1FQG", "BRCA"],
-    #                       reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM],
-    #                       metrics=metrics,
-    #                       train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
-    #                       algos=[GPonRealSpace(kernel_factory=lambda: Matern52()).get_name()],
-    #                       color_by="rep",
-    #                       x_axis="rep")
-    # # compare regressors:
-    # plot_metric_comparison_bar(datasets=["MTH3", "TIMB", "UBQT", "1FQG", "BRCA"],
-    #                       reps=[ESM], metrics=metrics,
-    #                       train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
-    #                       algos=algos,
-    #                       color_by="algo",
-    #                       x_axis="algo")
+    # compare embeddings:
+    plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
+                          reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM],
+                          metrics=metrics,
+                          train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
+                          algos=[GPonRealSpace(kernel_factory=lambda: Matern52()).get_name()],
+                          color_by="rep",
+                          x_axis="rep",
+                          cached_results=True)
+    # compare regressors:
+    plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
+                          reps=[ESM], metrics=metrics,
+                          train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
+                          algos=algos,
+                          color_by="algo",
+                          x_axis="algo",
+                          cached_results=True)
     # compare splitters:
     fractional_splitters = FractionalSplitterFactory("1FQG")
     plot_metric_comparison_bar(datasets=["1FQG", "UBQT"],
@@ -161,12 +189,14 @@ if __name__ == "__main__":
                           algos=[GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()],
                           color_by="task",
                           x_axis="task",
-                          seeds=seeds)
+                          seeds=seeds,
+                          cached_results=True)
     # MUTATIONSPLITTER BENCHMARK PLOT
-    # plot_metric_mutation_comparison(datasets=["TOXI"], algos=[RandomForest().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(), KNN().get_name()], metrics=[MSE, SPEARMAN_RHO], 
-    #                     reps=[ONE_HOT, EVE, ESM],
-    #                     train_test_splitter=[BioSplitter("TOXI", 1, 2), BioSplitter("TOXI", 2, 2), BioSplitter("TOXI", 2, 3), BioSplitter("TOXI", 3, 3)],
-    #                     dimension=None, dim_reduction=None)
+    plot_metric_mutation_comparison(datasets=["TOXI"], algos=[RandomForest().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(), KNN().get_name()], metrics=[MSE, SPEARMAN_RHO], 
+                        reps=[ONE_HOT, EVE, ESM],
+                        train_test_splitter=[BioSplitter("TOXI", 1, 2), BioSplitter("TOXI", 2, 2), BioSplitter("TOXI", 2, 3), BioSplitter("TOXI", 3, 3)],
+                        dimension=None, dim_reduction=None,
+                        cached_results=True)
 
     ### SUPPLEMENTARY FIGURES
     # # RANDOMSPLITTER BENCHMARK PLOT
