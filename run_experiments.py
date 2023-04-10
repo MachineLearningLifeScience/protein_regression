@@ -10,20 +10,20 @@ from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 
 
 datasets = ["MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
-representations = [EVE_DENSITY, EVE, TRANSFORMER, ONE_HOT, ESM] # VAE_AUX, VAE_RAND, TRANSFORMER, VAE, ONE_HOT, ESM, EVE, VAE_AUX EXTRA 1D rep: VAE_DENSITY
+# datasets = ["TOXI"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
+representations = [TRANSFORMER, ONE_HOT, ESM, EVE, EVE_DENSITY] # VAE_AUX, VAE_RAND, TRANSFORMER, VAE, ONE_HOT, ESM, EVE, VAE_AUX EXTRA 1D rep: VAE_DENSITY
 MOCK = False
 # Protocols: RandomSplitterFactory, BlockSplitterFactory, PositionalSplitterFactory, BioSplitterFactory, FractionalSplitterFactory
 protocol_factories = [RandomSplitterFactory, PositionalSplitterFactory]
+# protocol_factories = [PositionalSplitterFactory]
 # protocol_factories = [FractionalSplitterFactory]
-# protocol_factories = [WeightedTaskSplitterFactory]
 # protocol_factories = [BioSplitterFactory("TOXI", 1, 2), BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4)]
 # [BioSplitterFactory("TOXI", 1, 2), BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4)]:
 
 # Methods: # KNNFactory, RandomForestFactory, UncertainRFFactory, GPSEFactory, GPLinearFactory, GPMaternFactory
 # method_factories = [get_key_for_factory(f) for f in [KNNFactory, RandomForestFactory]]
-method_factories = [get_key_for_factory(f) for f in [KNNFactory, RandomForestFactory, UncertainRFFactory, GPSEFactory, GPLinearFactory, GPMaternFactory]]
+method_factories = [get_key_for_factory(f) for f in [KNNFactory]]
 
-# TODO: rerun with KNN and RF for sanity check after data-load refactor:
 experiment_iterator = product(datasets, representations, protocol_factories, method_factories)
 def run_experiments():
     for dataset, representation, protocol_factory, factory_key in experiment_iterator:
@@ -76,9 +76,9 @@ def run_augmentation_experiments():
 
 
 if __name__ == "__main__":
-    # run_experiments()
+    run_experiments() # TODO: toxi all
     # ABLATION STUDY: (dim-reduction, augmentation, threshold):
     # run_dim_reduction_experiments()
-    run_augmentation_experiments()
+    # run_augmentation_experiments()
     #run_threshold_experiments()
     

@@ -17,7 +17,7 @@ def UncertainRFFactory(representation, alphabet):
     return UncertainRandomForest()
 
 def KNNFactory(representation, alphabet):
-    return KNN()
+    return KNN(optimize=True)
 
 
 optimize = True
