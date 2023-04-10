@@ -5,7 +5,7 @@ from algorithms import GPonRealSpace, RandomForest, KNN, UncertainRandomForest
 from visualization.plot_metric_for_mixtures import plot_metric_for_mixtures
 from visualization.plot_metric_for_mixtures import plot_metric_against_threshold
 
-colorscheme = ['dimgrey', '#661100', '#332288', '#054709',  "#126160", '#117733', "lime", "darkmagenta", "deeppink"]
+colorscheme = ['dimgrey', '#661100', '#332288', '#054709',  "#126160", "crimson", "darkblue", "darkmagenta", "dimgray"]
 
 colorscheme_alternate = ['purple', 'chocolate', 'lightgreen', 'indigo', 'orange', 'darkblue', 'cyan', 'olive', 'brown', 'pink', 'darkred', 'dimgray', 'blue', 'darkorange', 'k', 'lightblue', 'green']
 

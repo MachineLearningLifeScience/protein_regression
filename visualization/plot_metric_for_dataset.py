@@ -93,7 +93,7 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.show()
 
 
-def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.2, color_by: str="algo", x_axis: str="rep", augmentation=None) -> None:
+def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None) -> None:
     plot_heading = f'Comparison of Algoritms and Representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
     filename = 'results/figures/benchmark/'+f'BAR_accuracy_{metric}_methods_{x_axis}'
     if color_by.lower() not in ["algo", "rep", "task"]:
@@ -112,7 +112,7 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
         n_cols = len(methods)*len(splitters)
     else:
         n_cols = len(splitters)
-    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*3, 7))
+    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*4, 5))
     axs = np.ravel(ax)
     labels = []
     column_spacing = 4
@@ -131,28 +131,30 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
                     if label not in labels:
                         labels.append(label)
                     mean, std_err = _compute_metric_results(metric_values[splitter][dataset_key][algo][rep][augmentation][metric], metric=metric)
+                    mean = mean[::-1] # NOTE: flip mean: to report last quantile of fractional/optimization splits first
+                    std_err = std_err[::-1] # NOTE: flip std-err: report last quantiles first
                     selected_color = ac.get(algo) if color_by.lower() == "algo" else rc.get(rep) 
                     if x_axis == "task":
                         selected_color = tc.get(splitter)
                     selected_marker = am.get(algo) if color_by.lower() == "algo" else rm.get(rep)
                     for k, (_m, _std_err) in enumerate(zip(mean, std_err)):
-                        axs[d].errorbar(seps[idx]+k*0.125, _m, yerr=_std_err, color=selected_color, ecolor=selected_color,
-                                markersize=12, lw=6, capsize=6, label=label, marker=selected_marker, fillstyle='none')
+                        # axs[d].errorbar(seps[idx]+k*0.125, _m, yerr=_std_err, color=selected_color, ecolor=selected_color,
+                        #         markersize=12, lw=6, capsize=6, label=label, marker=selected_marker, fillstyle='none')
+                        axs[d].bar(seps[idx]+k*0.45, _m, yerr=_std_err, color=selected_color, ecolor="black",
+                                    capsize=3, label=label+str(len(mean)-k)) # NOTE: label reversed mean of quantiles
                     idx += 1
         axs[d].axvline((seps[int(len(seps)/2)-1]+seps[int(len(seps)/2)])/2, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.5)
         axs[d].axhline(0, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.5)
         axs[d].axhline(0.5, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
-        axs[d].axhline(-0.5, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
         axs[d].axhline(0.75, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
-        axs[d].axhline(-0.75, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
         axs[d].axhline(0.25, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
         axs[d].axhline(-0.25, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
         axs[d].set_xticks(seps)
         tick_labels = [label + "_" + splitter for splitter, label in product(splitters, labels)] if x_axis.lower() in ["rep", "algo"] else labels
         assert len(seps) == len(tick_labels)
         axs[d].set_xticklabels(tick_labels, size=12, rotation=90)
-        axs[d].set_ylim((-1.1, 1.1))
-        axs[d].set_xlim((seps[0]-0.5, seps[-1]+0.5))
+        axs[d].set_ylim((-0.251, 1.01))
+        axs[d].set_xlim((seps[0]-0.75, seps[-1]+0.75+k*0.45))
         axs[d].tick_params(axis='y', which='both', labelsize=22)
         axs[d].set_title(dataset_key, size=25)
         metric_label = "1-NMSE" if metric == MSE else SPEARMAN_RHO
@@ -169,12 +171,12 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
 def _compute_metric_results(metric_result_list, metric: str, n_quantiles=3):
     obs = np.array(metric_result_list)
     if obs.ndim == 2: # Case: Fraction Splitter or Optimization aggregate results
-        if obs.shape[0] < obs.shape[1]:
+        if obs.shape[0] < obs.shape[1]: # NOTE: #CV/seed splits << #observations
             obs = np.swapaxes(obs,0,1)
         mu = np.mean(obs, axis=1)
         std_err = np.std(obs, ddof=1, axis=1)/np.sqrt(obs.shape[1]) # std-error on metric across splits/seeds
         if n_quantiles: # in quantiles across all observations
-            quantile_len = obs.shape[1]//n_quantiles
+            quantile_len = obs.shape[0]//n_quantiles
             mu = np.mean([mu[i:(i+quantile_len)] for i in range(n_quantiles)], axis=1) # mean across quantiles
             std_err = np.mean([std_err[i:(i+quantile_len)] for i in range(n_quantiles)], axis=1) # std err. across quantiles
     else:
@@ -389,6 +391,8 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, di
     for row, dataset in enumerate(datasets):
         for i, algo in enumerate(methods):
             plt_idx = (row, i) if len(datasets) > 1 else i
+            if len(datasets) != 1 and len(methods) != 1:
+                ax = ax[plt_idx]
             training_variants = []
             testing_variants = []
             for j, splitter_key in enumerate(splits):
@@ -419,34 +423,33 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, di
                     all_avrg_metric_vals.append(_metric_val)
                     all_avrg_metric_errs.append(_metric_std_err)
                     #n_total = len(mutations) **20
-                    ax[plt_idx].bar(j+seps[k], _metric_val, yerr=_metric_std_err, width=width, label=rep, color=rc.get(rep),
+                    ax.bar(j+seps[k], _metric_val, yerr=_metric_std_err, width=width, label=rep, color=rc.get(rep),
                                     facecolor=rc.get(rep), edgecolor="k", ecolor='black', capsize=5, hatch='//')
             previous_split_keys.append(splitter_key)
             cols = len(splits)
             abs_min, abs_max = min(all_avrg_metric_vals)-max(all_avrg_metric_errs), max(all_avrg_metric_vals)+max(all_avrg_metric_errs)
             abs_min = abs_min if abs_min < 0. else 0.
             # main markers:
-            ax[plt_idx].axhline(0., seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.75)
+            ax.axhline(0., seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.75)
             for x in np.arange(-30, 15.1, 1):
-                ax[plt_idx].axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
+                ax.axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
             # secondary markers:
             for x in np.arange(-30, 15.1, 0.5):
-                ax[plt_idx].axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
+                ax.axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
             for x in np.arange(-30, 15.1, 0.25):
-                ax[plt_idx].axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.025)
-            ax[plt_idx].set_xticks([x for x in range(len(splits))])
-            ax[plt_idx].set_xticklabels([f"{split} \n frac.: {n}/{c}" for split, n, c in zip(splits, training_variants, N_combinations)])
+                ax.axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.025)
+            ax.set_xticks([x for x in range(len(splits))])
+            ax.set_xticklabels([f"{split} \n frac.: {n}/{c}" for split, n, c in zip(splits, training_variants, N_combinations)])
             if metric == SPEARMAN_RHO:
-                ax[plt_idx].set_ylim((-0.251, 1.1))
+                ax.set_ylim((-0.251, 1.1))
             else:
-                ax[plt_idx].set_ylim((abs_min, abs_max))
-            ax[plt_idx].tick_params(axis='x', which='both', labelsize=9)
-            # ax[plt_idx].set_xlabel(algo, size=14)
+                ax.set_ylim((abs_min, abs_max))
+            ax.tick_params(axis='x', which='both', labelsize=9)
             metric_name = "1-NMSE" if metric == MSE else metric
             metric_name = metric_name if metric else "MSE" # base-case
-            ax[plt_idx].set_ylabel(metric_name)
-            ax[plt_idx].set_title(f"{algo} - {dataset}\n{testing_variants}")
-    handles, labels = ax[plt_idx].get_legend_handles_labels()
+            ax.set_ylabel(metric_name)
+            ax.set_title(f"{algo} - {dataset}\n{testing_variants}")
+    handles, labels = ax.get_legend_handles_labels()
     fig.legend(handles[:len(reps)], reps, loc='lower right', ncol=len(reps), prop={'size': 14})
     plt.suptitle(plot_heading, size=12)
     plt.tight_layout()
