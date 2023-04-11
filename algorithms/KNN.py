@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 from typing import Tuple
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.model_selection import cross_val_score
@@ -13,12 +14,7 @@ class KNN(AbstractAlgorithm):
         self.model = None
         self.optimize = optimize
         self.seed = seed
-        if self.optimize:
-            self.k_max = k_max
-            self.opt_budget = opt_budget
-            self.opt_space = [
-            Integer(1, self.k_max, name="n_neighbors"),
-        ]
+        self.opt_budget = opt_budget
 
     def get_name(self) -> str:
         return "KNN"
@@ -28,12 +24,17 @@ class KNN(AbstractAlgorithm):
         self.model = KNeighborsRegressor(n_neighbors=int(np.ceil(0.3*len(X))), n_jobs=-1)  # use all processors
         Y = Y.squeeze() if Y.shape[0] > 1 else Y
         if self.optimize:
-            self.k_max = int(len(X)) # all data is maximal possible 
-            @use_named_args(self.opt_space)
+            opt_space = [
+                Integer(1, np.floor(0.8*len(X)), name="n_neighbors"), # NOTE: max number of neighbors is 80% of available data for optimization stability, specifically on TOXI
+            ]
+            @use_named_args(opt_space)
             def _opt_objective(**params):
                 self.model.set_params(**params)
                 return -np.mean(cross_val_score(self.model, X, Y, cv=5, n_jobs=-1, scoring="neg_mean_absolute_error"))
-            res_gp = gp_minimize(_opt_objective, self.opt_space, n_calls=self.opt_budget, random_state=self.seed)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                res_gp = gp_minimize(_opt_objective, opt_space, n_calls=self.opt_budget, random_state=self.seed)
+            self.optimal_parameters = res_gp.x
             print(f"Score: {res_gp.fun}")
             print(f"Parameters: k={res_gp.x[0]}")
             self.model = KNeighborsRegressor(n_neighbors=res_gp.x[0], n_jobs=-1) 
