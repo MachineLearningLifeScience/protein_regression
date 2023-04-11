@@ -31,6 +31,15 @@ GP_L_VAR = "l_var"
 GP_K_PRIOR = "kernel_prior"
 GP_D_PRIOR = "data_prior"
 
+# KNN metrics
+K_NEIGHBORS = "n_neighbors"
+
+# RF metrics
+RF_ESTIMATORS = "n_estimators"
+RF_CRIT = "criterion"
+RF_MIN_SPLIT = "min_samples_split"
+RF_MAX_FEAT = "max_features"
+
 # representations
 ONE_HOT = "one_hot"
 TRANSFORMER = "transformer"

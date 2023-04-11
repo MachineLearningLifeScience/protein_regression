@@ -19,6 +19,7 @@ from util.log import prep_for_logdict, prep_for_mutation
 from util.log import prep_from_mixture
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, VAE_DENSITY
 from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS, NO_AUGMENT
+from util.mlflow.constants import K_NEIGHBORS, RF_MIN_SPLIT, RF_ESTIMATORS, RF_MAX_FEAT, RF_CRIT
 from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR, MEAN_Y, STD_Y, PAC_BAYES_EPS
 from util.preprocess import scale_observations
 from bound.pac_bayes_bound import alquier_bounded_regression
@@ -49,6 +50,31 @@ def _dim_reduce_X(dim: int, dim_reduction: str, X_train: np.ndarray, Y_train: np
             print(f"Dim reduction failed {dim} - retrying lower dim...")
             reducer.n_components = int(reducer.n_components - dim/10)
     return X_train, reducer
+
+
+def log_method_parameters(method: object, split) -> None:
+    if "GP" in method.get_name():
+        mlflow.log_metric(GP_VAR, float(method.gp.kernel.variance.numpy()), step=split)
+        mlflow.log_metric(GP_L_VAR, float(method.gp.likelihood.variance.numpy()), step=split)
+        if method.gp.kernel.__class__ != kernels.linears.Linear:
+            mlflow.log_metric(GP_LEN, float(method.gp.kernel.lengthscales.numpy()), step=split)
+            mlflow.set_tag(GP_K_PRIOR, method.gp.kernel.lengthscales.prior.name)
+        mlflow.log_metric(OPT_SUCCESS, float(method.opt_success))
+        mlflow.set_tag(GP_D_PRIOR, method.gp.likelihood.variance.prior.name)
+    # if "GMM" in method.get_name(): # TODO
+    #         training_assignment, train_mu, train_cov, train_ws = prep_from_mixture(method, X_train, scaled_y)
+    #         test_assignment, test_mu, test_cov, test_ws = prep_from_mixture(method, X_test, Y_test/std_y-mean_y)
+    #         assignment_dict = {"train_X": X_train.tolist(), "train_assign": training_assignment.tolist(), "test_assign": test_assignment.tolist(), 
+    #                         "train_means": train_mu.tolist(), "train_covariances": train_cov.tolist(), "train_weights": train_ws.tolist(),
+    #                         "test_means": test_mu.tolist(), "test_covariances": test_cov.tolist(), "test_weights": test_ws.tolist()}
+    #         record_dict.update(assignment_dict)
+    if "RF" in method.get_name() and method.optimize:
+        mlflow.log_metric(RF_ESTIMATORS, method.optimal_parameters[0])
+        mlflow.log_metric(RF_MIN_SPLIT, method.optimal_parameters[1])
+        mlflow.log_metric(RF_MAX_FEAT, method.optimal_parameters[2])
+    if method.get_name().upper() == "KNN" and method.optimize:
+        mlflow.log_metric(K_NEIGHBORS, method.optimal_parameters[0])
+    return
 
 
 def run_single_regression_task(dataset: str, representation: str, method_key: str, protocol: AbstractTrainTestSplitter, 
@@ -150,26 +176,15 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         mlflow.log_metric(MEAN_Y, mean_y, step=split)  # record scaling information 
         mlflow.log_metric(STD_Y, std_y, step=split)
         mlflow.log_metric(PAC_BAYES_EPS, float(pac_epsilon), step=split)
-        if "GP" in method.get_name():
-            mlflow.log_metric(GP_VAR, float(method.gp.kernel.variance.numpy()), step=split)
-            mlflow.log_metric(GP_L_VAR, float(method.gp.likelihood.variance.numpy()), step=split)
-            if method.gp.kernel.__class__ != kernels.linears.Linear:
-                mlflow.log_metric(GP_LEN, float(method.gp.kernel.lengthscales.numpy()), step=split)
-                mlflow.set_tag(GP_K_PRIOR, method.gp.kernel.lengthscales.prior.name)
-            mlflow.log_metric(OPT_SUCCESS, float(method.opt_success))
-            mlflow.set_tag(GP_D_PRIOR, method.gp.likelihood.variance.prior.name)
+        
         trues, mus, uncs, errs = prep_for_logdict(Y_test, mu, unc, err2, baseline)
         train_mutations = prep_for_mutation(dataset, train_indices[split])
         test_mutations = prep_for_mutation(dataset, test_indices[split])
         record_dict = {'trues': trues, 'pred': mus, 'unc': uncs, 'mse': errs,
                     'train_mutation': train_mutations, 'test_mutation': test_mutations,
                     'train_trues': list(np.hstack(Y_train))}
-        if "GMM" in method.get_name():
-            training_assignment, train_mu, train_cov, train_ws = prep_from_mixture(method, X_train, scaled_y)
-            test_assignment, test_mu, test_cov, test_ws = prep_from_mixture(method, X_test, Y_test/std_y-mean_y)
-            assignment_dict = {"train_X": X_train.tolist(), "train_assign": training_assignment.tolist(), "test_assign": test_assignment.tolist(), 
-                            "train_means": train_mu.tolist(), "train_covariances": train_cov.tolist(), "train_weights": train_ws.tolist(),
-                            "test_means": test_mu.tolist(), "test_covariances": test_cov.tolist(), "test_weights": test_ws.tolist()}
-            record_dict.update(assignment_dict)
+
+        log_method_parameters(method=method, split=split)
+
         mlflow.log_dict(record_dict, 'split'+str(split)+'/output.json')
     mlflow.end_run()
