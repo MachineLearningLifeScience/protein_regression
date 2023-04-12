@@ -10,11 +10,12 @@ from skopt import gp_minimize
 
 
 class KNN(AbstractAlgorithm):
-    def __init__(self, optimize: bool=False, k_max: int=100, opt_budget: int=100, seed=42) -> None:
+    def __init__(self, optimize: bool=False, opt_budget: int=75, seed=42) -> None:
         self.model = None
         self.optimize = optimize
         self.seed = seed
         self.opt_budget = opt_budget
+        self.X = None
 
     def get_name(self) -> str:
         return "KNN"
@@ -22,15 +23,17 @@ class KNN(AbstractAlgorithm):
     def train(self, X: np.ndarray, Y: np.ndarray) -> None:
         assert(Y.shape[1] == 1)
         self.model = KNeighborsRegressor(n_neighbors=int(np.ceil(0.3*len(X))), n_jobs=-1)  # use all processors
+        self._X = X # NOTE: book-keeping for later neighbor inquiry
+        self._y = Y
         Y = Y.squeeze() if Y.shape[0] > 1 else Y
         if self.optimize:
             opt_space = [
-                Integer(1, np.floor(0.8*len(X)), name="n_neighbors"), # NOTE: max number of neighbors is 80% of available data for optimization stability, specifically on TOXI
+                Integer(1, np.floor(0.95*len(X)/3), name="n_neighbors"), # NOTE: max number of neighbors is 95% of available data (account for splitting into thirds) for optimization stability, specifically on TOXI
             ]
             @use_named_args(opt_space)
             def _opt_objective(**params):
                 self.model.set_params(**params)
-                return -np.mean(cross_val_score(self.model, X, Y, cv=5, n_jobs=-1, scoring="neg_mean_absolute_error"))
+                return -np.mean(cross_val_score(self.model, X, Y, cv=3, n_jobs=-1, scoring="neg_mean_absolute_error", error_score="raise"))
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 res_gp = gp_minimize(_opt_objective, opt_space, n_calls=self.opt_budget, random_state=self.seed)
@@ -44,12 +47,15 @@ class KNN(AbstractAlgorithm):
         """
         Returns:
             pred - model predictions
-            unc - model variance as E[(f(x) - E[f(x)])**2]
+            unc - model STD across neighbors
         """
         pred = self.model.predict(X).reshape(-1, 1)
-        unc = np.mean(np.square(pred-np.mean(pred)), axis=1).reshape(-1, 1)
-        assert pred.shape == unc.shape
-        return pred, unc
+        queried_neighbor_values = self._y[self.model.kneighbors(X, return_distance=False)]
+        neighbor_means = np.mean(queried_neighbor_values, axis=1)
+        np.testing.assert_almost_equal(neighbor_means, pred) # NOTE: this fails if distances or weights are accounted for
+        var = np.var(queried_neighbor_values, axis=1).reshape(-1, 1)
+        assert pred.shape == var.shape
+        return pred, var
 
     def predict_f(self, X: np.ndarray):
         return self.predict(X)
