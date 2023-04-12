@@ -28,7 +28,7 @@ def delayed(function):
 
 
 class _FuncWrapper:
-    """"Load the global configuration before calling the function."""
+    """Load the global configuration before calling the function."""
     def __init__(self, function):
         self.function = function
         self.config = get_config()
@@ -102,7 +102,7 @@ class Uncertain_RandomForestRegressor(RandomForestRegressor):
 
 
 class UncertainRandomForest(AbstractAlgorithm):
-    def __init__(self, optimize=False, seed=42, opt_budget=100):
+    def __init__(self, optimize=False, seed=42, opt_budget=75):
         self.model = None
         self.optimize = optimize
         self.seed = seed
@@ -114,26 +114,25 @@ class UncertainRandomForest(AbstractAlgorithm):
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
         self.model = Uncertain_RandomForestRegressor(random_state=self.seed, n_jobs=-1)  # use all processors
+        #Y = Y.squeeze() if Y.shape[0] > 1 else Y
         if self.optimize:
             opt_space = [
-                Integer(1, 1000, name="n_estimators"), 
-                Integer(2, int(len(X)), name="min_samples_split"),
-                Categorical(["sqrt", "log2", None], name="max_features"),
+                Integer(1, 2000, name="n_estimators"), 
+                Integer(2, 1000, name="min_samples_split"),
             ]
             @use_named_args(opt_space)
             def _opt_objective(**params):
                 self.model.set_params(**params)
-                return -np.mean(cross_val_score(self.model, X, Y, cv=5, n_jobs=-1, scoring="neg_mean_absolute_error"))
+                return -np.mean(cross_val_score(self.model, X, Y, cv=3, n_jobs=-1, scoring="neg_mean_absolute_error", error_score="raise")) # TODO: multithreading fails
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 res_gp = gp_minimize(_opt_objective, opt_space, n_calls=self.opt_budget, random_state=self.seed)
             self.optimal_parameters = res_gp.x
             print(f"Score: {res_gp.fun}")
-            print(f"Parameters: N={res_gp.x[0]}, Split-fract={res_gp.x[1]}, max-feat={res_gp.x[2]}")
+            print(f"Parameters: N={res_gp.x[0]}, Split-fract={res_gp.x[1]}")
             self.model = Uncertain_RandomForestRegressor(
                         n_estimators=res_gp.x[0], 
                         min_samples_split=res_gp.x[1], 
-                        max_features=res_gp.x[2],
                         random_state=self.seed, 
                         n_jobs=-1,
                         ) 
