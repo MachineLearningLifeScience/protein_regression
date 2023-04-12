@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+
 def plot_observations(y: np.ndarray, x_line: float, name: str):
     sns.kdeplot(np.ravel(-y), color="darkblue", fill=True)
     plt.vlines(0., 0, 0.7, colors=["red"], linestyles="dashed", linewidths=2.5)

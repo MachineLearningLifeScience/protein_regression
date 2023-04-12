@@ -189,19 +189,22 @@ def aggregate_fractional_splitter_results(split_results: list, metrics: list, au
     axis 0: is CV results on fraction
     axis 1: concatenates MSE results at fractions, s.t. first mse is first split, etc.
     """
+    results_dict = {}
     metric_results = {}
     for split in split_results:
+        datasets = list(split.keys())
         for dataset in split:
             for method in split.get(dataset):
+                methods = list(split.get(dataset).keys())
                 for representation in split.get(dataset).get(method):
+                    representations = list(split.get(dataset).get(method).keys())
+                    if dataset not in metric_results.keys():
+                        metric_results[dataset] = {}
                     for metric in metrics:
-                        if metric not in metric_results.keys():
-                            metric_results[metric] = []
-                        metric_results[metric].append(np.array(split.get(dataset).get(method).get(representation).get(augmentation).get(metric)))
-    # 2D observations:
-    for metric in metric_results.keys():
-        metric_results[metric] = np.vstack(metric_results[metric])
-    results_dict = {dataset: {method: {representation: {augmentation: metric_results}}}}
+                        if metric not in metric_results[dataset].keys():
+                            metric_results[dataset][metric] = []
+                        metric_results[dataset][metric].append(np.array(split.get(dataset).get(method).get(representation).get(augmentation).get(metric)))
+    results_dict = stack_and_parse_into_dict(metric_results, datasets=datasets, methods=methods, representations=representations, metrics=metrics)
     return results_dict
 
 
@@ -211,18 +214,41 @@ def aggregate_optimization_results(opt_results: list, metrics: list, augmentatio
     axis 0: is seeds results on fraction
     axis 1: concatenates MSE results at fractions, s.t. first mse is first step, etc.
     """
+    datasets = []
+    methods = []
+    representations = []
     metric_results = {}
     for seed in opt_results: # drop seeds from results_dict
         for dataset in opt_results.get(seed):
+            if dataset not in datasets:
+                datasets.append(dataset)
+            if dataset not in metric_results.keys():
+                metric_results[dataset] = {}
             for method in opt_results.get(seed).get(dataset):
+                if method not in methods:
+                    methods.append(method)
                 for representation in opt_results.get(seed).get(dataset).get(method):
+                    if representation not in representations:
+                        representations.append(representation)
                     for metric in metrics:
-                        if metric not in metric_results.keys():
-                            metric_results[metric] = []
-                        metric_results[metric].append(np.array(opt_results.get(seed).get(dataset).get(method).get(representation).get(augmentation).get(metric)))
-    # convert to 2D observation arrays:
-    for metric in metric_results.keys():
-        metric_results[metric] = np.vstack(metric_results[metric])
-    # Optimization recorded results only have 1 dataset, 1 method, 1 representation in current setup, hence no dict-comprehension
-    results_dict = {dataset: {method: {representation: {augmentation: metric_results}}}}
+                        if metric not in metric_results[dataset].keys():
+                            metric_results[dataset][metric] = []
+                        metric_results[dataset][metric].append(np.array(opt_results.get(seed).get(dataset).get(method).get(representation).get(augmentation).get(metric)))
+    results_dict = stack_and_parse_into_dict(metric_results, datasets=datasets, methods=methods, representations=representations, metrics=metrics)
+    return results_dict
+
+
+def stack_and_parse_into_dict(metric_results:dict, datasets: list, methods: list, representations: list, metrics: list, augmentation=None) -> dict:
+    results_dict = {}
+    # stack observations 2D:
+    for dataset in datasets:
+        for metric in metrics:
+            metric_results[dataset][metric] = np.vstack(metric_results[dataset][metric])
+    # put together results:
+    for dataset in datasets:
+        results_dict[dataset] = {}
+        for method in methods:
+            for representation in representations:
+                for metric in metrics:
+                    results_dict[dataset] = {method: {representation: {augmentation: metric_results.get(dataset)}}}
     return results_dict
