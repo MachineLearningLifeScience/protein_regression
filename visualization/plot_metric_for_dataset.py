@@ -391,8 +391,7 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, di
     for row, dataset in enumerate(datasets):
         for i, algo in enumerate(methods):
             plt_idx = (row, i) if len(datasets) > 1 else i
-            if len(datasets) != 1 and len(methods) != 1:
-                ax = ax[plt_idx]
+            _ax = ax[plt_idx]
             training_variants = []
             testing_variants = []
             for j, splitter_key in enumerate(splits):
@@ -408,7 +407,7 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, di
                         reps.append(rep)
                     metric_per_split = []
                     for split in _results_dict.keys():
-                        if metric == MSE: # Make 1-NMSE
+                        if metric == MSE: # Make 1-NMSE => R2
                             metric_per_split.append(1-np.mean(_results_dict[split]['mse']))
                         elif metric == SPEARMAN_RHO:
                             trues = np.array(_results_dict[split]['trues'])
@@ -422,34 +421,33 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, di
                     _metric_std_err = np.std(metric_per_split, ddof=1)/np.sqrt(len(metric_per_split)) if len(metric_per_split) > 1 else 0.
                     all_avrg_metric_vals.append(_metric_val)
                     all_avrg_metric_errs.append(_metric_std_err)
-                    #n_total = len(mutations) **20
-                    ax.bar(j+seps[k], _metric_val, yerr=_metric_std_err, width=width, label=rep, color=rc.get(rep),
+                    _ax.bar(j+seps[k], _metric_val, yerr=_metric_std_err, width=width, label=rep, color=rc.get(rep),
                                     facecolor=rc.get(rep), edgecolor="k", ecolor='black', capsize=5, hatch='//')
             previous_split_keys.append(splitter_key)
             cols = len(splits)
             abs_min, abs_max = min(all_avrg_metric_vals)-max(all_avrg_metric_errs), max(all_avrg_metric_vals)+max(all_avrg_metric_errs)
             abs_min = abs_min if abs_min < 0. else 0.
             # main markers:
-            ax.axhline(0., seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.75)
+            _ax.axhline(0., seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.75)
             for x in np.arange(-30, 15.1, 1):
-                ax.axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
+                _ax.axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.5)
             # secondary markers:
             for x in np.arange(-30, 15.1, 0.5):
-                ax.axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
+                _ax.axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.125)
             for x in np.arange(-30, 15.1, 0.25):
-                ax.axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.025)
-            ax.set_xticks([x for x in range(len(splits))])
-            ax.set_xticklabels([f"{split} \n frac.: {n}/{c}" for split, n, c in zip(splits, training_variants, N_combinations)])
+                _ax.axhline(x, seps[0], cols-1+seps[-1], c='grey', ls='--', alpha=0.025)
+            _ax.set_xticks([x for x in range(len(splits))])
+            _ax.set_xticklabels([f"{split} \n frac.: {n}/{c}" for split, n, c in zip(splits, training_variants, N_combinations)])
             if metric == SPEARMAN_RHO:
-                ax.set_ylim((-0.251, 1.1))
+                _ax.set_ylim((-0.251, 1.1))
             else:
-                ax.set_ylim((abs_min, abs_max))
-            ax.tick_params(axis='x', which='both', labelsize=9)
-            metric_name = "1-NMSE" if metric == MSE else metric
+                _ax.set_ylim((abs_min, abs_max))
+            _ax.tick_params(axis='x', which='both', labelsize=9)
+            metric_name = "R2" if metric == MSE else metric
             metric_name = metric_name if metric else "MSE" # base-case
-            ax.set_ylabel(metric_name)
-            ax.set_title(f"{algo} - {dataset}\n{testing_variants}")
-    handles, labels = ax.get_legend_handles_labels()
+            _ax.set_ylabel(metric_name)
+            _ax.set_title(f"{algo} - {dataset}\n{testing_variants}")
+    handles, labels = _ax.get_legend_handles_labels()
     fig.legend(handles[:len(reps)], reps, loc='lower right', ncol=len(reps), prop={'size': 14})
     plt.suptitle(plot_heading, size=12)
     plt.tight_layout()
