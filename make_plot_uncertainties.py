@@ -24,9 +24,11 @@ metric = MSE
 reps = [TRANSFORMER, ESM, EVE, ONE_HOT]
 augmentations =  [NO_AUGMENT]
 number_quantiles = 10
-algos = [UncertainRandomForest().get_name(), GPonRealSpace().get_name(),
+algos = [UncertainRandomForest().get_name(), 
+        GPonRealSpace().get_name(),
+        KNN().get_name(),
         GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(), 
-        GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), ]
+        GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(),]
 d = None # 2, 10, 100, 1000, None
 dim_reduction = LINEAR # LINEAR # NON_LINEAR
 
