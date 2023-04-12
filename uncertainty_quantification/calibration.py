@@ -49,7 +49,7 @@ def confidence_based_calibration(y_pred: np.array, uncertainties: np.array, y_re
     
 
 def error_based_calibration(y_trues, y_pred, uncertainties):
-    pass
+    raise NotImplementedError("Error Based Calibration is not yet implemented.")
 
 
 def expected_calibration_error(loss_fractions: np.ndarray, conf_interval_values: np.ndarray) -> float:
