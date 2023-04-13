@@ -6,7 +6,7 @@ def chi_squared_stat(y: np.array, y_pred: np.array, var_pred: np.array) -> float
     NOTE: Good fit should be close to one. 
     (If fit accurately predicts the means, then the variance estimate should be in agreement and the ration close to one)
     """
-    chi_squ = np.sum(np.square((y - y_pred), axis=1) / var_pred)
+    chi_squ = np.sum(np.square((y - y_pred)) / var_pred)
     return chi_squ
 
 

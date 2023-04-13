@@ -16,7 +16,10 @@ from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from util.mlflow.constants import MSE, NO_AUGMENT, DATASET, AUGMENTATION, METHOD, REPRESENTATION, SPLIT, VAE
 from util.mlflow.constants import SPEARMAN_RHO, GP_L_VAR, OBSERVED_Y, STD_Y
+from util.mlflow.constants import RF_ESTIMATORS
 from util.mlflow.convenience_functions import get_mlflow_results_artifacts
+from algorithms import NUM_TRAINABLE_PARAMETERS
+from uncertainty_quantification.chi_squared import chi_squared_stat, reduced_chi_squared_stat
 from uncertainty_quantification.confidence import quantile_and_oracle_errors
 from uncertainty_quantification.calibration import prep_reliability_diagram, confidence_based_calibration
 from visualization import representation_colors as rc
@@ -94,6 +97,70 @@ def plot_polygon(ax, poly, **kwargs):
     ax.add_collection(collection, autolim=True)
     ax.autoscale_view()
     return collection
+
+
+def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representation='', optimize_flag=False, dim=None, dim_reduction=None):
+    """
+    Visualize X**2 statistic on predictions.
+    AUTHOR: Richard M
+    """
+    filename = f'results/figures/uncertainties/Xi_squared_{cvtype}_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}{dim_reduction}'
+    algos = []
+    n_prot = len(metric_values.keys())
+    for d in metric_values.keys():
+        for a in metric_values[d].keys():
+            n_reps = len(metric_values[d][a].keys())
+    fig, axs = plt.subplots(n_prot, n_reps, figsize=(5*n_reps,5*n_prot)) #gridspec_kw={'height_ratios': [4, 1]})
+    algos = []
+    for d, dataset_key in enumerate(metric_values.keys()):
+        for i, algo in enumerate(metric_values[dataset_key].keys()):
+            if algo not in algos:
+                algos.append(algo)      
+            for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
+                for aug in metric_values[dataset_key][algo][rep].keys():
+                    number_splits = len(list(metric_values[dataset_key][algo][rep][aug].keys()))
+                    if algo not in algos:
+                        algos.append(algo)
+                    if n_prot > 1:
+                        plt_idx = (d,j)
+                    else:
+                        plt_idx = j
+                    if j == 0: # first column annotate y-axis
+                        axs[plt_idx].set_ylabel(r'$\Chi^2$', size=12)
+                    chis = []
+                    for s in metric_values[dataset_key][algo][rep][aug].keys():
+                        pred_var = np.array(metric_values[dataset_key][algo][rep][aug][s]['unc'])
+                        data_uncertainties = metric_values[dataset_key][algo][rep][aug][s].get(GP_L_VAR)
+                        if data_uncertainties: # in case of GP include data-noise
+                            _scale_std = metric_values[dataset_key][algo][rep][aug][s].get(STD_Y)
+                            pred_var += np.sqrt(data_uncertainties*_scale_std)
+                        y_true =  np.array(metric_values[dataset_key][algo][rep][aug][s]['trues'])
+                        y_pred =  np.array(metric_values[dataset_key][algo][rep][aug][s]['pred'])
+                        if "RF" in algo.upper():
+                            num_parameters = metric_values[dataset_key][algo][rep][aug][s][RF_ESTIMATORS]
+                        else:
+                            num_parameters = NUM_TRAINABLE_PARAMETERS.get(algo) # theta fixed for kNN and GPs
+                        # chi = chi_squared_stat(y_true, y_pred, pred_var, num_parameters)
+                        # TODO: make error plot with std-error across CV splits
+                        reduced_chi = reduced_chi_squared_stat(y_true, y_pred, pred_var, num_parameters)
+                        # chis.append(chi)
+                        chis.append(reduced_chi)
+                    axs[plt_idx].plot(i, np.mean(chis), c=ac.get(algo), marker=am.get(algo), fillstyle='none', ms=8, lw=2, linestyle='-', label=algo)
+                    axs[plt_idx].hlines(1., 0, len(metric_values[dataset_key].keys()), linestyles='dotted', color='k', label='Perfect Calibration')
+                    axs[plt_idx].set_title(rep, fontsize=20)
+                    #axs[plt_idx].set_xlabel('percentile', size=12)
+                    # align text in pairs of two around curves: upper left two, lower right two
+    handles, labels = axs[plt_idx].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='lower right', ncol=len(algos)+1, prop={'size': 14})
+    plt.suptitle(f"{str(dataset)} X**2 Stat. Split: {cvtype}", fontsize=22)
+    plt.xticks(size=14)
+    plt.yticks(size=14)
+    plt.tight_layout()
+    plt.savefig(filename+".png")
+    plt.savefig(filename+".pdf")
+    plt.show()
+
+
     
 
 def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', optimize_flag=False, dim=None, dim_reduction=None):
@@ -169,7 +236,6 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     handles, labels = axs[plt_idx].get_legend_handles_labels()
     fig.legend(handles, labels, loc='lower right', ncol=len(algos)+1, prop={'size': 14})
     plt.suptitle(f"{str(dataset)} Calibration Split: {cvtype}", fontsize=22)
-    #axs[1, 0].set_ylabel('count', size=12)
     plt.xticks(size=14)
     plt.yticks(size=14)
     plt.tight_layout()
@@ -343,7 +409,7 @@ def multi_dim_confidencecurve(metric_values: dict, number_quantiles: int, cvtype
 
 def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str], 
                         train_test_splitter,  augmentations: str = [NO_AUGMENT], number_quantiles: int = 10, 
-                        optimize: bool=True, d: int=None, dim_reduction: str=None, metrics: str=[GP_L_VAR, STD_Y],
+                        optimize: bool=True, d: int=None, dim_reduction: str=None, metrics: str=[GP_L_VAR, STD_Y, RF_ESTIMATORS],
                         cached_results: bool=False, confidence_plot: bool=False):
     filename = f"./results/cache/results_calibration_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={train_test_splitter.get_name()}.pkl"
     if cached_results and os.path.exists(filename):
@@ -355,6 +421,7 @@ def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str]
         with open(filename, "wb") as outfile:
             pickle.dump(results_dict, outfile)
     reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    chi_square_fig(results_dict, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
     if confidence_plot:
         confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
 
