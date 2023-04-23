@@ -14,9 +14,7 @@ from algorithm_factories import ALGORITHM_REGISTRY
 from protocol_factories import PROTOCOL_REGISTRY
 from data import load_dataset, get_alphabet
 from data.train_test_split import AbstractTrainTestSplitter, BioSplitter, PositionSplitter, WeightedTaskSplitter
-from util import numpy_one_hot_2dmat
 from util.log import prep_for_logdict, prep_for_mutation
-from util.log import prep_from_mixture
 from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, VAE_DENSITY
 from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS, NO_AUGMENT
 from util.mlflow.constants import K_NEIGHBORS, RF_MIN_SPLIT, RF_ESTIMATORS, RF_MAX_FEAT, RF_CRIT
@@ -24,10 +22,6 @@ from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR, ME
 from util.preprocess import scale_observations
 from bound.pac_bayes_bound import alquier_bounded_regression
 from gpflow import kernels
-from gpflow.utilities import to_default_float
-from gpflow.models import GPR
-from gpflow.utilities import print_summary
-from gpflow.kernels.linears import Linear
 from visualization.plot_training import plot_prediction_CV
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 
@@ -108,6 +102,8 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             _, prior_cov = method.prior(X_train, scaled_y).predict_y(X_train)
         else: # uniform prior of observations std=1 in accordance with scaling
             _, prior_cov = np.zeros(X_train.shape[0])[:, np.newaxis], np.ones(X_train.shape[0])[:, np.newaxis]
+        if "RF" in method.get_name(): # write and load optimal parameters
+            method._persist_id = f"{dataset}_{representation}_{protocol.get_name()}_{augmentation}_s{split}"
         # TRAIN MODEL:
         method.train(X_train, scaled_y)
         try:
@@ -175,10 +171,9 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         #                         "test_means": test_mu.tolist(), "test_covariances": test_cov.tolist(), "test_weights": test_ws.tolist()}
         #         record_dict.update(assignment_dict)
         if "RF" in method.get_name() and method.optimize:
-            mlflow.log_metric(RF_ESTIMATORS, float(method.optimal_parameters[0]), step=split)
-            mlflow.log_metric(RF_MIN_SPLIT, float(method.optimal_parameters[1]), step=split)
+            mlflow.log_metric(RF_ESTIMATORS, float(method.model.n_estimators), step=split)
         if method.get_name().upper() == "KNN" and method.optimize:
-            mlflow.log_metric(K_NEIGHBORS, float(method.optimal_parameters[0]), step=split)
+            mlflow.log_metric(K_NEIGHBORS, float(method.model.n_estimators), step=split)
 
         mlflow.log_dict(record_dict, 'split'+str(split)+'/output.json')
     mlflow.end_run()
