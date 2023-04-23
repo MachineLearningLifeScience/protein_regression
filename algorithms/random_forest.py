@@ -1,20 +1,22 @@
 import warnings
+import pickle
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import cross_val_score
 from algorithms.abstract_algorithm import AbstractAlgorithm
-from skopt.space import Integer, Real, Categorical
+from skopt.space import Integer
 from skopt.utils import use_named_args
 from skopt import gp_minimize
 
 
 class RandomForest(AbstractAlgorithm):
-    def __init__(self, optimize=False, seed=42, opt_budget=75):
+    def __init__(self, optimize: bool=False, seed: int=42, opt_budget: int=12, persist_optimal_parameters: str=None):
         self.model = None
         self.optimize = optimize
         self.seed = seed
         self.opt_budget = opt_budget
         self.model = RandomForestRegressor(random_state=self.seed, n_jobs=-1)  # use all processors
+        self._persist_id = persist_optimal_parameters
 
     def get_name(self):
         return "RF"
@@ -24,8 +26,7 @@ class RandomForest(AbstractAlgorithm):
         Y = Y.ravel() if Y.shape[0] > 1 else Y
         if self.optimize:
             opt_space = [
-                Integer(1, 2000, name="n_estimators"), 
-                Integer(2, 100, name="min_samples_split"),
+                Integer(2, len(X), name="n_estimators"), 
             ]
             @use_named_args(opt_space)
             def _opt_objective(**params):
@@ -36,13 +37,17 @@ class RandomForest(AbstractAlgorithm):
                 res_gp = gp_minimize(_opt_objective, opt_space, n_calls=self.opt_budget, random_state=self.seed)
             self.optimal_parameters = res_gp.x
             print(f"Score: {res_gp.fun}")
-            print(f"Parameters: N={res_gp.x[0]}, Split-fract={res_gp.x[1]}")
+            print(f"Parameters: N={res_gp.x[0]}")
             self.model = RandomForestRegressor(
-                        n_estimators=res_gp.x[0], 
-                        min_samples_split=res_gp.x[1], 
+                        n_estimators=res_gp.x[0],
                         random_state=self.seed, 
                         n_jobs=-1,
-                        ) 
+                        )
+            if self._persist_id:
+                # NOTE: use hash, data, splitter, split when persisting optimal parameters
+                filename = f"./results/cache/RF_optimal_estimators_{self._persist_id}.pkl"
+                with open(filename, "wb") as outfile:
+                    pickle.dump(dict(n_estimators=res_gp.x[0]), outfile)
         self.model.fit(X, Y.ravel())
 
     def predict(self, X):

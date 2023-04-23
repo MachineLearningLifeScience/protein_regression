@@ -1,4 +1,5 @@
 import warnings
+import pickle
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import cross_val_score
@@ -102,43 +103,63 @@ class Uncertain_RandomForestRegressor(RandomForestRegressor):
 
 
 class UncertainRandomForest(AbstractAlgorithm):
-    def __init__(self, optimize=False, seed=42, opt_budget=75):
+    def __init__(self, optimize=False, seed=42, opt_budget=20, cached=True):
         self.model = None
         self.optimize = optimize
         self.seed = seed
         self.opt_budget = opt_budget
+        self._persist_id = None
+        self._cached = cached
 
     def get_name(self):
         return "uncertainRF"
 
+    def _optimize_regressor(self, X, Y) -> Uncertain_RandomForestRegressor:
+        # NOTE: use RF Regressor for optimize, to avoid parallel processing inconsistencies from predict
+        # NOTE: RF and UncertainRF are fundamentally the same, except for predict function, after training
+        model = RandomForestRegressor(random_state=self.seed, n_jobs=-1)  # use all processors
+        opt_space = [
+            Integer(2, 3000, name="n_estimators"),
+        ]
+        @use_named_args(opt_space)
+        def _opt_objective(**params):
+            self.model.set_params(**params) # NOTE: Optimization cannot be multi-threaded 
+            return -np.mean(cross_val_score(model, X, Y, cv=3, n_jobs=-1, scoring="neg_mean_absolute_error", error_score="raise")) # TODO: multithreading fails
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            res_gp = gp_minimize(_opt_objective, opt_space, n_calls=self.opt_budget, random_state=self.seed)
+        self.optimal_parameters = res_gp.x
+        print(f"Score: {res_gp.fun}")
+        print(f"Parameters: N={res_gp.x[0]}")
+        model = Uncertain_RandomForestRegressor(
+                    n_estimators=res_gp.x[0],
+                    random_state=self.seed, 
+                    n_jobs=-1,
+                    )
+        return model
+
+
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
-        self.model = Uncertain_RandomForestRegressor(random_state=self.seed, n_jobs=-1)  # use all processors
         #Y = Y.squeeze() if Y.shape[0] > 1 else Y
         if self.optimize:
-            opt_space = [
-                Integer(1, 2000, name="n_estimators"), 
-                Integer(2, 1000, name="min_samples_split"),
-            ]
-            @use_named_args(opt_space)
-            def _opt_objective(**params):
-                self.model.set_params(**params)
-                return -np.mean(cross_val_score(self.model, X, Y, cv=3, n_jobs=-1, scoring="neg_mean_absolute_error", error_score="raise")) # TODO: multithreading fails
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                res_gp = gp_minimize(_opt_objective, opt_space, n_calls=self.opt_budget, random_state=self.seed)
-            self.optimal_parameters = res_gp.x
-            print(f"Score: {res_gp.fun}")
-            print(f"Parameters: N={res_gp.x[0]}, Split-fract={res_gp.x[1]}")
-            self.model = Uncertain_RandomForestRegressor(
-                        n_estimators=res_gp.x[0], 
-                        min_samples_split=res_gp.x[1], 
-                        random_state=self.seed, 
-                        n_jobs=-1,
-                        ) 
+            if self._cached and self._persist_id:
+                # NOTE: use hash, data, splitter, split when persisting optimal parameters
+                filename = f"./results/cache/RF_optimal_estimators_{self._persist_id}.pkl"
+                with open(filename, "rb") as infile:
+                    loaded_optimal_parameters = pickle.load(infile)
+                self.model = Uncertain_RandomForestRegressor(
+                    n_estimators=loaded_optimal_parameters.get("n_estimators"),
+                    random_state=self.seed, 
+                    n_jobs=-1,
+                    )
+            else:
+                self.model = self._optimize_regressor(self, X, Y)
+        else:
+            self.model = Uncertain_RandomForestRegressor(random_state=self.seed, n_jobs=1)
         self.model.fit(X, Y.ravel())
 
-    def predict(self, X):
+    def predict(self, X, return_var=False):
         out = self.model.predict(X)
         pred, unc = out[0], out[1]
         return pred.reshape(-1, 1), unc.reshape(-1, 1)

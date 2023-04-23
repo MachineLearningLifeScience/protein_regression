@@ -7,10 +7,10 @@ from algorithms.uncertain_rf import Uncertain_RandomForestRegressor, UncertainRa
 from algorithms.gmm_regression import GMMRegression
 
 
-NUM_TRAINABLE_PARAMETERS = {"kNN": 1, 
+NUM_TRAINABLE_PARAMETERS = {"KNN": 1, 
                             "uncertainRF": 100,
                             "RF": 100, # NOTE: this is default configuration, if optimization=True, has be queried from results
                             "GPlinear": 2, # theta = {sigma, data_sigma}
-                            "GPsquexp": 3, # theta = {sigma, l, data_sigma}
-                            "GPmatern": 3,
+                            "GPsqexp": 3, # theta = {sigma, l, data_sigma}
+                            "GPmatern52": 3,
                             }
