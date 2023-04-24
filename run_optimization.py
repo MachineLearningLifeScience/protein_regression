@@ -7,15 +7,15 @@ from util.mlflow.constants import EVE_DENSITY, TRANSFORMER, ONE_HOT, VAE, ESM, V
 
 RUN_ON_CLUSTER = False
 
-datasets = ["1FQG", "UBQT", "CALM"] # "UBQT", "CALM", "1FQG"
-representations = [ONE_HOT] # TRANSFORMER, VAE_RAND, VAE_AUX, ONE_HOT, ESM, EVE
+datasets = ["UBQT", "CALM", "1FQG"] # "UBQT", "CALM", "1FQG"
+representations = [TRANSFORMER, ONE_HOT, ESM, EVE] # TRANSFORMER, VAE_RAND, VAE_AUX, ONE_HOT, ESM, EVE
 seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245] # 11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245
-#seeds = [11]
+# seeds = [43245]
 max_iterations = 500
-run_reference_scoring = False
+run_reference_scoring = True
 
 method_factory_keys = ALGORITHM_REGISTRY.keys()
-method_factory_keys = [get_key_for_factory(f) for f in [GPMaternFactory]] # GPSEFactory, GPMaternFactory, UncertainRFFactory, GPLinearFactory
+method_factory_keys = [get_key_for_factory(f) for f in [GPSEFactory, GPMaternFactory, UncertainRFFactory, GPLinearFactory]] # GPSEFactory, GPMaternFactory, UncertainRFFactory, GPLinearFactory
 commands = []
 command_template = "python run_single_optimization_task.py -d %s -s %i -r %s -m %s"
 for dataset in datasets:
