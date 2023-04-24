@@ -174,7 +174,7 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         if "RF" in method.get_name() and method.optimize:
             mlflow.log_metric(RF_ESTIMATORS, float(method.model.n_estimators), step=split)
         if method.get_name().upper() == "KNN" and method.optimize:
-            mlflow.log_metric(K_NEIGHBORS, float(method.model.n_estimators), step=split)
+            mlflow.log_metric(K_NEIGHBORS, float(method.model.n_neighbors), step=split)
 
         mlflow.log_dict(record_dict, 'split'+str(split)+'/output.json')
     mlflow.end_run()
