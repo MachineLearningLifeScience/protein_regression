@@ -1,3 +1,4 @@
+import argparse
 from itertools import product
 from turtle import delay
 from joblib import Parallel, delayed
@@ -73,12 +74,21 @@ def run_augmentation_experiments(dataset, representation, protocol_factory, fact
 
 
 if __name__ == "__main__":
-    Parallel(n_jobs=-1)(delayed(run_experiments)(dataset, representation, protocol_factory, factory_key) 
-            for dataset, representation, protocol_factory, factory_key in experiment_iterator)
-    # ABLATION STUDIES: (dim-reduction, augmentation, threshold)
-    Parallel(n_jobs=-1)(delayed(run_dim_reduction_experiments)(dataset, representation, protocol_factory, factory_key, dim_reduction, dim) 
-            for dataset, representation, protocol_factory, factory_key, dim_reduction, dim in dim_reduction_experiment_iterator)
-    Parallel(n_jobs=-1)(delayed(run_augmentation_experiments)(dataset, representation, protocol_factory, factory_key, augmentation) 
-            for dataset, representation, protocol_factory, factory_key, augmentation in augmentation_experiment_iterator)
-    #run_threshold_experiments()
+    parser = argparse.ArgumentParser(description="Experiment Specifications")
+    parser.add_argument("-d", "--data", type=str, choices=datasets, help="Dataset identifier")
+    parser.add_argument("-r", "--representation", type=str, choices=representations, help="Representation of data identifier")
+    parser.add_argument("-p", "--protocol", type=int, help="Index for Protocol from list [Random, Positional, Fractional]")
+    parser.add_argument("-m", "--method_key", type=str, choices=method_factories, help="Method identifier")
+    args = parser.parse_args()
+
+    run_experiments(dataset=args.data, representation=args.representation, protocol_factory=args.protocol, factory_key=args.method_key)
+
+    # Parallel(n_jobs=-1)(delayed(run_experiments)(dataset, representation, protocol_factory, factory_key) 
+    #         for dataset, representation, protocol_factory, factory_key in experiment_iterator)
+    # # # ABLATION STUDIES: (dim-reduction, augmentation, threshold)
+    # Parallel(n_jobs=-1)(delayed(run_dim_reduction_experiments)(dataset, representation, protocol_factory, factory_key, dim_reduction, dim) 
+    #         for dataset, representation, protocol_factory, factory_key, dim_reduction, dim in dim_reduction_experiment_iterator)
+    # Parallel(n_jobs=-1)(delayed(run_augmentation_experiments)(dataset, representation, protocol_factory, factory_key, augmentation) 
+    #         for dataset, representation, protocol_factory, factory_key, augmentation in augmentation_experiment_iterator)
+    # #run_threshold_experiments()
     
