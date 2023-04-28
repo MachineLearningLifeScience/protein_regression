@@ -81,7 +81,7 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--method_key", type=str, choices=method_factories, help="Method identifier")
     args = parser.parse_args()
 
-    run_experiments(dataset=args.data, representation=args.representation, protocol_factory=args.protocol, factory_key=args.method_key)
+    run_experiments(dataset=args.data, representation=args.representation, protocol_factory=protocol_factories[args.protocol], factory_key=args.method_key)
 
     # Parallel(n_jobs=-1)(delayed(run_experiments)(dataset, representation, protocol_factory, factory_key) 
     #         for dataset, representation, protocol_factory, factory_key in experiment_iterator)
