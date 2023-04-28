@@ -180,11 +180,9 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
     mlflow.set_tags(tags)
     # run protocol for experiment in parallel
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        for i in tqdm(executor.map(
+        for i in executor.map(
             lambda idx: _run_regression_at_split(X=X, Y=Y, train_indices=train_indices, test_indices=test_indices, split=idx, method=method, dim=dim, dim_reduction=dim_reduction, dataset=dataset, representation=representation, protocol=protocol, augmentation=augmentation), 
-                range(0, len(train_indices))), 
-                total=len(range(0, len(train_indices)))
-                ):
+                range(0, len(train_indices))):
             print(f"Concluded Experiment {method}; {representation}; {protocol} split: {i}")
     # Parallel(n_jobs=-1)(delayed(_run_regression_at_split)(X=X, Y=Y, train_indices=train_indices, test_indices=test_indices, split=idx, method=method, dim=dim, dim_reduction=dim_reduction, dataset=dataset, representation=representation, protocol=protocol, augmentation=augmentation) 
     #         for idx in tqdm(range(0, len(train_indices))))
