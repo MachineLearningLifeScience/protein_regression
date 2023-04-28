@@ -1,8 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=PROT_REG_BENCH
+#SBATCH --job-name=PR_BENCH
+#SBATCH -p boomsma
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
-#SBATCH --array=1-10%3
+#SBATCH --mem-per-cpu=6G
+#SBATCH --array=0-448%5
 #SBATCH --time=12-12:00:00
 
 module load cuda/11.8
