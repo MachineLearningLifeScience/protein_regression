@@ -48,7 +48,7 @@ def _dim_reduce_X(dim: int, dim_reduction: str, X_train: np.ndarray, Y_train: np
     return X_train, reducer
 
 
-def _run_regression_at_split(X, Y, train_indices, test_indices, split, method, dim, dim_reduction, dataset, representation, protocol, augmentation) -> int:
+def _run_regression_at_split(X, Y, train_indices, test_indices, split, method, dim, dim_reduction, dataset, representation, protocol, augmentation) -> None:
     X_train = X[train_indices[split], :]
     Y_train = Y[train_indices[split], :]
     X_test = X[test_indices[split], :]
@@ -136,7 +136,7 @@ def _run_regression_at_split(X, Y, train_indices, test_indices, split, method, d
     if method.get_name().upper() == "KNN" and method.optimize:
         mlflow.log_metric(K_NEIGHBORS, float(method.model.n_neighbors), step=split)
     mlflow.log_dict(record_dict, 'split'+str(split)+'/output.json')
-    return split
+    return 
 
 
 def run_single_regression_task(dataset: str, representation: str, method_key: str, protocol: AbstractTrainTestSplitter, 
@@ -178,12 +178,18 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
     _experiment = mlflow.set_experiment(dataset)
     mlflow.start_run()
     mlflow.set_tags(tags)
+
+    def _run_regression_at_index_function_wrapper(idx: int):
+        """
+        Internal named function
+        Required for ProcessPoolExecutor. 
+        Anonymous lambda breaks map.
+        """
+        return _run_regression_at_split(X=X, Y=Y, train_indices=train_indices, test_indices=test_indices, split=idx, method=method, dim=dim, dim_reduction=dim_reduction, dataset=dataset, representation=representation, protocol=protocol, augmentation=augmentation)
+
     # run protocol for experiment in parallel
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        for i in executor.map(
-            lambda idx: _run_regression_at_split(X=X, Y=Y, train_indices=train_indices, test_indices=test_indices, split=idx, method=method, dim=dim, dim_reduction=dim_reduction, dataset=dataset, representation=representation, protocol=protocol, augmentation=augmentation), 
-                range(0, len(train_indices))):
-            print(f"Concluded Experiment {method}; {representation}; {protocol} split: {i}")
+        executor.map(_run_regression_at_index_function_wrapper, range(0, len(train_indices)))
     # Parallel(n_jobs=-1)(delayed(_run_regression_at_split)(X=X, Y=Y, train_indices=train_indices, test_indices=test_indices, split=idx, method=method, dim=dim, dim_reduction=dim_reduction, dataset=dataset, representation=representation, protocol=protocol, augmentation=augmentation) 
     #         for idx in tqdm(range(0, len(train_indices))))
 
