@@ -1,7 +1,6 @@
 import os
 from os.path import join
-from joblib import Parallel
-from joblib import delayed
+import concurrent.futures
 import numpy as np
 from sklearn.decomposition import PCA
 import tensorflow as tf
@@ -49,7 +48,7 @@ def _dim_reduce_X(dim: int, dim_reduction: str, X_train: np.ndarray, Y_train: np
     return X_train, reducer
 
 
-def _run_regression_at_split(X, Y, train_indices, test_indices, split, method, dim, dim_reduction, dataset, representation, protocol, augmentation) -> None:
+def _run_regression_at_split(X, Y, train_indices, test_indices, split, method, dim, dim_reduction, dataset, representation, protocol, augmentation) -> int:
     X_train = X[train_indices[split], :]
     Y_train = Y[train_indices[split], :]
     X_test = X[test_indices[split], :]
@@ -137,7 +136,7 @@ def _run_regression_at_split(X, Y, train_indices, test_indices, split, method, d
     if method.get_name().upper() == "KNN" and method.optimize:
         mlflow.log_metric(K_NEIGHBORS, float(method.model.n_neighbors), step=split)
     mlflow.log_dict(record_dict, 'split'+str(split)+'/output.json')
-    return
+    return split
 
 
 def run_single_regression_task(dataset: str, representation: str, method_key: str, protocol: AbstractTrainTestSplitter, 
@@ -180,7 +179,14 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
     mlflow.start_run()
     mlflow.set_tags(tags)
     # run protocol for experiment in parallel
-    Parallel(n_jobs=-1)(delayed(_run_regression_at_split)(X=X, Y=Y, train_indices=train_indices, test_indices=test_indices, split=idx, method=method, dim=dim, dim_reduction=dim_reduction, dataset=dataset, representation=representation, protocol=protocol, augmentation=augmentation) 
-            for idx in tqdm(range(0, len(train_indices))))
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        for i in tqdm(executor.map(
+            lambda idx: _run_regression_at_split(X=X, Y=Y, train_indices=train_indices, test_indices=test_indices, split=idx, method=method, dim=dim, dim_reduction=dim_reduction, dataset=dataset, representation=representation, protocol=protocol, augmentation=augmentation), 
+                range(0, len(train_indices))), 
+                total=len(range(0, len(train_indices)))
+                ):
+            print(f"Concluded Experiment {method}; {representation}; {protocol} split: {i}")
+    # Parallel(n_jobs=-1)(delayed(_run_regression_at_split)(X=X, Y=Y, train_indices=train_indices, test_indices=test_indices, split=idx, method=method, dim=dim, dim_reduction=dim_reduction, dataset=dataset, representation=representation, protocol=protocol, augmentation=augmentation) 
+    #         for idx in tqdm(range(0, len(train_indices))))
 
     mlflow.end_run()

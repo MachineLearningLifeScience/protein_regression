@@ -62,15 +62,15 @@ def run_augmentation_experiments(dataset, representation, protocol_factory, fact
                                     protocol=protocol, augmentation=augmentation, dim=None, dim_reduction=LINEAR, mock=MOCK)
 
 
-# def run_threshold_experiments():
-#     for t, dataset in zip([0., 0.], ["1FQG", "UBQT", "CALM"]):
-#         for representation in [ESM, TRANSFORMER, ONE_HOT, EVE]:
-#             for protocol_factory in [FractionalSplitterFactory]: # [RandomSplitterFactory, PositionalSplitterFactory] #[BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4)]:
-#                 for protocol in protocol_factory(dataset):
-#                     for factory_key in [get_key_for_factory(f) for f in [GPSEFactory, GPLinearFactory, GPMaternFactory, UncertainRFFactory]]:
-#                         print(f"{dataset}: {representation} - {factory_key} | {protocol.get_name()}")
-#                         run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
-#                                                     protocol=protocol, augmentation=None, dim=None, threshold=t)
+def run_threshold_experiments():
+    for t, dataset in zip([0., 0.], ["1FQG", "UBQT"]):
+        for representation in [ESM, TRANSFORMER, ONE_HOT, EVE]:
+            for protocol_factory in [FractionalSplitterFactory]: # [RandomSplitterFactory, PositionalSplitterFactory] #[BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4)]:
+                for protocol in protocol_factory(dataset):
+                    for factory_key in [get_key_for_factory(f) for f in [GPSEFactory, GPLinearFactory, GPMaternFactory, UncertainRFFactory]]:
+                        print(f"{dataset}: {representation} - {factory_key} | {protocol.get_name()}")
+                        run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
+                                                    protocol=protocol, augmentation=None, dim=None, threshold=t)
 
 
 if __name__ == "__main__":
@@ -79,16 +79,20 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--representation", type=str, choices=representations, help="Representation of data identifier")
     parser.add_argument("-p", "--protocol", type=int, help="Index for Protocol from list [Random, Positional, Fractional]")
     parser.add_argument("-m", "--method_key", type=str, choices=method_factories, help="Method identifier")
+    parser.add_argument("--ablation", type=str, default=None, choices=["dim-reduction", "augmentation", "threshold"], help="Specify if ablation should be run")
     args = parser.parse_args()
 
     run_experiments(dataset=args.data, representation=args.representation, protocol_factory=protocol_factories[args.protocol], factory_key=args.method_key)
-
     # Parallel(n_jobs=-1)(delayed(run_experiments)(dataset, representation, protocol_factory, factory_key) 
     #         for dataset, representation, protocol_factory, factory_key in experiment_iterator)
-    # # # ABLATION STUDIES: (dim-reduction, augmentation, threshold)
-    # Parallel(n_jobs=-1)(delayed(run_dim_reduction_experiments)(dataset, representation, protocol_factory, factory_key, dim_reduction, dim) 
-    #         for dataset, representation, protocol_factory, factory_key, dim_reduction, dim in dim_reduction_experiment_iterator)
-    # Parallel(n_jobs=-1)(delayed(run_augmentation_experiments)(dataset, representation, protocol_factory, factory_key, augmentation) 
-    #         for dataset, representation, protocol_factory, factory_key, augmentation in augmentation_experiment_iterator)
-    # #run_threshold_experiments()
+
+    # ABLATION STUDIES: (dim-reduction, augmentation, threshold)
+    if args.ablation == "dim_reduction":
+        Parallel(n_jobs=-1)(delayed(run_dim_reduction_experiments)(dataset, representation, protocol_factory, factory_key, dim_reduction, dim) 
+                for dataset, representation, protocol_factory, factory_key, dim_reduction, dim in dim_reduction_experiment_iterator)
+    if args.ablation == "augmentation":
+        Parallel(n_jobs=-1)(delayed(run_augmentation_experiments)(dataset, representation, protocol_factory, factory_key, augmentation) 
+                for dataset, representation, protocol_factory, factory_key, augmentation in augmentation_experiment_iterator)
+    if args.ablation == "threshold":
+        run_threshold_experiments() # TODO: parallelize
     
