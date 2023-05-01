@@ -16,7 +16,7 @@ from Bio import SeqIO
 from EVE.EVE import VAE_model
 
 
-def generate_eve_latents(dataset: str, suffix: str):
+def generate_eve_latents(dataset: str, suffix: str, file_path: str="/home/pcq275/"):
     """Function to extract mean value of embedded protein sequence given trained EVE model
 
     Args:
@@ -25,8 +25,9 @@ def generate_eve_latents(dataset: str, suffix: str):
 
     """
     model_parameters_location = f"EVE/EVE/default_model_params.json"
-    VAE_checkpoint = f"models/EVE/{dataset}/{dataset}_{suffix}"
-    output_dir = f"embeddings/{dataset}/eve/{suffix}"
+    VAE_checkpoint = f"{file_path}mnt/eve_checkpoint/{dataset}_{suffix}"
+    output_dir = f"{file_path}protein_regression/data/files/embeddings/EVE_{dataset}_mean"
+    output_erda = f"{file_path}mnt/eve_results/EVE_{dataset}_mean"
     os.makedirs(output_dir, exist_ok=True)
     dataset_pickle = f"data/interim/{dataset}/{dataset}_EVE_preprocessed.pkl"
     # Load dataframe
