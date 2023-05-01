@@ -234,7 +234,7 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT, augme
     if desired_alphabet is not None and representation is not ONE_HOT:
         raise ValueError("Desired alphabet can only have a value when representation is one hot!")
     # Representation Loading
-    if representation is ONE_HOT:
+    if representation == ONE_HOT:
         X, Y = load_one_hot(name, desired_alphabet=desired_alphabet)
         X = numpy_one_hot_2dmat(X, max=len(get_alphabet(name)))
         # normalize by sequence length
