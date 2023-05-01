@@ -147,7 +147,7 @@ def load_esm(name: str) -> Tuple[np.ndarray, np.ndarray]:
 
 def load_eve(name):
     eve_df = __load_eve_df(name)
-    latent_z = eve_df['mean_latent_dim'].tolist()
+    latent_z = eve_df['mean_encoder'].tolist()
     Y = np.vstack(eve_df["assay"]) # select assay observations for which merged
     if len(latent_z) != len(Y):
         warnings.warn(f"no. EVE mutants {len(latent_z)} != no. observations {len(Y)}! \n Diff: {len(Y)-len(latent_z)} ...")
