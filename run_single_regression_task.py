@@ -176,6 +176,9 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
 
     # record experiments by dataset name and have the tags as logged parameters
     _experiment = mlflow.set_experiment(dataset)
+    tracking_path = os.path.dirname(os.path.abspath(__file__))+"/results/mlruns/"
+    print(f"Set experiment tracking path: {tracking_path}")
+    mlflow.set_tracking_uri(tracking_path)
     mlflow.start_run()
     mlflow.set_tags(tags)
 
