@@ -72,7 +72,7 @@ class GPonRealSpace(AbstractAlgorithm):
                         loss, grads = gpflow.optimizers.scipy._compute_loss_and_gradients(closure, variables)
                     return loss, cls.pack_tensors(grads)
                 if compile:
-                    _tf_eval = tf.function(_tf_eval)
+                    _tf_eval = tf.function(_tf_eval, reduce_retracing=True)
 
                 def _eval(x):
                     try:
