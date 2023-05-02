@@ -62,7 +62,7 @@ class GPonRealSpace(AbstractAlgorithm):
         if self.optimize:
             opt = Scipy()
             cls = opt
-            def eval_func(closure, variables, compile=True):
+            def eval_func(closure, variables, compile=True, allow_unused_variables=None):
                 def _tf_eval(x):
                     values = cls.unpack_tensors(variables, x)
                     cls.assign_tensors(variables, values)
