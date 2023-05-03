@@ -6,11 +6,11 @@ from sklearn.model_selection import cross_val_score
 from algorithms.abstract_algorithm import AbstractAlgorithm
 from skopt.space import Integer
 from skopt.utils import use_named_args
-from skopt import gp_minimize
+from skopt import gbrt_minimize
 
 
 class RandomForest(AbstractAlgorithm):
-    def __init__(self, optimize: bool=False, seed: int=42, opt_budget: int=12, persist_optimal_parameters: str=None):
+    def __init__(self, optimize: bool=False, seed: int=42, opt_budget: int=15, persist_optimal_parameters: str=None):
         self.model = None
         self.optimize = optimize
         self.seed = seed
@@ -31,10 +31,10 @@ class RandomForest(AbstractAlgorithm):
             @use_named_args(opt_space)
             def _opt_objective(**params):
                 self.model.set_params(**params)
-                return -np.mean(cross_val_score(self.model, X, Y, cv=3, n_jobs=-1, scoring="neg_mean_absolute_error", error_score="raise"))
+                return -np.mean(cross_val_score(self.model, X, Y, cv=3, n_jobs=1, scoring="neg_mean_absolute_error", error_score="raise"))
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                res_gp = gp_minimize(_opt_objective, opt_space, n_calls=self.opt_budget, random_state=self.seed)
+                res_gp = gbrt_minimize(_opt_objective, opt_space, n_calls=self.opt_budget, random_state=self.seed)
             self.optimal_parameters = res_gp.x
             print(f"Score: {res_gp.fun}")
             print(f"Parameters: N={res_gp.x[0]}")
