@@ -23,7 +23,6 @@ from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR, ME
 from util.preprocess import scale_observations
 from bound.pac_bayes_bound import alquier_bounded_regression
 from gpflow import kernels
-from gpflow.utilities import print_summary
 from visualization.plot_training import plot_prediction_CV
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 
@@ -74,9 +73,6 @@ def _run_regression_at_split(X, Y, train_indices, test_indices, split, method, d
         method._persist_id = f"{dataset}_{representation}_{protocol.get_name()}_{augmentation}_s{split}"
     # TRAIN MODEL:
     method.train(X_train, scaled_y)
-    ### DEBUG
-    print_summary(method)
-    ### END DEBUG
     # PREDICT:
     try:
         _mu, _unc = method.predict_f(X_test)
@@ -196,5 +192,5 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
     with mlflow.start_run() as run:
         mlflow.set_tags(tags)
         # run protocol for experiment in parallel
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor: # NOTE: the function, especially tensorflow optimize is NOT THREADSAFE max_workers=1 required atm.
             tqdm(executor.map(_run_regression_at_index_function_wrapper, range(0, len(train_indices))), total=len(range(0, len(train_indices))))
