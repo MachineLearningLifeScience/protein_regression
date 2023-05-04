@@ -53,6 +53,16 @@ def _run_regression_at_split(X, Y, train_indices, test_indices, split, method, d
     Y_train = Y[train_indices[split], :]
     X_test = X[test_indices[split], :]
     Y_test = Y[test_indices[split]]
+
+    ### DEBUG
+    print(f"split {split}")
+    print(X_train[:5])
+    print(Y_train[:5])
+    print(X_test[:5])
+    print(Y_test[:5])
+    quit()
+    ### END DEBUG
+
     # STANDARDIZE OBSERVATIONS ON TRAIN
     mean_y, std_y, scaled_y = scale_observations(Y_train.copy())
     if dim and X_train.shape[1] > dim:
