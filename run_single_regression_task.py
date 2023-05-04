@@ -12,7 +12,6 @@ from umap import UMAP
 import warnings
 from typing import Tuple
 from algorithm_factories import ALGORITHM_REGISTRY
-from algorithms.uncertain_rf import delayed
 from protocol_factories import PROTOCOL_REGISTRY
 from data import load_dataset, get_alphabet
 from data.train_test_split import AbstractTrainTestSplitter, BioSplitter, PositionSplitter, WeightedTaskSplitter
@@ -24,6 +23,7 @@ from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR, ME
 from util.preprocess import scale_observations
 from bound.pac_bayes_bound import alquier_bounded_regression
 from gpflow import kernels
+from gpflow.utilities import print_summary
 from visualization.plot_training import plot_prediction_CV
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 
@@ -54,14 +54,6 @@ def _run_regression_at_split(X, Y, train_indices, test_indices, split, method, d
     X_test = X[test_indices[split], :]
     Y_test = Y[test_indices[split]]
 
-    ### DEBUG
-    print(f"split {split}")
-    print(X_train[:5])
-    print(Y_train[:5])
-    print(X_test[:5])
-    print(Y_test[:5])
-    quit()
-    ### END DEBUG
 
     # STANDARDIZE OBSERVATIONS ON TRAIN
     mean_y, std_y, scaled_y = scale_observations(Y_train.copy())
@@ -82,6 +74,9 @@ def _run_regression_at_split(X, Y, train_indices, test_indices, split, method, d
         method._persist_id = f"{dataset}_{representation}_{protocol.get_name()}_{augmentation}_s{split}"
     # TRAIN MODEL:
     method.train(X_train, scaled_y)
+    ### DEBUG
+    print_summary(method)
+    ### END DEBUG
     # PREDICT:
     try:
         _mu, _unc = method.predict_f(X_test)
@@ -185,12 +180,6 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
             }
 
     # record experiments by dataset name and have the tags as logged parameters
-    _experiment = mlflow.set_experiment(dataset)
-    tracking_path = os.path.dirname(os.path.abspath(__file__))+"/results/mlruns/"
-    print(f"Set experiment tracking path: {tracking_path}")
-    mlflow.set_tracking_uri(tracking_path)
-    mlflow.start_run()
-    mlflow.set_tags(tags)
 
     def _run_regression_at_index_function_wrapper(idx: int):
         """
@@ -200,10 +189,12 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         """
         return _run_regression_at_split(X=X, Y=Y, train_indices=train_indices, test_indices=test_indices, split=idx, method=method, dim=dim, dim_reduction=dim_reduction, dataset=dataset, representation=representation, protocol=protocol, augmentation=augmentation)
 
-    # run protocol for experiment in parallel
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        tqdm(executor.map(_run_regression_at_index_function_wrapper, range(0, len(train_indices))), total=len(range(0, len(train_indices))))
-    # Parallel(n_jobs=-1)(delayed(_run_regression_at_split)(X=X, Y=Y, train_indices=train_indices, test_indices=test_indices, split=idx, method=method, dim=dim, dim_reduction=dim_reduction, dataset=dataset, representation=representation, protocol=protocol, augmentation=augmentation) 
-    #         for idx in tqdm(range(0, len(train_indices))))
-
-    mlflow.end_run()
+    _experiment = mlflow.set_experiment(dataset)
+    tracking_path = os.path.dirname(os.path.abspath(__file__))+"/results/mlruns/"
+    print(f"Set experiment tracking path: {tracking_path}")
+    mlflow.set_tracking_uri(tracking_path)
+    with mlflow.start_run() as run:
+        mlflow.set_tags(tags)
+        # run protocol for experiment in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            tqdm(executor.map(_run_regression_at_index_function_wrapper, range(0, len(train_indices))), total=len(range(0, len(train_indices))))
