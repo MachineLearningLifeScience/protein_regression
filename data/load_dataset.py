@@ -186,7 +186,7 @@ def __load_eve_df(name) -> Tuple[np.ndarray, np.ndarray]:
         name = "blat"
     if name == "BRCA":
         name = "brca_brct" # this is from deep sequence BRCA
-    eve_df = pd.read_csv(join(base_path, f"EVE_{name.upper()}_2000_samples.csv"))
+    eve_df = pd.read_csv(join(base_path, f"EVE_{name.upper()}_2000_samples.csv")).drop_duplicates()
     merged_df_eve_observations = pd.merge(observed_d, eve_df, on="mutations", validate="one_to_one")
     wt = merged_df_eve_observations[merged_df_eve_observations.mutations=="wt"]
     merged_df_eve_observations = merged_df_eve_observations.drop(index=wt.index) if wt is not None else merged_df_eve_observations
