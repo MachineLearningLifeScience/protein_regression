@@ -26,9 +26,11 @@ def filter_functional_variant_data_less_than(results_dict: dict, functional_thre
 
 def parse_baseline_mutation_observations(results_dict: dict, metric: callable=np.sum) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Parse mutation (test) observations  by its constituents (training).
-    Return test observations and associated added training observations.
-    This is only dependent on training/test data (irrespective of method+representation).
+    REFERENCE ADDITIVE BASELINE.
+    A multi-mutant is the combination of its constituents.
+        Parse mutation (test) observations  by its constituents (training).
+        Return test observations and associated added training observations.
+        This is only dependent on training/test data (irrespective of method+representation).
     Input: dict: results
     Output: Tuple: list summed training observations per k-1 mutations, list test observations.
     """
@@ -42,6 +44,8 @@ def parse_baseline_mutation_observations(results_dict: dict, metric: callable=np
         train_mutations = _dict.get(cv_split).get("train_mutation")
         training_observations = np.array(_dict.get(cv_split).get("train_trues"))
         flat_train_mutations = [("".join(_m), i) for i, _m in enumerate(train_mutations)]
+        assert len(train_mutations) == len(training_observations)
+        assert len(_dict.get(cv_split).get("test_mutation")) == len(_dict.get(cv_split).get("trues"))
         split_observations = []
         split_additive_values = []
         for test_mutation, test_val in zip(_dict.get(cv_split).get("test_mutation"), _dict.get(cv_split).get("trues")):
