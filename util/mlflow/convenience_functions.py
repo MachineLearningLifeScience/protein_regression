@@ -140,6 +140,8 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
                         filter_string += f" and tags.{SEED} = '{seed}'"
                     if threshold[0] and threshold[i]:
                         filter_string += f" and tags.{THRESHOLD} = '{threshold}'"
+                    # if optimize:
+                    #     filter_string += f" and tags.OPTIMIZE = 'True'"
                     exps = mlflow.tracking.MlflowClient().get_experiment_by_name(experiment_ids[i])
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY)
                     runs = runs[runs['status'] == 'FINISHED']
@@ -147,10 +149,10 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
                         runs = runs[runs['tags.DIM'].isnull()]
                     if not aug and f'tags.{AUGMENTATION}' in runs.columns:
                         runs = runs[runs['tags.AUGMENTATION']==str(aug)]
-                    if not threshold[0] and f'tags.{THRESHOLD}' in runs.columns:
-                        runs = runs[runs[f'tags.{THRESHOLD}'].isnull()]
+                    # if not threshold[0] and f'tags.{THRESHOLD}' in runs.columns: # TODO: test this!
+                    #     runs = runs[runs[f'tags.{THRESHOLD}'].isnull()]
                     # refine search, as query string does not allow for dim=None and we need very specific run
-                    runs = runs.iloc[:1]
+                    runs = runs.iloc[:1]  # get most recent result
                     assert len(runs) == 1 , rep+a+dataset+str(aug)
                     for id in runs['run_id'].to_list():
                         PATH = f"/Users/rcml/protein_regression/results/mlruns/{exps.experiment_id}/{id}" + "/" + "artifacts"

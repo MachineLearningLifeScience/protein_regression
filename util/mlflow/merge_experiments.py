@@ -1,4 +1,5 @@
 import os
+import shutil
 import yaml
 
 
@@ -29,8 +30,10 @@ def align_meta_files(mlflow_results_dir: str):
                 run_meta_file = yaml.safe_load(infile)
             try:
                 run_exp_id = run_meta_file.get("experiment_id")
-            except AttributeError:
-                continue # NOTE: case meta.yaml empty
+            except AttributeError: # NOTE: case meta.yaml empty
+                print(f"Error at {run_exp_id}/{run_dir} -> deleting...")
+                shutil.rmtree(mlflow_results_dir + os.sep + exp_dir + os.sep + run_dir)
+                continue
             if not run_exp_id == meta_exp_id:
                 change_cnt += 1
                 run_meta_file["experiment_id"] = meta_exp_id
@@ -42,6 +45,7 @@ def align_meta_files(mlflow_results_dir: str):
 
 
 if __name__ == "__main__":
+    # NOTE: THIS SCRIPT PRESUPPOSES THAT ALL FILES ARE IN ONE MLRUNS OUTPUT DIRECTORY
     # NOTE: if results have been copied from another source into this mlruns directory, check that all meta information aligns if the names are correct
     MLFLOW_DIRECTORY = "/Users/rcml/protein_regression/results/mlruns/"
     align_meta_files(MLFLOW_DIRECTORY)
