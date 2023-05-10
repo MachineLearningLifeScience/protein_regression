@@ -74,7 +74,7 @@ class Uncertain_RandomForestRegressor(RandomForestRegressor):
         y : ndarray of shape (n_samples,) or (n_samples, n_outputs)
             The predicted values.
         """
-        check_is_fitted(self)
+        check_is_fitted(self, attributes="estimators_")
         # Check data
         X = self._validate_X_predict(X)
 
@@ -96,8 +96,12 @@ class Uncertain_RandomForestRegressor(RandomForestRegressor):
             delayed(_accumulate_uncertain_prediction)(e.predict, X, [y_hat], [y_hat2], lock)
             for e in self.estimators_)
 
-        y_hat /= len(self.estimators_)
-        y_hat2 /= len(self.estimators_)
+        # y_hat /= len(self.estimators_)
+        # y_hat2 /= len(self.estimators_)
+        assert len(y_hat) == len(self.estimators_)
+        print(len(self.estimators_))
+        y_hat = np.divide(y_hat, len(self.estimators_))
+        y_hat2 = np.divide(y_hat2, len(self.estimators_))
         
         return y_hat, (y_hat2) - y_hat**2
 
@@ -134,7 +138,7 @@ class UncertainRandomForest(AbstractAlgorithm):
         model = Uncertain_RandomForestRegressor(
                     n_estimators=res_gp.x[0],
                     random_state=self.seed, 
-                    n_jobs=-1,
+                    n_jobs=1,
                     )
         return model
 
@@ -151,7 +155,7 @@ class UncertainRandomForest(AbstractAlgorithm):
                 self.model = Uncertain_RandomForestRegressor(
                     n_estimators=loaded_optimal_parameters.get("n_estimators"),
                     random_state=self.seed, 
-                    n_jobs=-1,
+                    n_jobs=1,
                     )
             else:
                 self.model = self._optimize_regressor(self, X, Y)
