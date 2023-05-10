@@ -19,7 +19,7 @@ from util.mlflow.constants import SPEARMAN_RHO, GP_L_VAR, OBSERVED_Y, STD_Y
 from util.mlflow.constants import RF_ESTIMATORS
 from util.mlflow.convenience_functions import get_mlflow_results_artifacts
 from algorithms import NUM_TRAINABLE_PARAMETERS
-from uncertainty_quantification.chi_squared import chi_squared_stat, reduced_chi_squared_stat
+from uncertainty_quantification.chi_squared import chi_squared_stat, reduced_chi_squared_stat, chi_squared_anees
 from uncertainty_quantification.confidence import quantile_and_oracle_errors
 from uncertainty_quantification.calibration import prep_reliability_diagram, confidence_based_calibration
 from visualization import representation_colors as rc
@@ -110,7 +110,7 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
     for d in metric_values.keys():
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
-    fig, axs = plt.subplots(n_prot, n_reps, figsize=(5*n_reps,5*n_prot)) #gridspec_kw={'height_ratios': [4, 1]})
+    fig, axs = plt.subplots(n_prot, n_reps, figsize=(4.5*n_reps,2.5*n_prot), squeeze=False) #gridspec_kw={'height_ratios': [4, 1]})
     algos = []
     for d, dataset_key in enumerate(metric_values.keys()):
         for i, algo in enumerate(metric_values[dataset_key].keys()):
@@ -121,12 +121,9 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
                     number_splits = len(list(metric_values[dataset_key][algo][rep][aug].keys()))
                     if algo not in algos:
                         algos.append(algo)
-                    if n_prot > 1:
-                        plt_idx = (d,j)
-                    else:
-                        plt_idx = j
+                    plt_idx = (d,j)
                     if j == 0: # first column annotate y-axis
-                        axs[plt_idx].set_ylabel(r'$\Chi^2$', size=12)
+                        axs[plt_idx].set_ylabel('Chi^2', size=12)
                     chis = []
                     for s in metric_values[dataset_key][algo][rep][aug].keys():
                         pred_var = np.array(metric_values[dataset_key][algo][rep][aug][s]['unc'])
@@ -136,25 +133,21 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
                             pred_var += np.sqrt(data_uncertainties*_scale_std)
                         y_true =  np.array(metric_values[dataset_key][algo][rep][aug][s]['trues'])
                         y_pred =  np.array(metric_values[dataset_key][algo][rep][aug][s]['pred'])
-                        if "RF" in algo.upper():
-                            num_parameters = metric_values[dataset_key][algo][rep][aug][s][RF_ESTIMATORS]
-                        else:
-                            num_parameters = NUM_TRAINABLE_PARAMETERS.get(algo) # theta fixed for kNN and GPs
-                        # chi = chi_squared_stat(y_true, y_pred, pred_var, num_parameters)
-                        # TODO: make error plot with std-error across CV splits
-                        reduced_chi = reduced_chi_squared_stat(y_true, y_pred, pred_var, num_parameters)
-                        # chis.append(chi)
-                        chis.append(reduced_chi)
-                    axs[plt_idx].plot(i, np.mean(chis), c=ac.get(algo), marker=am.get(algo), fillstyle='none', ms=8, lw=2, linestyle='-', label=algo)
-                    axs[plt_idx].hlines(1., 0, len(metric_values[dataset_key].keys()), linestyles='dotted', color='k', label='Perfect Calibration')
+                        standardized_chi = chi_squared_anees(y_true, y_pred, pred_var) / (len(y_true)-1) # NOTE: unbiased standardize: chi^2 * 1/(N-1)
+                        chis.append(standardized_chi)
+                    yerr = np.std(chis) / np.sqrt(len(chis)) # NOTE: std. error across CV splits
+                    axs[plt_idx].errorbar(i, np.mean(chis), yerr=yerr, c=ac.get(algo), marker="D", fillstyle='full', ms=12, lw=2, linestyle='-', capsize=1., label=algo)
+                    axs[plt_idx].hlines(1., 0, len(metric_values[dataset_key].keys()), linestyles='dotted', color='k', label='Perfect Calibration', linewidths=2.5)
+                    axs[plt_idx].fill_between(np.arange(0, len(metric_values[dataset_key].keys())+0.125), 0.5, 1.5, alpha=0.0125, color="k")
                     axs[plt_idx].set_title(rep, fontsize=20)
-                    #axs[plt_idx].set_xlabel('percentile', size=12)
+                    axs[plt_idx].set_yscale("log")
+                    axs[plt_idx].set_ylim((10e-2, 10e2))
+                    axs[plt_idx].yaxis.set_tick_params(labelsize=14)
+                    axs[plt_idx].grid(color="k", alpha=0.125, which="both", linestyle="--")
                     # align text in pairs of two around curves: upper left two, lower right two
     handles, labels = axs[plt_idx].get_legend_handles_labels()
     fig.legend(handles, labels, loc='lower right', ncol=len(algos)+1, prop={'size': 14})
-    plt.suptitle(f"{str(dataset)} X**2 Stat. Split: {cvtype}", fontsize=22)
-    plt.xticks(size=14)
-    plt.yticks(size=14)
+    plt.suptitle(f"{str(dataset)} Chi squ. (standardized) Stat. Split: {cvtype}", fontsize=22)
     plt.tight_layout()
     plt.savefig(filename+".png")
     plt.savefig(filename+".pdf")
@@ -175,7 +168,7 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     for d in metric_values.keys():
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
-    fig, axs = plt.subplots(n_prot, n_reps, figsize=(5*n_reps,5*n_prot)) #gridspec_kw={'height_ratios': [4, 1]})
+    fig, axs = plt.subplots(n_prot*2, n_reps, figsize=(5*n_reps,5*n_prot), squeeze=False) #gridspec_kw={'height_ratios': [4, 1]})
     algos = []
     for d, dataset_key in enumerate(metric_values.keys()):
         for i, algo in enumerate(metric_values[dataset_key].keys()):
@@ -186,10 +179,7 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     number_splits = len(list(metric_values[dataset_key][algo][rep][aug].keys()))
                     if algo not in algos:
                         algos.append(algo)
-                    if n_prot > 1:
-                        plt_idx = (d,j)
-                    else:
-                        plt_idx = j
+                    plt_idx = (d,j)
                     if j == 0: # first column annotate y-axis
                         axs[plt_idx].set_ylabel('confidence', size=12)
                         axs[plt_idx].set_ylabel('confidence', size=12)
@@ -224,11 +214,11 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     axs[plt_idx].plot(perc, count, c=ac.get(algo), marker=am.get(algo), fillstyle='none', ms=8, lw=2, linestyle='-', label=algo)
                     axs[plt_idx].plot(perc, perc, ls=':', color='k', label='Perfect Calibration')
                     axs[plt_idx].set_title(rep, fontsize=20)
-                    #axs[1, j].hist(uncertainties, 100, label=f"{algo}; {rep}", alpha=0.7, color=ac.get(algo))
+                    axs[d+1, j].hist(uncertainties, 100, label=f"{algo}; {rep}", alpha=0.7, color=ac.get(algo))
                     if nan_count != 0.:
                         axs[plt_idx].text(1.0, count[-1]-i/10, f"*{int(nan_count)} failed", fontsize=12, c=ac.get(algo))
                     axs[plt_idx].set_xlabel('percentile', size=12)
-                    #axs[1, j].set_xlabel('std', size=12)
+                    axs[d+1, j].set_xlabel('pred. unc.', size=12)
                     # align text in pairs of two around curves: upper left two, lower right two
                     axs[plt_idx].text((0.05+0.55*(i//2)), 0.9-(0.2*i)-(0.3*(i//2)), f"ECE={np.round(ece_mean,3)}\nsharp={np.round(sharpness_mean,3)}",
                                     fontsize=12, bbox=dict(facecolor=ac.get(algo), alpha=0.2))
@@ -409,7 +399,7 @@ def multi_dim_confidencecurve(metric_values: dict, number_quantiles: int, cvtype
 
 def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str], 
                         train_test_splitter,  augmentations: str = [NO_AUGMENT], number_quantiles: int = 10, 
-                        optimize: bool=True, d: int=None, dim_reduction: str=None, metrics: str=[GP_L_VAR, STD_Y, RF_ESTIMATORS],
+                        optimize: bool=True, d: int=None, dim_reduction: str=None, metrics: str=[GP_L_VAR, STD_Y, RF_ESTIMATORS, ],
                         cached_results: bool=False, confidence_plot: bool=False):
     filename = f"./results/cache/results_calibration_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={train_test_splitter.get_name()}.pkl"
     if cached_results and os.path.exists(filename):
