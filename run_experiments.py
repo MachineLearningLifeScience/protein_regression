@@ -1,6 +1,6 @@
 import argparse
+from typing import List
 from itertools import product
-from turtle import delay
 from joblib import Parallel, delayed
 from algorithm_factories import GPMaternFactory, get_key_for_factory, UncertainRFFactory, GPSEFactory, GPLinearFactory, KNNFactory, RandomForestFactory
 from algorithm_factories import GMMFactory#, GPMOFactory
@@ -12,20 +12,18 @@ from util.mlflow.constants import LINEAR, NON_LINEAR, VAE_DENSITY, VAE_RAND, EVE
 from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 
 
-datasets = ["MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
-# datasets = ["TOXI"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
-representations = [TRANSFORMER, ONE_HOT, ESM, EVE, EVE_DENSITY] # VAE_AUX, VAE_RAND, TRANSFORMER, VAE, ONE_HOT, ESM, EVE, VAE_AUX EXTRA 1D rep: VAE_DENSITY
+datasets = ["MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
+representations = [TRANSFORMER, ESM, EVE, EVE_DENSITY, ONE_HOT] # VAE_AUX, VAE_RAND, TRANSFORMER, VAE, ONE_HOT, ESM, EVE, VAE_AUX EXTRA 1D rep: VAE_DENSITY
 MOCK = False
 # Protocols: RandomSplitterFactory, BlockSplitterFactory, PositionalSplitterFactory, BioSplitterFactory, FractionalSplitterFactory
-protocol_factories = [RandomSplitterFactory, PositionalSplitterFactory, FractionalSplitterFactory]
-# protocol_factories = [FractionalSplitterFactory]
-# protocol_factories = [BioSplitterFactory("TOXI", 1, 1), BioSplitterFactory("TOXI", 1, 2), BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4)]
-# [BioSplitterFactory("TOXI", 1, 2), BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4)]:
+protocol_factories = [RandomSplitterFactory, PositionalSplitterFactory] # TODO: FractionalSplitterFactory
+# protocol_factories = [BioSplitterFactory("TOXI", 1, 1), BioSplitterFactory("TOXI", 1, 2), BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4), BioSplitterFactory("TOXI", 4, 4)]
 
 # Methods: # KNNFactory, RandomForestFactory, UncertainRFFactory, GPSEFactory, GPLinearFactory, GPMaternFactory
 method_factories = [get_key_for_factory(f) for f in [KNNFactory, RandomForestFactory, GPSEFactory, GPLinearFactory, GPMaternFactory]] # TODO: run UncertainRFF after RF parameters have been obtained
 
 experiment_iterator = product(datasets, representations, protocol_factories, method_factories)
+
 def run_experiments(dataset, representation, protocol_factory, factory_key):
     # for dataset, representation, protocol_factory, factory_key in experiment_iterator:
     protocol_factory = protocol_factory(dataset) if type(protocol_factory) != list else protocol_factory
@@ -75,24 +73,32 @@ def run_threshold_experiments():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Experiment Specifications")
-    parser.add_argument("-d", "--data", type=str, choices=datasets, help="Dataset identifier")
-    parser.add_argument("-r", "--representation", type=str, choices=representations, help="Representation of data identifier")
-    parser.add_argument("-p", "--protocol", type=int, help="Index for Protocol from list [Random, Positional, Fractional]")
-    parser.add_argument("-m", "--method_key", type=str, choices=method_factories, help="Method identifier")
+    parser.add_argument("-d", "--data", type=str, default=datasets, choices=datasets, help="Dataset identifier")
+    parser.add_argument("-r", "--representation", type=str, default=representations, choices=representations, help="Representation of data identifier")
+    parser.add_argument("-p", "--protocol", type=int, default=list(range(len(protocol_factories))), help="Index for Protocol from list [Random, Positional, Fractional]")
+    parser.add_argument("-m", "--method_key", type=str, default=method_factories, choices=method_factories, help="Method identifier")
     parser.add_argument("--ablation", type=str, default=None, choices=["dim-reduction", "augmentation", "threshold"], help="Specify if ablation should be run")
     args = parser.parse_args()
 
-    run_experiments(dataset=args.data, representation=args.representation, protocol_factory=protocol_factories[args.protocol], factory_key=args.method_key)
-    # Parallel(n_jobs=-1)(delayed(run_experiments)(dataset, representation, protocol_factory, factory_key) 
-    #         for dataset, representation, protocol_factory, factory_key in experiment_iterator)
+    # MAIN EXPERIMENT
+    if not any([isinstance(param,list) for param in [args.data, args.representation, args.protocol, args.method_key]]): # if parameters are passed correctly:
+        run_experiments(dataset=args.data, representation=args.representation, protocol_factory=protocol_factories[args.protocol], factory_key=args.method_key)
+    else: # per default iterate over everything
+        data = args.data if isinstance(args.data, list) else [args.data]
+        rep = args.representation if isinstance(args.representation, list) else [args.representation]
+        protocol_idx = args.protocol if isinstance(args.protocol, list) else [args.protocol]
+        method = args.method_key if isinstance(args.method_key, list) else [args.method_key]
+        param_iterator = product(data, rep, protocol_idx, method)
+        for d, r, p_idx, m in param_iterator:
+            run_experiments(dataset=d, representation=r, protocol_factory=protocol_factories[p_idx], factory_key=m)
 
     # ABLATION STUDIES: (dim-reduction, augmentation, threshold)
     if args.ablation == "dim_reduction":
-        Parallel(n_jobs=-1)(delayed(run_dim_reduction_experiments)(dataset, representation, protocol_factory, factory_key, dim_reduction, dim) 
-                for dataset, representation, protocol_factory, factory_key, dim_reduction, dim in dim_reduction_experiment_iterator)
+        for dataset, representation, protocol_factory, factory_key, dim_reduction, dim in dim_reduction_experiment_iterator:
+            run_dim_reduction_experiments(dataset, representation, protocol_factory, factory_key, dim_reduction, dim) 
     if args.ablation == "augmentation":
-        Parallel(n_jobs=-1)(delayed(run_augmentation_experiments)(dataset, representation, protocol_factory, factory_key, augmentation) 
-                for dataset, representation, protocol_factory, factory_key, augmentation in augmentation_experiment_iterator)
+        for dataset, representation, protocol_factory, factory_key, augmentation in augmentation_experiment_iterator:
+            run_augmentation_experiments(dataset, representation, protocol_factory, factory_key, augmentation) 
     if args.ablation == "threshold":
         run_threshold_experiments() # TODO: parallelize
     
