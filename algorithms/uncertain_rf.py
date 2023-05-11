@@ -121,14 +121,14 @@ class UncertainRandomForest(AbstractAlgorithm):
     def _optimize_regressor(self, X, Y) -> Uncertain_RandomForestRegressor:
         # NOTE: use RF Regressor for optimize, to avoid parallel processing inconsistencies from predict
         # NOTE: RF and UncertainRF are fundamentally the same, except for predict function, after training
-        model = RandomForestRegressor(random_state=self.seed, n_jobs=-1)  # use all processors
+        self.model = RandomForestRegressor(random_state=self.seed, n_jobs=-1)  # use all processors
         opt_space = [
             Integer(2, 3000, name="n_estimators"),
         ]
         @use_named_args(opt_space)
         def _opt_objective(**params):
             self.model.set_params(**params) # NOTE: Optimization cannot be multi-threaded 
-            return -np.mean(cross_val_score(model, X, Y, cv=3, n_jobs=-1, scoring="neg_mean_absolute_error", error_score="raise")) # TODO: multithreading fails
+            return -np.mean(cross_val_score(self.model, X, Y.ravel(), cv=3, n_jobs=-1, scoring="neg_mean_absolute_error", error_score="raise")) # TODO: multithreading fails
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             res_gp = gp_minimize(_opt_objective, opt_space, n_calls=self.opt_budget, random_state=self.seed)
@@ -158,7 +158,7 @@ class UncertainRandomForest(AbstractAlgorithm):
                     n_jobs=1,
                     )
             else:
-                self.model = self._optimize_regressor(self, X, Y)
+                self.model = self._optimize_regressor(X, Y)
         else:
             self.model = Uncertain_RandomForestRegressor(random_state=self.seed, n_jobs=1)
         self.model.fit(X, Y.ravel())
