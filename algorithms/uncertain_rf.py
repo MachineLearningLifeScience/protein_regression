@@ -98,7 +98,6 @@ class Uncertain_RandomForestRegressor(RandomForestRegressor):
 
         # y_hat /= len(self.estimators_)
         # y_hat2 /= len(self.estimators_)
-        assert len(y_hat) == len(self.estimators_)
         print(len(self.estimators_))
         y_hat = np.divide(y_hat, len(self.estimators_))
         y_hat2 = np.divide(y_hat2, len(self.estimators_))
