@@ -20,7 +20,7 @@ protocol_factories = [RandomSplitterFactory, PositionalSplitterFactory] # TODO: 
 # protocol_factories = [BioSplitterFactory("TOXI", 1, 1), BioSplitterFactory("TOXI", 1, 2), BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4), BioSplitterFactory("TOXI", 4, 4)]
 
 # Methods: # KNNFactory, RandomForestFactory, UncertainRFFactory, GPSEFactory, GPLinearFactory, GPMaternFactory
-method_factories = [get_key_for_factory(f) for f in [KNNFactory, RandomForestFactory, GPSEFactory, GPLinearFactory, GPMaternFactory]] # TODO: run UncertainRFF after RF parameters have been obtained
+method_factories = [get_key_for_factory(f) for f in [KNNFactory, RandomForestFactory, GPSEFactory, GPLinearFactory, GPMaternFactory, UncertainRFFactory]] # NOTE: run UncertainRFF after RF parameters have been obtained
 
 experiment_iterator = product(datasets, representations, protocol_factories, method_factories)
 
