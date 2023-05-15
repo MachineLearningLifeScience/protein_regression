@@ -33,6 +33,7 @@ def plot_reduced_representations_all_datasets(datasets: Tuple[str, ...], represe
     }
     font = {'fontname': 'DejaVu Sans', 'fontsize': 40}
 
+    # Exact figure size might need tweaking
     fig, ax = plt.subplots(2, len(datasets) * 2, figsize=((len(datasets) + 2)*5, 8))
 
     for i, dataset in enumerate(datasets):
