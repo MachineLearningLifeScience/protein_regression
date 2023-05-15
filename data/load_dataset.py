@@ -14,6 +14,14 @@ from util.mlflow.constants import VAE_DENSITY, VAE_AUX, VAE_RAND, EVE_DENSITY, R
 base_path = join(dirname(__file__), "files")
 
 
+def get_mutation_diff(seq_x: np.ndarray, seq_y: np.ndarray) -> int:
+    """
+    compute the number of positions different between two label-encoded arrays.
+    """
+    diff = np.sum((seq_x - seq_y) != 0)
+    return diff
+
+
 def load_one_hot(name: str, desired_alphabet=None) -> Tuple[np.ndarray, np.ndarray]:
     """
     Load OneHot encoding and observations for input name protein.

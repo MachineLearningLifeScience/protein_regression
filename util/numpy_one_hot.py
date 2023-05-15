@@ -2,7 +2,7 @@ import numpy as np
 
 
 def numpy_one_hot(X: np.ndarray, max: int) -> np.ndarray:
-    Z = np.zeros([X.shape[0], X.shape[1], max], dtype=np.float)
+    Z = np.zeros([X.shape[0], X.shape[1], max], dtype=float)
     ids = np.arange(X.shape[1])
     for j in range(0, X.shape[0]):
         Z[j, ids, X[j, :]] = 1.
@@ -21,7 +21,7 @@ def numpy_one_hot_or_zero(X: np.ndarray, max: int, special_char: int) -> np.ndar
     :param special_char:
     :return:
     """
-    Z = np.zeros([X.shape[0], X.shape[1], max], dtype=np.float)
+    Z = np.zeros([X.shape[0], X.shape[1], max], dtype=float)
     ids_ = np.arange(X.shape[1])
     for j in range(0, X.shape[0]):
         ids = np.setdiff1d(ids_, np.where(X[j, :] == special_char))
