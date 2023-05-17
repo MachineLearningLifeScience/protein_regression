@@ -25,6 +25,7 @@ from uncertainty_quantification.calibration import prep_reliability_diagram, con
 from visualization import representation_colors as rc
 from visualization import algorithm_colors as ac
 from visualization import algorithm_markers as am
+from util.mlflow.constants import ESM, EVE, ONE_HOT, TRANSFORMER, EVE_DENSITY
 
 # MLFLOW CODE ONLY WORKS WITH THE BELOW LINE:
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
@@ -106,11 +107,18 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
     """
     filename = f'results/figures/uncertainties/Xi_squared_{cvtype}_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}{dim_reduction}'
     algos = []
+    name_dict = {
+        ONE_HOT: "One-Hot",
+        EVE: "EVE",
+        TRANSFORMER: "ProtBert",
+        ESM: "ESM",
+    }
+    font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
     n_prot = len(metric_values.keys())
     for d in metric_values.keys():
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
-    fig, axs = plt.subplots(n_prot, n_reps, figsize=(4.5*n_reps,2.5*n_prot), squeeze=False) #gridspec_kw={'height_ratios': [4, 1]})
+    fig, axs = plt.subplots(n_prot, n_reps, figsize=(5*n_reps,2.5*n_prot + 1), squeeze=False, sharey="row") #gridspec_kw={'height_ratios': [4, 1]})
     algos = []
     for d, dataset_key in enumerate(metric_values.keys()):
         for i, algo in enumerate(metric_values[dataset_key].keys()):
@@ -123,7 +131,8 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
                         algos.append(algo)
                     plt_idx = (d,j)
                     if j == 0: # first column annotate y-axis
-                        axs[plt_idx].set_ylabel('Chi^2', size=12)
+                        axs[plt_idx].set_ylabel(r'$\mathbf{\chi^2}$', **font_kwargs)
+                        axs[plt_idx].yaxis.set_label_coords(-.225, .5, transform=axs[plt_idx].transAxes)
                     chis = []
                     for s in metric_values[dataset_key][algo][rep][aug].keys():
                         pred_var = np.array(metric_values[dataset_key][algo][rep][aug][s]['unc'])
@@ -139,16 +148,19 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
                     axs[plt_idx].errorbar(i, np.mean(chis), yerr=yerr, c=ac.get(algo), marker="D", fillstyle='full', ms=12, lw=2, linestyle='-', capsize=1., label=algo)
                     axs[plt_idx].hlines(1., 0, len(metric_values[dataset_key].keys()), linestyles='dotted', color='k', label='Perfect Calibration', linewidths=2.5)
                     axs[plt_idx].fill_between(np.arange(0, len(metric_values[dataset_key].keys())+0.125), 0.5, 1.5, alpha=0.0125, color="k")
-                    axs[plt_idx].set_title(rep, fontsize=20)
+                    axs[plt_idx].set_title(name_dict[rep], **font_kwargs)
                     axs[plt_idx].set_yscale("log")
                     axs[plt_idx].set_ylim((10e-2, 10e2))
                     axs[plt_idx].yaxis.set_tick_params(labelsize=14)
                     axs[plt_idx].grid(color="k", alpha=0.125, which="both", linestyle="--")
+                    axs[plt_idx].set_xticks([])
+
                     # align text in pairs of two around curves: upper left two, lower right two
-    handles, labels = axs[plt_idx].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='lower right', ncol=len(algos)+1, prop={'size': 14})
-    plt.suptitle(f"{str(dataset)} Chi squ. (standardized) Stat. Split: {cvtype}", fontsize=22)
+    # plt.suptitle(f"{str(dataset)} Chi squ. (standardized) Stat. Split: {cvtype}", fontsize=22)
     plt.tight_layout()
+    handles, labels = axs[plt_idx].get_legend_handles_labels()
+    fig.legend(handles[(len(algos)-1):], labels[(len(algos)-1):], loc='lower center', ncol=len(algos)+1, prop={'size': 14})
+    plt.subplots_adjust(wspace=0.1, left=0.075, right=0.975, bottom=0.2)
     plt.savefig(filename+".png")
     plt.savefig(filename+".pdf")
     plt.show()
@@ -410,7 +422,7 @@ def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str]
                                                     dim=d, dim_reduction=dim_reduction, optimize=optimize)
         with open(filename, "wb") as outfile:
             pickle.dump(results_dict, outfile)
-    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    # reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
     chi_square_fig(results_dict, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
     if confidence_plot:
         confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
