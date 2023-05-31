@@ -4,6 +4,7 @@ from numpy import ndarray, hstack
 from algorithms import AbstractAlgorithm
 from data import get_wildtype_and_offset, load_dataset
 from data import get_alphabet
+from data.load_dataset import load_one_hot
 from util.mlflow.constants import ONE_HOT
 
 
@@ -41,10 +42,10 @@ def prep_for_mutation(dataset: str, test_idx:np.ndarray):
     Return list of mutations in test-datset.
     """
     wt, offset = get_wildtype_and_offset(dataset)
-    X, _ = load_dataset(dataset, representation=ONE_HOT)
+    ref_X, _ = load_one_hot(dataset)
     alphabet = {v: k for k, v in get_alphabet(dataset).items()}
     mutations = []
-    for seq in X[test_idx,:]:
+    for seq in ref_X[test_idx,:]:
         m_idx = np.where(seq!=wt)[0]
         from_aa, to_aa = wt[m_idx], seq[m_idx]
         mutations.append(["".join([alphabet.get(wt_aa), str(idx+1+offset), alphabet.get(m_aa)]) # adjust for +1 offset from zero index
