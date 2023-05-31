@@ -46,6 +46,7 @@ def align_meta_files(mlflow_results_dir: str):
 
 if __name__ == "__main__":
     # NOTE: THIS SCRIPT PRESUPPOSES THAT ALL FILES ARE IN ONE MLRUNS OUTPUT DIRECTORY
+    # NOTE: IT IS REQUIRED THAT THE EXPERIMENT DIR DO NOT CONTAIN meta.yaml FILES, ONLY THE INDIVIDUAL OUTPUT DIRECTORIES
     # NOTE: if results have been copied from another source into this mlruns directory, check that all meta information aligns if the names are correct
     MLFLOW_DIRECTORY = "/Users/rcml/protein_regression/results/mlruns/"
     align_meta_files(MLFLOW_DIRECTORY)

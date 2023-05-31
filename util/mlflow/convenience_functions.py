@@ -15,7 +15,6 @@ from typing import List, Tuple
 
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 
-
 def make_experiment_name_from_tags(tags: dict) -> str:
     return "".join([t + "_" + tags[t] + "__" for t in tags.keys()])
 
