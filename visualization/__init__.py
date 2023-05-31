@@ -5,7 +5,9 @@ from algorithms import GPonRealSpace, RandomForest, KNN, UncertainRandomForest
 from visualization.plot_metric_for_mixtures import plot_metric_for_mixtures
 from visualization.plot_metric_for_mixtures import plot_metric_against_threshold
 
-colorscheme = ['dimgrey', '#661100', '#332288', '#054709',  "#126160", "crimson", "darkblue", "darkmagenta", "dimgray"]
+colorscheme = ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A", "#19D3F3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52"]
+
+#colorscheme = ['dimgrey', '#661100', '#332288', '#054709',  "#126160", "crimson", "darkblue", "darkmagenta", "dimgray"]
 
 colorscheme_alternate = ['purple', 'chocolate', 'lightgreen', 'indigo', 'orange', 'darkblue', 'cyan', 'olive', 'brown', 'pink', 'darkred', 'dimgray', 'blue', 'darkorange', 'k', 'lightblue', 'green']
 
@@ -14,13 +16,14 @@ representation_colors = {ONE_HOT: colorscheme[0],
             VAE_AUX: colorscheme[2],
             TRANSFORMER: colorscheme[3],
             ESM: colorscheme[4],
-            EVE_DENSITY: colorscheme[5],}
+            EVE_DENSITY: colorscheme[5],
+            "additive": colorscheme[6]}
 
 
-task_colors = {"RandomSplitter": colorscheme[-1],
-            "PositionSplitter_p15": colorscheme[-2],
-            "Fractional": colorscheme[-3],
-            "Optimization": colorscheme[-4]}
+task_colors = {"RandomSplitter": colorscheme[0],
+            "PositionSplitter_p15": colorscheme[1],
+            "Fractional": colorscheme[2],
+            "Optimization": colorscheme[3]}
 
 
 representation_markers = {ONE_HOT: "o",
