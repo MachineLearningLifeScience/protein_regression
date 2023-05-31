@@ -34,12 +34,17 @@ def reduced_chi_squared_stat(y: np.array, y_pred: np.array, var_pred: np.array, 
     return chi / v
 
 
-def chi_squared_anees(y: np.array, y_pred: np.ndarray, var_pred: np.ndarray) -> float:
+def chi_squared_anees(y: np.array, y_pred: np.ndarray, var_pred: np.ndarray, eps=0.0001) -> float:
     """
     See: https://probnum-evaluation.readthedocs.io/en/latest/_modules/probnumeval/multivariate/_calibration_measures.html#anees
     """
     cov = np.diag(var_pred) # NOTE: not all off-diagonal / cov. matrices are available for all methods. Assumption: independence.
     centered_mean = y_pred - y
-    L, lower = scipy.linalg.cho_factor(cov, lower=True)
-    normalized_discrepancies = centered_mean @ scipy.linalg.cho_solve((L, lower), centered_mean)
+    try:
+        L, lower = scipy.linalg.cho_factor(cov, lower=True)
+        normalized_discrepancies = centered_mean @ scipy.linalg.cho_solve((L, lower), centered_mean)
+    except np.linalg.LinAlgError:
+        cov = cov + np.diag(np.repeat(eps, cov.shape[0])) # add epsilon for p.d.
+        L, lower = scipy.linalg.cho_factor(cov, lower=True)
+        normalized_discrepancies = centered_mean @ scipy.linalg.cho_solve((L, lower), centered_mean)
     return np.mean(normalized_discrepancies)
