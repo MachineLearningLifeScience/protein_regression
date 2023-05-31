@@ -16,7 +16,7 @@ from util.mlflow.constants import NO_AUGMENT, ROSETTA, TRANSFORMER, VAE, VAE_RAN
 from util.mlflow.constants import SPLIT, ONE_HOT, ESM, NONSENSE, KNN_name, VAE_DENSITY
 from visualization.plot_metric_for_uncertainties import plot_uncertainty_eval, plot_uncertainty_eval_across_dimensions
 
-datasets = ["1FQG"] #, "UBQT"] # 1FQG, UBQT, CALM
+datasets = ["1FQG"] # 1FQG, UBQT, CALM
 # datasets = ["TOXI"]
 # train_test_splitter = BioSplitter(datasets[0], 3, 4) # BlockPostionSplitter # PositionSplitter # RandomSplitter # BlockPostionSplitter # BioSplitter
 
@@ -36,15 +36,49 @@ cached_results = True
 
 if __name__ == "__main__":
         ### MAKE UNCERTAIN PLOTS RANDOMSPLITTER
-        plot_uncertainty_eval(datasets=datasets, reps=reps,
+        # plot_uncertainty_eval(datasets=datasets, reps=reps,
+        #                   algos=algos, train_test_splitter=RandomSplitter(datasets[0]),
+        #                   augmentations = augmentations, number_quantiles=number_quantiles, optimize=True,
+        #                   d=d, dim_reduction=None, cached_results=cached_results)
+        # ### MAKE UNCERTAIN PLOTS POSITIONSPLITTER
+        # plot_uncertainty_eval(datasets=datasets, reps=reps,
+        #                   algos=algos, train_test_splitter=PositionSplitter(datasets[0]), 
+        #                   augmentations = augmentations, number_quantiles=number_quantiles, optimize=True, 
+        #                   d=d, dim_reduction=None, cached_results=cached_results)
+        ##########
+        #### SUPPLEMENTARY:
+        for dataset in ["UBQT", "TIMB", "MTH3", "BRCA"]:
+                plot_uncertainty_eval(datasets=[dataset], reps=reps,
                           algos=algos, train_test_splitter=RandomSplitter(datasets[0]),
                           augmentations = augmentations, number_quantiles=number_quantiles, optimize=True,
                           d=d, dim_reduction=None, cached_results=cached_results)
-        ### MAKE UNCERTAIN PLOTS POSITIONSPLITTER
-        plot_uncertainty_eval(datasets=datasets, reps=reps,
+        # MAKE UNCERTAIN PLOTS POSITIONSPLITTER
+        for dataset in ["UBQT", "TIMB", "MTH3", "BRCA"]:
+                plot_uncertainty_eval(datasets=[dataset], reps=reps,
                           algos=algos, train_test_splitter=PositionSplitter(datasets[0]), 
                           augmentations = augmentations, number_quantiles=number_quantiles, optimize=True, 
                           d=d, dim_reduction=None, cached_results=cached_results)
+        ### SI: UNCERTAINTIES TOXI
+        # plot_uncertainty_eval(datasets=["TOXI"], reps=reps,
+        #                   algos=algos, train_test_splitter=BioSplitter("TOXI", 1, 2),
+        #                   augmentations = augmentations, number_quantiles=number_quantiles, optimize=True,
+        #                   d=d, dim_reduction=None, cached_results=cached_results)
+        # plot_uncertainty_eval(datasets=["TOXI"], reps=reps,
+        #                   algos=algos, train_test_splitter=BioSplitter("TOXI", 2, 2),
+        #                   augmentations = augmentations, number_quantiles=number_quantiles, optimize=True,
+        #                   d=d, dim_reduction=None, cached_results=cached_results)
+        # plot_uncertainty_eval(datasets=["TOXI"], reps=reps,
+        #                   algos=algos, train_test_splitter=BioSplitter("TOXI", 2, 3),
+        #                   augmentations = augmentations, number_quantiles=number_quantiles, optimize=True,
+        #                   d=d, dim_reduction=None, cached_results=cached_results)
+        # plot_uncertainty_eval(datasets=["TOXI"], reps=reps,
+        #                   algos=algos, train_test_splitter=BioSplitter("TOXI", 3, 3),
+        #                   augmentations = augmentations, number_quantiles=number_quantiles, optimize=True,
+        #                   d=d, dim_reduction=None, cached_results=cached_results)
+        # plot_uncertainty_eval(datasets=["TOXI"], reps=reps,
+        #                   algos=algos, train_test_splitter=BioSplitter("TOXI", 3, 4),
+        #                   augmentations = augmentations, number_quantiles=number_quantiles, optimize=True,
+        #                   d=d, dim_reduction=None, cached_results=cached_results)
         # ### MAKE UNCERTAIN PLOTS ACROSS DIMENSIONS
         # plot_uncertainty_eval_across_dimensions(datasets=datasets, reps=reps,
         #                   algos=algos, train_test_splitter=RandomSplitter(datasets[0]),

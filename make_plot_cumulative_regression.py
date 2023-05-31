@@ -1,4 +1,5 @@
-import mlflow
+import os
+import pickle
 import numpy as np
 from gpflow.kernels import SquaredExponential, Matern52
 from mlflow.entities import ViewType
@@ -24,18 +25,28 @@ def plot_cumulative_comparison(datasets: List[str],
                             train_test_splitters,
                             dimension=None,
                             dim_reduction=None,
-                            threshold: float=None):
-    results_dict = {}
-    for frac, splitter in zip(testing_fractions, train_test_splitters):
-        splitter_dict = get_mlflow_results_artifacts(datasets=datasets, algos=algos, reps=reps, 
-                                                metrics=metrics, train_test_splitter=splitter, dim=dimension, 
-                                                dim_reduction=dim_reduction, threshold=threshold)
-        results_dict[frac] = splitter_dict
+                            threshold: float=None,
+                            cached_results: bool=False):
+    # TODO: refactor
+    cached_filename = f"/Users/rcml/protein_regression/results/cache/results_cumulative_split_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={'_'.join([s.get_name()[:5] for s in train_test_splitters[:5]])}.pkl"
+    if cached_results and os.path.exists(cached_filename):
+        with open(cached_filename, "rb") as infile:
+            results_dict = pickle.load(infile)
+    else:
+        results_dict = {}
+        for frac, splitter in zip(testing_fractions, train_test_splitters):
+            splitter_dict = get_mlflow_results_artifacts(datasets=datasets, algos=algos, reps=reps, 
+                                                    metrics=metrics, train_test_splitter=splitter, dim=dimension, 
+                                                    dim_reduction=dim_reduction, threshold=threshold)
+            results_dict[frac] = splitter_dict
+        if cached_results:
+            with open(cached_filename, "wb") as outfile:
+                pickle.dump(results_dict, outfile, protocol=pickle.HIGHEST_PROTOCOL)
     cumulative_performance_plot(results_dict, threshold=threshold)
 
 
 if __name__ == "__main__":
-    datasets = ["UBQT"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
+    datasets = ["1FQG", "CALM", "BRCA", "UBQT", "MTH3", "TIMB"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
     thresholds = [None] # [0.] # 
     algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(), 
         #GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), 
@@ -50,4 +61,4 @@ if __name__ == "__main__":
     for rep in representations:    
         plot_cumulative_comparison(datasets=datasets, algos=algos, metrics=metrics, reps=[rep], 
                             train_test_splitters=train_test_splitters, dimension=dim,
-                            dim_reduction=dim_reduction, threshold=thresholds)
+                            dim_reduction=dim_reduction, threshold=thresholds, cached_results=True)

@@ -99,10 +99,10 @@ def plot_optimization_results(datasets: List[str], algos: List[str], representat
         meanObs_dict[datasets[0]][AT_RANDOM] = random_meanObs_dict[datasets[0]].get(AT_RANDOM)
         lastObs_dict[datasets[0]][AT_RANDOM] = random_lastObs_dict[datasets[0]].get(AT_RANDOM)
 
-        plot_optimization_task(metric_values=minObs_dict, name=f'Best_observed_{representation}_{datasets}')
-        plot_optimization_task(metric_values=regret_dict, name=f'Regret_{representation}_{datasets}')
-        plot_optimization_task(metric_values=meanObs_dict, name=f'Mean_observed_{representation}_{datasets}')
-        plot_optimization_task(metric_values=lastObs_dict, name=f'Last_observed_{representation}_{datasets}', legend=True)
+        plot_optimization_task(metric_values=minObs_dict, name=f'Best_observed', representation=representation, dataset=datasets)
+        plot_optimization_task(metric_values=regret_dict, name=f'Regret', representation=representation, dataset=datasets)
+        plot_optimization_task(metric_values=meanObs_dict, name=f'Mean_observed', representation=representation, dataset=datasets)
+        plot_optimization_task(metric_values=lastObs_dict, name=f'Last_observed', representation=representation, dataset=datasets, legend=True)
 
         if plot_calibration:
             plot_uncertainty_optimization(dataset=datasets[0], algos=algos, rep=representation, seeds=seeds, number_quantiles=10, 
@@ -122,6 +122,11 @@ if __name__ == "__main__":
             GPonRealSpace(kernel_factory=lambda: Linear()).get_name(), 
             UncertainRandomForest().get_name()]
 
-    plot_optimization_results(datasets, algos, representations, seeds, reference_benchmark_rep, plot_calibration=plot_calibration)
+    # plot_optimization_results(datasets, algos, representations, seeds, reference_benchmark_rep, plot_calibration=plot_calibration,
+    #                         cached_results=True)
+
+    ### SI:
+    plot_optimization_results(["1FQG"], algos, representations, seeds, reference_benchmark_rep, plot_calibration=plot_calibration,
+                            cached_results=True) # TODO: UBQT rep: EVE missing!
         
     
