@@ -95,7 +95,6 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
 
 def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None) -> None:
     plot_heading = f'Comparison of Algoritms and Representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
-    filename = 'results/figures/benchmark/'+f'BAR_accuracy_{metric}_methods_{x_axis}'
     if color_by.lower() not in ["algo", "rep", "task"]:
         warn("Misspecified color-scheme. Defaulting to color by algorithm.")
         color_by = "algo"
@@ -106,6 +105,7 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
     datasets = list(metric_values[splitters[0]])
     methods = list(metric_values[splitters[0]][datasets[0]])
     representations = list(metric_values[splitters[0]][datasets[0]][methods[0]])
+    filename = 'results/figures/benchmark/'+f'BAR_accuracy_{metric}_methods_{x_axis}_{"_".join(datasets)}_{"_".join(methods)}_{"_".join(representations)}'
     font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
     if x_axis == "rep":
         n_cols = len(representations)*len(splitters)
