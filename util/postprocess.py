@@ -5,23 +5,60 @@ from typing import Tuple
 
 def filter_functional_variant_data_less_than(results_dict: dict, functional_thresholds: list) -> dict:
     """
-    In experimental setup observations are inverted, thus functional candidates are less equal to threshold
+    Routine to filter recorded observations by functional thresholds w.r.t. true observations.
+    In experimental setup the observations are inverted, thus functional candidates are less equal to threshold
     """
-    functional_observations = {protocol: {
-                                prot: {
-                                    method: {
-                                        rep: {
-                                            None: {
-                                            cv_split: {
-                                                'trues': [val for val in split_val.get('trues') if val <= f_threshold], 
-                                                'mse': [val for true_val, val in zip(split_val.get('trues'), split_val.get('mse')) if true_val <= f_threshold],
-                                                'pred': [val for true_val, val in zip(split_val.get('trues'), split_val.get('pred')) if true_val <= f_threshold]
-                                    } for cv_split, split_val in rep_val.get(None).items()}
-                                } for rep, rep_val in method_val.items()
-                        } for method, method_val in prot_val.items()
-                    } for (prot, prot_val), f_threshold in zip(protocol_val.items(), functional_thresholds) # one threshold value per Protein
-                } for protocol, protocol_val in results_dict.items()}
-    return functional_observations
+    ref_func_obs = {}
+    for protocol, protocol_val in results_dict.items():
+        ref_func_obs[protocol] = {}
+        for (prot, prot_val), f_threshold in zip(protocol_val.items(), functional_thresholds):
+            ref_func_obs[protocol][prot] = {}
+            for method, method_val in prot_val.items():
+                ref_func_obs[protocol][prot][method] = {}
+                for rep, rep_val in method_val.items():
+                    ref_func_obs[protocol][prot][method][rep] = {}
+                    for cv_split, split_val in rep_val.get(None).items():
+                        ref_func_obs[protocol][prot][method][rep][None] = {}
+                        true_vals = []
+                        pred_vals = []
+                        for true_val, pred_val in zip(split_val.get('trues'), split_val.get('pred')):
+                            if true_val <= f_threshold:
+                                true_vals.append(true_val)
+                                pred_vals.append(pred_val)
+                        train_vals = []
+                        for train_val in split_val.get('train_trues'):
+                            if train_val <= f_threshold:
+                                train_vals.append(train_val)
+                        filtered_obs_dict = {'trues': true_vals, 'pred': pred_vals, 'train_trues': train_vals}
+                        ref_func_obs[protocol][prot][method][rep][None][cv_split] = filtered_obs_dict
+    return ref_func_obs
+
+
+def filter_functional_variant_data_greater_than(results_dict: dict, functional_thresholds: list) -> dict:
+    ref_func_obs = {}
+    for protocol, protocol_val in results_dict.items():
+        ref_func_obs[protocol] = {}
+        for (prot, prot_val), f_threshold in zip(protocol_val.items(), functional_thresholds):
+            ref_func_obs[protocol][prot] = {}
+            for method, method_val in prot_val.items():
+                ref_func_obs[protocol][prot][method] = {}
+                for rep, rep_val in method_val.items():
+                    ref_func_obs[protocol][prot][method][rep] = {}
+                    for cv_split, split_val in rep_val.get(None).items():
+                        ref_func_obs[protocol][prot][method][rep][None] = {}
+                        true_vals = []
+                        pred_vals = []
+                        for true_val, pred_val in zip(split_val.get('trues'), split_val.get('pred')):
+                            if true_val > f_threshold:
+                                true_vals.append(true_val)
+                                pred_vals.append(pred_val)
+                        train_vals = []
+                        for train_val in split_val.get('train_trues'):
+                            if train_val > f_threshold:
+                                train_vals.append(train_val)
+                        filtered_obs_dict = {'trues': true_vals, 'pred': pred_vals, 'train_trues': train_vals}
+                        ref_func_obs[protocol][prot][method][rep][None][cv_split] = filtered_obs_dict
+    return ref_func_obs
 
 
 def parse_baseline_mutation_observations(results_dict: dict, metric: callable=np.sum) -> Tuple[np.ndarray, np.ndarray]:
@@ -40,6 +77,7 @@ def parse_baseline_mutation_observations(results_dict: dict, metric: callable=np
     _dict = results_dict.get(proteins[0]).get(methods[0]).get(representations[0]).get(None)
     additive_training_values = []
     true_observations = []
+    train_trues = []
     for cv_split in _dict.keys():
         train_mutations = _dict.get(cv_split).get("train_mutation")
         training_observations = np.array(_dict.get(cv_split).get("train_trues"))
@@ -68,5 +106,6 @@ def parse_baseline_mutation_observations(results_dict: dict, metric: callable=np
                     split_additive_values.append(metric(training_observations[idx]))
         assert len(split_additive_values) == len(split_observations)
         true_observations.append(split_observations)
-        additive_training_values.append(split_additive_values)       
-    return np.array(additive_training_values), np.array(true_observations)
+        additive_training_values.append(split_additive_values)
+        train_trues.append(training_observations)       
+    return np.array(additive_training_values), np.array(true_observations), np.array(train_trues)
