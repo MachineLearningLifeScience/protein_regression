@@ -31,10 +31,17 @@ def plot_reduced_representations_all_datasets(datasets: Tuple[str, ...], represe
         TRANSFORMER: "ProtBert",
         ESM: "ESM",
     }
-    font = {'fontname': 'DejaVu Sans', 'fontsize': 40}
+    dataset_key_map = {
+        "1FQG": f"{chr(946)}-lactamase",
+        "UBQT": "Ubiquitin",
+        "TIMB": "TIM-Barrel",
+        "MTH3": "MTH3",
+        "BRCA": "BRCA",
+    }
+    font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
 
     # Exact figure size might need tweaking
-    fig, ax = plt.subplots(2, len(datasets) * 2, figsize=((len(datasets) + 2)*5, 8))
+    fig, ax = plt.subplots(4, len(datasets), figsize=(20, 10))
 
     for i, dataset in enumerate(datasets):
         umap_path = Path("results", "cache", f"{dataset}_representations.csv")
@@ -52,24 +59,24 @@ def plot_reduced_representations_all_datasets(datasets: Tuple[str, ...], represe
         else:
             df = pd.read_csv(umap_path, index_col=0)
 
+        df["median"] = (df["target"] > df["target"].median()).astype(int)
+
         # Plot in 2x2 blocks
-        ax_i = ax[:, (i*2):(i*2+2)]
         for j, representation in enumerate(representations):
-            ax_ij = ax_i.flatten()[j]
-            df_sub = df[df["representation"] == representation].sort_values(by="target", ascending=True)
+            ax_ij = ax[j, i]
+            df_sub = df[df["representation"] == representation]
             sns.scatterplot(
                 data=df_sub,
                 x="x",
                 y="y",
-                hue="target",
+                hue="median",
                 ax=ax_ij,
                 s=50,
                 alpha=0.75,
                 edgecolor="none",
-                palette="magma",
+                palette=["#636EFA", "#FFA15A"],
                 legend=False,
             )
-            ax_ij.set_title(name_dict[representation], **font)
             # Clean up axes
             ax_ij.tick_params(
                 bottom=False,
@@ -79,11 +86,19 @@ def plot_reduced_representations_all_datasets(datasets: Tuple[str, ...], represe
                 labelright=False,
                 left=False,
             )
+            if i == 0:
+                ax_ij.set_ylabel(name_dict[representation], **font_kwargs)
+                ax_ij.yaxis.set_label_coords(-.275, .5, transform=ax_ij.transAxes)
+            else:
+                ax_ij.set_ylabel("")
+
+            if j == 0:
+                ax_ij.set_title(dataset_key_map[dataset], **font_kwargs)
             ax_ij.set_xlabel("")
-            ax_ij.set_ylabel("")
             ax_ij.spines[['right', 'top']].set_visible(False)
 
     plt.tight_layout()
+    plt.subplots_adjust(wspace=0.15, left=0.075, right=0.975)
     plt.savefig(f"./results/figures/representations/all_datasets_UMAP.pdf")
     plt.savefig(f"./results/figures/representations/all_datasets_UMAP.png")
     plt.show()
