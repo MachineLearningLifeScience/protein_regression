@@ -25,6 +25,7 @@ from uncertainty_quantification.calibration import prep_reliability_diagram, con
 from visualization import representation_colors as rc
 from visualization import algorithm_colors as ac
 from visualization import algorithm_markers as am
+from util.postprocess import filter_functional_variant_data_less_than
 from util.mlflow.constants import ESM, EVE, ONE_HOT, TRANSFORMER, EVE_DENSITY
 
 # MLFLOW CODE ONLY WORKS WITH THE BELOW LINE:
@@ -114,11 +115,12 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
         ESM: "ESM",
     }
     font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
+    font_kwargs_small = {'family': 'Arial', 'fontsize': 16, "weight": 'bold'}
     n_prot = len(metric_values.keys())
     for d in metric_values.keys():
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
-    fig, axs = plt.subplots(n_prot, n_reps, figsize=(5*n_reps,2.5*n_prot + 1), squeeze=False, sharey="row") #gridspec_kw={'height_ratios': [4, 1]})
+    fig, axs = plt.subplots(n_prot, n_reps, figsize=(4.75*n_reps,2.5*n_prot + 1), squeeze=False, sharey="row") #gridspec_kw={'height_ratios': [4, 1]})
     algos = []
     for d, dataset_key in enumerate(metric_values.keys()):
         for i, algo in enumerate(metric_values[dataset_key].keys()):
@@ -145,13 +147,16 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
                         standardized_chi = chi_squared_anees(y_true, y_pred, pred_var) / (len(y_true)-1) # NOTE: unbiased standardize: chi^2 * 1/(N-1)
                         chis.append(standardized_chi)
                     yerr = np.std(chis) / np.sqrt(len(chis)) # NOTE: std. error across CV splits
-                    axs[plt_idx].errorbar(i, np.mean(chis), yerr=yerr, c=ac.get(algo), marker="D", fillstyle='full', ms=12, lw=2, linestyle='-', capsize=1., label=algo)
-                    axs[plt_idx].hlines(1., 0, len(metric_values[dataset_key].keys()), linestyles='dotted', color='k', label='Perfect Calibration', linewidths=2.5)
-                    axs[plt_idx].fill_between(np.arange(0, len(metric_values[dataset_key].keys())+0.125), 0.5, 1.5, alpha=0.0125, color="k")
+                    axs[plt_idx].errorbar(i, np.mean(chis), yerr=yerr, c=ac.get(algo), marker="D", fillstyle='full', ms=12, lw=2, linestyle='-', capsize=4., label=algo)
+                    # if np.mean(chis) > 10e2:
+                    #     axs[plt_idx].text(i-0.2, 575, f"{np.round(np.mean(chis),2)}", color=ac.get(algo), **font_kwargs_small)
+                    axs[plt_idx].hlines(1., -0.26, len(metric_values[dataset_key].keys())-0.0125, linestyles='dotted', color='k', label='Perfect Calibration', linewidths=2.5)
+                    axs[plt_idx].fill_between(np.arange(-0.26, len(metric_values[dataset_key].keys())+0.0125), 0.5, 1.5, alpha=0.0125, color="k")
                     axs[plt_idx].set_title(name_dict[rep], **font_kwargs)
                     axs[plt_idx].set_yscale("log")
-                    axs[plt_idx].set_ylim((10e-2, 10e2))
-                    axs[plt_idx].yaxis.set_tick_params(labelsize=14)
+                    axs[plt_idx].set_ylim((10e-4, 10e4))
+                    axs[plt_idx].set_xlim((-0.24, float(len(metric_values[dataset_key].keys())-0.5)))
+                    axs[plt_idx].yaxis.set_tick_params(labelsize=20)
                     axs[plt_idx].grid(color="k", alpha=0.125, which="both", linestyle="--")
                     axs[plt_idx].set_xticks([])
 
@@ -177,15 +182,28 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     filename = f'results/figures/uncertainties/{cvtype}_reliabilitydiagram_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}{dim_reduction}'
     algos = []
     n_prot = len(metric_values.keys())
+    header_dict = {"1FQG": r"$\beta$-Lactamase", "UBQT": "Ubiquitin", 
+                "TOXI": "ParD-Antitoxin",
+                "TIMB": "TIM-Barrel", 
+                "MTH3": "MTH3", 
+                "BRCA": "BRCA"}
+    cv_names_dict = {"RandomSplitter": "Random CV", 
+                    "PositionSplitter_p15": "Position CV",
+                    "BioSplitter1_2": r"1M $\rightarrow$ 2M",
+                    "BioSplitter2_2": r"2M $\rightarrow$ 2M",
+                    "BioSplitter2_3": r"2M $\rightarrow$ 3M",
+                    "BioSplitter3_3": r"3M $\rightarrow$ 3M",
+                    "BioSplitter3_4": r"3M $\rightarrow$ 4M",
+                    }
+    font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
+    font_kwargs_small = {'family': 'Arial', 'fontsize': 18, "weight": 'bold'}
     for d in metric_values.keys():
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
     fig, axs = plt.subplots(n_prot*2, n_reps, figsize=(5*n_reps,5*n_prot), squeeze=False) #gridspec_kw={'height_ratios': [4, 1]})
     algos = []
     for d, dataset_key in enumerate(metric_values.keys()):
-        for i, algo in enumerate(metric_values[dataset_key].keys()):
-            if algo not in algos:
-                algos.append(algo)      
+        for i, algo in enumerate(metric_values[dataset_key].keys()):     
             for j, rep in enumerate(metric_values[dataset_key][algo].keys()):
                 for aug in metric_values[dataset_key][algo][rep].keys():
                     number_splits = len(list(metric_values[dataset_key][algo][rep][aug].keys()))
@@ -193,8 +211,8 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                         algos.append(algo)
                     plt_idx = (d,j)
                     if j == 0: # first column annotate y-axis
-                        axs[plt_idx].set_ylabel('confidence', size=12)
-                        axs[plt_idx].set_ylabel('confidence', size=12)
+                        axs[plt_idx].set_ylabel('confidence', **font_kwargs_small)
+                        axs[plt_idx].set_ylabel('confidence', **font_kwargs_small)
                     count = []
                     uncertainties_list = [] # point of investigation
                     ece = []
@@ -217,27 +235,31 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                         uncertainties_list.append(np.array(uncertainties))
                         ece.append(e)
                         sharpness.append(s)
-                    count = np.mean(np.vstack(count), axis=0)
-                    uncertainties = np.concatenate(uncertainties_list)
-                    ece_mean = np.mean(ece)
-                    ece_err = np.std(ece) / np.sqrt(number_splits)
-                    sharpness_mean = np.mean(sharpness)
-                    sharpness_err = np.std(sharpness) / np.sqrt(number_splits)
+                    try:
+                        count = np.mean(np.vstack(count), axis=0)
+                        uncertainties = np.concatenate(uncertainties_list)
+                    except ValueError:
+                        print(f"Missing values for {algo} at {rep}.")
+                        continue
+                    #ece_mean = np.mean(ece)
+                    #ece_err = np.std(ece) / np.sqrt(number_splits)
+                    #sharpness_mean = np.mean(sharpness)
+                    #sharpness_err = np.std(sharpness) / np.sqrt(number_splits)
                     axs[plt_idx].plot(perc, count, c=ac.get(algo), marker=am.get(algo), fillstyle='none', ms=8, lw=2, linestyle='-', label=algo)
-                    axs[plt_idx].plot(perc, perc, ls=':', color='k', label='Perfect Calibration')
-                    axs[plt_idx].set_title(rep, fontsize=20)
+                    axs[plt_idx].plot(perc, perc, ls=':', color='k',) # label='Perfect Calibration'
+                    axs[plt_idx].set_title(rep, **font_kwargs)
                     axs[d+1, j].hist(uncertainties, 100, label=f"{algo}; {rep}", alpha=0.7, color=ac.get(algo))
-                    if nan_count != 0.:
-                        axs[plt_idx].text(1.0, count[-1]-i/10, f"*{int(nan_count)} failed", fontsize=12, c=ac.get(algo))
-                    axs[plt_idx].set_xlabel('percentile', size=12)
-                    axs[d+1, j].set_xlabel('pred. unc.', size=12)
-                    # align text in pairs of two around curves: upper left two, lower right two
-                    axs[plt_idx].text((0.05+0.55*(i//2)), 0.9-(0.2*i)-(0.3*(i//2)), f"ECE={np.round(ece_mean,3)}\nsharp={np.round(sharpness_mean,3)}",
-                                    fontsize=12, bbox=dict(facecolor=ac.get(algo), alpha=0.2))
+                    # if nan_count != 0.:
+                    #     axs[plt_idx].text(1.0, count[-1]-i/10, f"*{int(nan_count)} failed", fontsize=12, c=ac.get(algo))
+                    axs[plt_idx].set_xlabel('percentile', **font_kwargs_small)
+                    axs[d+1, j].set_xlabel('pred. unc.', **font_kwargs_small)
+                    # # align text in pairs of two around curves: upper left two, lower right two
+                    # axs[plt_idx].text((0.05+0.55*(i//2)), 0.9-(0.2*i)-(0.3*(i//2)), f"ECE={np.round(ece_mean,3)}\nsharp={np.round(sharpness_mean,3)}",
+                    #                 fontsize=12, bbox=dict(facecolor=ac.get(algo), alpha=0.2))
                     axs[plt_idx].set_xlim(0, 1.)
     handles, labels = axs[plt_idx].get_legend_handles_labels()
     fig.legend(handles, labels, loc='lower right', ncol=len(algos)+1, prop={'size': 14})
-    plt.suptitle(f"{str(dataset)} Calibration Split: {cvtype}", fontsize=22)
+    plt.suptitle(f"{header_dict.get(dataset[0])} {cv_names_dict.get(cvtype)}", **font_kwargs)
     plt.xticks(size=14)
     plt.yticks(size=14)
     plt.tight_layout()
@@ -422,7 +444,7 @@ def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str]
                                                     dim=d, dim_reduction=dim_reduction, optimize=optimize)
         with open(filename, "wb") as outfile:
             pickle.dump(results_dict, outfile)
-    # reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
     chi_square_fig(results_dict, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
     if confidence_plot:
         confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)

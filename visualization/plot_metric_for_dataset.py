@@ -6,6 +6,7 @@ from itertools import product
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 import matplotlib.patches as mpatches
 from matplotlib.transforms import Affine2D
 from sklearn.metrics import mean_squared_error
@@ -21,6 +22,13 @@ from visualization import task_colors as tc
 from util.mlflow.constants import GP_L_VAR, LINEAR, VAE, EVE, VAE_DENSITY, ONE_HOT, EVE_DENSITY
 from util.mlflow.constants import MLL, MSE, SPEARMAN_RHO, PAC_BAYES_EPS, STD_Y, PAC_BAYES_EPS
 from util.postprocess import filter_functional_variant_data_less_than
+from util.postprocess import filter_functional_variant_data_greater_than
+
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "Helvetica",
+    "font.family": "sans-serif",
+})
 
 
 def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
@@ -93,9 +101,12 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.show()
 
 
-def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None) -> None:
-    plot_heading = f'Comparison of Algoritms and Representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
+def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None, vline=True, legend=True, n_quantiles=4) -> None:
+    # plot_heading = f'Comparison of Algoritms and Representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
     filename = 'results/figures/benchmark/'+f'BAR_accuracy_{metric}_methods_{x_axis}'
+    font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
+    font_kwargs_small = {'family': 'Arial', 'fontsize': 18, "weight": 'bold'}
+    header_dict = {"1FQG": r"$\beta$-Lactamase", "UBQT": "Ubiquitin"}
     if color_by.lower() not in ["algo", "rep", "task"]:
         warn("Misspecified color-scheme. Defaulting to color by algorithm.")
         color_by = "algo"
@@ -112,7 +123,7 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
         n_cols = len(methods)*len(splitters)
     else:
         n_cols = len(splitters)
-    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*4, 5))
+    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*4.1, 4))
     axs = np.ravel(ax)
     labels = []
     column_spacing = 4
@@ -130,37 +141,51 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
                         label = splitter
                     if label not in labels:
                         labels.append(label)
-                    mean, std_err = _compute_metric_results(metric_values[splitter][dataset_key][algo][rep][augmentation][metric], metric=metric)
-                    mean = mean[::-1] # NOTE: flip mean: to report last quantile of fractional/optimization splits first
-                    std_err = std_err[::-1] # NOTE: flip std-err: report last quantiles first
+                    mean, std_err = _compute_metric_results(metric_values[splitter][dataset_key][algo][rep][augmentation][metric], metric=metric, n_quantiles=n_quantiles)
+                    mean = mean
+                    std_err = std_err
                     selected_color = ac.get(algo) if color_by.lower() == "algo" else rc.get(rep) 
                     if x_axis == "task":
                         selected_color = tc.get(splitter)
-                    selected_marker = am.get(algo) if color_by.lower() == "algo" else rm.get(rep)
                     for k, (_m, _std_err) in enumerate(zip(mean, std_err)):
-                        axs[d].bar(seps[idx]+k*0.45, _m, yerr=_std_err, color=selected_color, ecolor="black",
-                                    capsize=3, label=label+str(len(mean)-k)) # NOTE: label reversed mean of quantiles
+                        axs[d].bar(seps[idx]+k*0.45, _m, yerr=_std_err, color=selected_color, ecolor="black", edgecolor="black", linewidth=2.,
+                                    capsize=3, label=label+str(len(mean)-k), alpha=1/mean.shape[-1]) # NOTE: label reversed mean of quantiles
                     idx += 1
-        axs[d].axvline((seps[int(len(seps)/2)-1]+seps[int(len(seps)/2)])/2, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.5)
+        if vline:
+            axs[d].axvline((seps[int(len(seps)/2)-1]+seps[int(len(seps)/2)])/2, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.75)
         axs[d].axhline(0, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.5)
         axs[d].axhline(0.5, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
         axs[d].axhline(0.75, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
         axs[d].axhline(0.25, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
         axs[d].axhline(-0.25, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
         axs[d].set_xticks(seps)
-        tick_labels = [label + "_" + splitter for splitter, label in product(splitters, labels)] if x_axis.lower() in ["rep", "algo"] else labels
+        if x_axis.lower() in ["rep", "algo"]:
+            tick_labels = [label + "_" + splitter for splitter, label in product(splitters, labels)] 
+        elif x_axis.lower() == "task":
+            tick_labels = [l.replace("Splitter", "CV").replace("_p15", " ") for l in labels]
+        else:
+            tick_labels = labels
         assert len(seps) == len(tick_labels)
-        axs[d].set_xticklabels(tick_labels, size=12, rotation=90)
-        axs[d].set_ylim((-0.251, 1.01))
+        axs[d].set_xticklabels(tick_labels, rotation=45, **font_kwargs_small)
+        axs[d].xaxis.set_label_coords(-1., .5, transform=axs[d].transAxes)
+        axs[d].set_ylim((-0.01, 1.01))
         axs[d].set_xlim((seps[0]-0.75, seps[-1]+0.75+k*0.45))
         axs[d].tick_params(axis='y', which='both', labelsize=22)
-        axs[d].set_title(dataset_key, size=25)
-        metric_label = "1-NMSE" if metric == MSE else SPEARMAN_RHO
-        axs[d].set_ylabel(metric_label, size=25)
-    handles, labels = axs[-1].get_legend_handles_labels()
-    fig.legend(handles[:len(labels)], labels[:len(labels)], loc='lower right', ncol=len(labels), prop={'size': 14})
-    plt.suptitle(plot_heading, size=12)
-    #plt.tight_layout()
+        axs[d].set_title(header_dict.get(dataset_key), **font_kwargs)
+        # yticklabels = axs[d].get_yticklabels()
+        # axs[d].set_yticklabels(yticklabels, **font_kwargs_small)
+        if metric == MSE:
+            metric_label = r"R$^2$"
+        elif metric == SPEARMAN_RHO:
+            metric_label = r"spearman $\rho$" 
+        else:
+            metric_label = metric
+        axs[d].set_ylabel(metric_label, **font_kwargs)
+    if legend:
+        handles, labels = axs[-1].get_legend_handles_labels()
+        fig.legend(handles[:len(labels)], labels[:len(labels)], loc='lower right', ncol=len(labels), prop={'size': 14})
+    plt.tight_layout()
+    plt.subplots_adjust(wspace=0.33, left=0.115, right=0.965, bottom=0.27, top=0.9)
     plt.savefig(filename+".png")
     plt.savefig(filename+".pdf")
     plt.show()
@@ -175,14 +200,17 @@ def _compute_metric_results(metric_result_list, metric: str, n_quantiles=3):
         std_err = np.std(obs, ddof=1, axis=1)/np.sqrt(obs.shape[1]) # std-error on metric across splits/seeds
         if n_quantiles: # in quantiles across all observations
             quantile_len = obs.shape[0]//n_quantiles
-            mu = np.mean([mu[i:(i+quantile_len)] for i in range(n_quantiles)], axis=1) # mean across quantiles
-            std_err = np.mean([std_err[i:(i+quantile_len)] for i in range(n_quantiles)], axis=1) # std err. across quantiles
+            mu = np.mean([mu[i*quantile_len:(i*quantile_len+quantile_len)] for i in range(n_quantiles)], axis=1) # mean across quantiles
+            std_err = np.mean([std_err[i*quantile_len:(i*quantile_len+quantile_len)] for i in range(n_quantiles)], axis=1) # std err. across quantiles
+        else: # base case, no quantiles
+            mu = np.mean(mu)
+            std_err = np.mean(std_err)
     else:
-        mu = np.array([np.mean(obs)])
-        std_err = np.array([np.std(obs, ddof=1)/np.sqrt(len(obs))]) # std-error on metric
+        mu = np.mean(obs)
+        std_err = np.std(obs, ddof=1)/np.sqrt(len(obs)) # std-error on metric
     if metric == MSE: # case 1-NMSE, works for both 1D and 2D case
         mu = 1-mu
-    return mu, std_err
+    return np.array([mu]), np.array([std_err])
 
 
 def _compute_missing_reference(df, observation_column):
@@ -369,16 +397,27 @@ def threshold_metric_comparison(metric_values: dict, metric: str, datasets: List
     plt.show()
 
 
-def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, dim=None, datasets: List[str]=["TOXI"], thresholds=None, N_combinations=[], t=-0.5):
+def pointplot_mutation_comparison(metric_values: dict, x_metric: str, y_metric: str):
+    plot_title = f"Mutation Comparison \n {x_metric} against {y_metric} across domains"
+
+
+def barplot_metric_mutation_comparison(metric_values: dict, metric: str, datasets: List[str], t: float, equality=">", dim=None):
     """
     Figure for mutation plotting for TOXI data
     """
-    plot_heading = f'Comparison MUTATION splitting \n d={dim}; t={thresholds}, scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
-    filename = 'results/figures/benchmark/'+f'accuracy_{metric}_of_methods_barplot_d={dim}_t={thresholds}'+str(list(metric_values.keys()))
+    plot_heading = f'Comparison MUTATION splitting \n d={dim}; t={t} {equality} \n {str(list(metric_values.keys()))}'
+    filename = 'results/figures/benchmark/'+f'accuracy_{metric}_of_methods_barplot_d={dim}_t={t}{equality}'+str(list(metric_values.keys()))
+    if t: # filter to functional values and keep values <= t
+        if equality == "<": # keep values less than threshold
+            metric_values = filter_functional_variant_data_less_than(results_dict=metric_values, functional_thresholds=[t])
+        elif equality == ">": # keep values larger than threshold
+            metric_values = filter_functional_variant_data_greater_than(results_dict=metric_values, functional_thresholds=[t])
+        else:
+            raise ValueError(f"Specified threshold {t} misspecified equality {equality}!")
     splits = list(metric_values.keys())
     methods = list(metric_values.get(splits[0]).get(datasets[0]).keys())
     representations = list(metric_values[splits[0]][datasets[0]][methods[0]].keys())
-    fig, ax = plt.subplots(len(datasets)*2, len(methods), figsize=(len(methods)*6,6.5), squeeze=False)
+    fig, ax = plt.subplots(len(datasets), len(methods), figsize=(len(methods)*6,4), squeeze=False)
     reps = []
     previous_split_keys = []
     n_reps = len(representations)
@@ -392,36 +431,34 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, di
             testing_variants = []
             for j, splitter_key in enumerate(splits):
                 seps = np.linspace(-width*n_reps*len(splits), width*n_reps*len(splits), n_reps*len(splits))
-                # for each split compute proportionality
-                n_train = len(metric_values[splitter_key][dataset][algo][representations[0]][None][0].get('train_trues'))
-                n_test = len(metric_values[splitter_key][dataset][algo][representations[0]][None][0].get('trues'))
-                mean_train = np.mean(metric_values[splitter_key][dataset][algo][representations[0]][None][0].get('train_trues'))
-                mean_test = np.mean(metric_values[splitter_key][dataset][algo][representations[0]][None][0].get('trues'))
-                pred_mean = np.mean(metric_values[splitter_key][dataset][algo][representations[0]][None][0].get('pred'))
-                train_threshold_bool = np.array(metric_values[splitter_key][dataset][algo][representations[0]][None][0].get('train_trues')) < t
-                test_threshold_bool = np.array(metric_values[splitter_key][dataset][algo][representations[0]][None][0].get('trues')) < t
-                pred_threshold_bool = np.array(metric_values[splitter_key][dataset][algo][representations[0]][None][0].get('pred')) < t
                 for k, rep in enumerate(representations):
                     _results_dict = metric_values[splitter_key][dataset][algo][rep][None]
                     if not _results_dict:
                         continue
                     if k==0 and rep != "additive": # collect how many elements in training and test set
-                        testing_variants.append(len(_results_dict[0]['trues']))
-                        if 'train_trues' in _results_dict[0].keys():
-                            training_variants.append(len(_results_dict[0]['train_trues']))
+                        testing_variants.append(len(_results_dict[list(_results_dict.keys())[0]]['trues']))
+                        if 'train_trues' in _results_dict[list(_results_dict.keys())[0]].keys():
+                            training_variants.append(len(_results_dict[list(_results_dict.keys())[0]]['train_trues']))
                     k+=j*len(representations)
                     if rep not in reps and "density" not in rep:
                         reps.append(rep)
                     metric_per_split = []
                     for split in _results_dict.keys():
-                        if rep != 'additive' and k != 0:
-                            mean_y = _results_dict[split].get('mean_y_train')
-                        if metric == MSE: # Make 1-NMSE => R2
+                        if metric == "comparative_NMSE":
+                            if j == 0: # compute one baseline for first split, and use this for all MSE computations
+                                ref_baseline_mean = np.mean(_results_dict[split].get('train_trues'))
+                                ref_baseline_truth = _results_dict[split].get('trues')
+                                ref_baseline = np.mean(np.square(ref_baseline_truth - np.repeat(ref_baseline_mean, len(ref_baseline_truth)).reshape(-1,1)))
+                            mse_val = mean_squared_error(_results_dict[split]['trues'], _results_dict[split]['pred'])
+                            metric_per_split.append(1-mse_val/ref_baseline)
+                        elif metric == MSE: # Make 1-NMSE => R2
+                            mean_y = np.mean(_results_dict[split].get('train_trues'))
+                            baseline = np.mean(np.square(_results_dict[split]['trues'] - np.repeat(mean_y, len(_results_dict[split]['trues'])).reshape(-1,1)))
                             if 'mse' in _results_dict[split].keys():
-                                metric_per_split.append(1-np.mean(_results_dict[split]['mse']))
-                            elif 'mse' not in _results_dict[split].keys() and rep == 'additive':
+                                metric_per_split.append(1-np.mean(_results_dict[split][MSE])) # NOTE: values recorded as MSE have been normalized >> np.mean(err2)/baseline <<
+                            elif 'mse' not in _results_dict[split].keys():
                                 mse_val = mean_squared_error(_results_dict[split]['trues'], _results_dict[split]['pred'])
-                                baseline = np.mean(np.square(_results_dict[split]['trues'] - np.repeat(mean_y, len(_results_dict[split]['trues'])).reshape(-1,1)))
+                                # TODO: determine why additive benchmark has different test set!!
                                 metric_per_split.append(1-mse_val/baseline)
                             else:
                                 raise ValueError(f"Experiment MSE not computed for {dataset}, {algo}, {rep}, {splitter_key}")
@@ -438,18 +475,7 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, di
                     all_avrg_metric_vals.append(_metric_val)
                     all_avrg_metric_errs.append(_metric_std_err)
                     ax[row, i].bar(j+seps[k], _metric_val, yerr=_metric_std_err, width=width, label=rep, color=rc.get(rep),
-                                    facecolor=rc.get(rep), edgecolor="k", ecolor='black', capsize=5, hatch='//')
-                    # ADD PROPORTIONS OF TRAIN/TEST/PRED w.r.t functional threshold=
-                    ref_N = 1000
-                    train_val_frac = np.sum(train_threshold_bool==0) / n_train
-                    test_val_frac = np.sum(test_threshold_bool==0) / n_test
-                    pred_val_frac = np.sum(pred_threshold_bool==0) / len(pred_threshold_bool)
-                ax[row+1, i].barh(row, train_val_frac*ref_N, height=0.25, color="grey", left=j*2001, label="nonfunctional") # TODO: proportion functional vs. not functional
-                ax[row+1, i].barh(row, (1-train_val_frac)*ref_N, height=0.25, color="purple", left=train_val_frac*ref_N+j*2001, label=f"train functional \n{splitter_key}; mu={mean_train}")
-                ax[row+1, i].barh(row+0.6, test_val_frac*ref_N, height=0.25, left=j*2001, color="grey", label=f"nonfunctional") 
-                ax[row+1, i].barh(row+0.6, (1-test_val_frac)*ref_N, height=0.25, color="darkblue", left=test_val_frac*ref_N+j*2001, label=f"test functional \n{splitter_key}; mu={mean_test}")
-                ax[row+1, i].barh(row+1.2, pred_val_frac*ref_N, height=0.25, left=j*2001, color="grey", label=f"nonfunctional")
-                ax[row+1, i].barh(row+1.2, (1-pred_val_frac)*ref_N, height=0.25, color="darkred", left=pred_val_frac*ref_N+j*2001, label=f"pred. functional \n{splitter_key}; mu={pred_mean}")
+                                    facecolor=rc.get(rep), edgecolor="k", ecolor='black', capsize=5)
             previous_split_keys.append(splitter_key)
             cols = len(splits)
             abs_min, abs_max = min(all_avrg_metric_vals)-max(all_avrg_metric_errs), max(all_avrg_metric_vals)+max(all_avrg_metric_errs)
@@ -467,21 +493,141 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str=None, di
             # _ax.set_xticklabels([f"{split} \n frac.: {n}/{c}" for split, n, c in zip(splits, training_variants, N_combinations)])
             if metric == SPEARMAN_RHO:
                 ax[row, i].set_ylim((-0.251, 1.1))
+            elif metric == MSE or metric == "comparative_NMSE":
+                ax[row, i].set_ylim((-3, 1.1))
             else:
-                ax[row, i].set_ylim((-1.5, 1.1))
+                ax[row, i].set_ylim((-0.1, 3))
             ax[row, i].tick_params(axis='x', which='both', labelsize=9)
             metric_name = "R2" if metric == MSE else metric
             metric_name = metric_name if metric else "MSE" # base-case
-            ax[row, i].set_ylabel(metric_name)
-            ax[row, i].set_title(f"{algo} - {dataset}\n{testing_variants}")
+            ax[row, i].set_ylabel(metric_name, fontsize=21)
+            ax[row, i].set_title(f"{algo} - {dataset}\n{testing_variants} \n {metric}")
     handles, labels = ax[row, i].get_legend_handles_labels()
-    #fig.legend(handles, reps, loc='lower right', ncol=len(reps), prop={'size': 14}) # handles[:len(reps)]
-    plt.legend()
+    fig.legend(handles[:len(labels)], reps[:len(labels)], loc='lower right', ncol=len(reps), prop={'size': 14}) # handles[:len(reps)]
     plt.suptitle(plot_heading, size=12)
-    plt.tight_layout()
+    #plt.tight_layout()
     plt.savefig(filename+".png")
     plt.savefig(filename+".pdf")
     plt.show()
+
+
+def barplot_metric_mutation_matrix(metric_values: dict, metric: str, datasets: List[str], dim=None):
+    """
+    Figure for mutation plotting for TOXI data
+    """
+    title_dict = {"BioSplitter1_1": "1M", 
+                "BioSplitter2_2": r"$\leq$ 2M", 
+                "BioSplitter3_3": r"$\leq$ 3M", 
+                "BioSplitter1_2": "2M", 
+                "BioSplitter2_3": "3M",
+                "BioSplitter3_4": "4M"}
+    font_kwargs = {'family': 'Arial', 'fontsize': 31, "weight": 'bold'}
+    plot_dists = False if 'base_mse' in metric.lower() else True # NOTE: if accuracy, do not plot left hand densities
+    filename = 'results/figures/benchmark/'+f'matrix_{metric}_of_mutations_barplot_d={dim}'+str(list(metric_values.keys()))
+    LW = 5.
+    splits = list(metric_values.keys())
+    dataset = list(metric_values.get(splits[0]).keys())[0]
+    method = list(metric_values.get(splits[0]).get(datasets[0]).keys())[0]
+    representations = list(metric_values[splits[0]][dataset][method].keys())
+    fig, ax = plt.subplots(int(len(splits)/2+1), int(len(splits)/2+2), figsize=(11.5, 9), squeeze=False)
+    reps = []
+    n_reps = len(representations)
+    width = 3+1/(n_reps) # 3 elements (1 bar + 2 arrows) + 2 extra space
+    ax[0, 0].axis('off')
+    for row, col in product(range(1,4), range(1,5)):
+        splitter_key = f"BioSplitter{row}_{col}"
+        if row>0 and col>0 and row!=col and row+1!=col:
+            ax[row, col].axis('off')
+            continue
+        if splitter_key not in splits:
+            continue
+        if row == col: # joint distribution is all available data for 1->2;2->3;3->4
+            joint_obs_vals = metric_values[splitter_key][dataset][method][representations[0]][None][0].get('train_trues') +  metric_values[splitter_key][dataset][method][representations[0]][None][0].get('trues')
+            sns.kdeplot(-np.array(joint_obs_vals), ax=ax[row, 0], color=rc.get(representations[0]), linewidth=LW)
+            if row == 1:
+                sns.kdeplot(-np.array(joint_obs_vals), ax=ax[0, col], color=rc.get(representations[0]), linewidth=LW) # 1M is symmetric
+                ax[0, col].set_title(title_dict.get(splitter_key), **font_kwargs)
+                ax[0, col].set_ylabel("")
+                ax[0, col].tick_params(axis='y', which='both', labelsize=20)
+                ax[0, col].tick_params(axis='x', which='both', labelsize=20)
+            ax[row, 0].set_xlim((-0.5, 1.5))
+            #ax[row, 0].set_title(title_dict.get(splitter_key), **font_kwargs)
+            ax[row, 0].set_ylabel(title_dict.get(splitter_key), **font_kwargs)
+            ax[row, 0].tick_params(axis='y', which='both', labelsize=20)
+            ax[row, 0].tick_params(axis='x', which='both', labelsize=20)
+        if row == col and not plot_dists:
+            fig.delaxes(ax[row, 0])
+        if row+1 == col:
+            obs_vals = metric_values[splitter_key][dataset][method][representations[0]][None][0].get('trues') # Test distribution on
+            sns.kdeplot(-np.array(obs_vals), ax=ax[0,col], color=rc.get(representations[0]), linewidth=LW)
+            ax[0, col].set_xlim((-0.5, 1.5))
+            ax[0, col].set_title(title_dict.get(splitter_key), **font_kwargs)
+            ax[0, col].set_ylabel("")
+            ax[0, col].tick_params(axis='y', which='both', labelsize=20)
+            ax[0, col].tick_params(axis='x', which='both', labelsize=20)
+        seps = np.linspace((-width*n_reps)/3, (width*n_reps)/3, n_reps-1)
+        for k, rep in enumerate(representations):
+            _results_dict = metric_values[splitter_key][dataset][method][rep][None]
+            metric_per_split = []
+            for s in _results_dict.keys():
+                if rep not in reps:
+                    reps.append(rep)
+                if metric == MSE: # Make 1-NMSE => R2
+                    mean_y = np.mean(_results_dict[s].get('train_trues'))
+                    baseline = np.mean(np.square(_results_dict[s]['trues'] - np.repeat(mean_y, len(_results_dict[s]['trues'])).reshape(-1,1)))
+                    if 'mse' in _results_dict[s].keys():
+                        metric_per_split.append(1-np.mean(_results_dict[s][MSE])) # NOTE: values recorded as MSE have been normalized >> np.mean(err2)/baseline <<
+                    elif 'mse' not in _results_dict[s].keys():
+                        mse_val = mean_squared_error(_results_dict[s]['trues'], _results_dict[s]['pred'])
+                        metric_per_split.append(1-mse_val/baseline)
+                    else:
+                        raise ValueError(f"Experiment MSE not computed for {dataset}, {method}, {rep}, {splits[k]}")
+                elif metric == SPEARMAN_RHO:
+                    trues = np.array(_results_dict[s]['trues'])
+                    pred = np.array(_results_dict[s]['pred'])
+                    metric_per_split.append(spearmanr(trues, pred)[0])
+                else: # BASECASE: regular MSE
+                    trues = np.array(_results_dict[s]['trues'])
+                    pred = np.array(_results_dict[s]['pred'])
+                    metric_per_split.append(mean_squared_error(trues, pred))
+            _metric_val = np.mean(metric_per_split)
+            _metric_std_err = np.std(metric_per_split, ddof=1)/np.sqrt(len(metric_per_split)) if len(metric_per_split) > 1 else 0.
+            if rep == "additive" and bool(_metric_val): #NOTE: 1M rank-corr is NaN for constant additive values.
+                if metric == SPEARMAN_RHO:
+                    ax[row, col].plot(seps, np.repeat(_metric_val, len(seps)), color=rc.get(rep), label=rep, linestyle="dashed", lw=3.)
+                # else:
+                #     ax[row, col].text(seps[0], -0.05, f"add.={np.round(_metric_val,2)}", **font_kwargs_small)
+            else:
+                ax[row, col].bar(seps[k], _metric_val, yerr=_metric_std_err, width=width, label=rep, color=rc.get(rep),
+                            facecolor=rc.get(rep), edgecolor="k", ecolor='black', capsize=7)
+            ax[row, col].tick_params(axis='y', which='both', labelsize=20)
+            ax[row, col].tick_params(axis='x', which='both', labelbottom=False, bottom=False)
+            if metric == SPEARMAN_RHO:
+                ax[row, col].set_ylim(-0.2, 1.01)
+            if "MSE" in metric and metric != MSE:
+                ax[row, col].set_ylim(-0.01, 0.4)
+            if row==col:
+                if metric == MSE:
+                    metric_name = r"$R^2$"
+                elif metric == "base_MSE":
+                    metric_name = "mse" 
+                else:
+                    metric_name = metric
+                # metric_name = metric_name if metric else "MSE" # base-case
+                if metric == SPEARMAN_RHO:
+                    ax[row, col].set_ylabel(r"spearman $\rho$", **font_kwargs)
+                else:
+                    ax[row, col].set_ylabel(metric_name, **font_kwargs)
+    handles, labels = ax[row, -1].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='lower center', ncol=len(reps), prop={'size': 19})
+    plt.tight_layout()
+    plt.subplots_adjust(wspace=0.38, left=0.055, right=0.99, bottom=0.11, top=0.95)
+    if not plot_dists:
+        plt.subplots_adjust(wspace=0.38, left=0., right=0.99, bottom=0.11, top=0.95)
+    plt.savefig(filename+".png")
+    plt.savefig(filename+".pdf")
+    plt.show()
+
 
 def scatterplot_metric_threshold_comparison(metric_values: dict, metric: str=None, dim=None, datasets: List[str]=["TOXI"], thresholds=None, N_combinations=[]):
     """
@@ -632,8 +778,10 @@ def barplot_metric_functional_mutation_comparison(metric_values: dict, metric: s
     plt.show()
 
 
-def plot_optimization_task(metric_values: dict, name: str, max_iterations=500, legend=False):
+def plot_optimization_task(metric_values: dict, representation: str, dataset: list, name: str, max_iterations=500, legend=False):
     plt.figure()
+    font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
+    header_dict = {"1FQG": r"$\beta$-Lactamase", "UBQT": "Ubiquitin"}
     for d, dataset_key in enumerate(metric_values.keys()):
         algos = []
         for i, algo in enumerate(metric_values[dataset_key].keys()):           
@@ -648,24 +796,24 @@ def plot_optimization_task(metric_values: dict, name: str, max_iterations=500, l
                 if 'best' in name.lower():
                     _, Y = load_dataset(dataset_key, representation=ONE_HOT)
                     plt.hlines(min(Y), 0, len(means), linestyles='--', linewidth=2.5, colors='dimgrey')
-    plt.xlabel('Iterations', size=21)
-    plt.ylabel('observed value', size=21)
+    plt.xlabel('Iterations', **font_kwargs)
+    plt.ylabel('observed value', **font_kwargs)
     if 'best' in name.lower():
-        if 'fqg' in name.lower():
-            plt.ylim(-0.4, 0.2)
+        if 'fqg' in dataset[0].lower():
+            plt.ylim(-0.4, 0.2) # TODO: set this value dynamically
         else:
             plt.ylim(-0.1, 0.2)
     if 'regret' in name.lower():
-        plt.ylabel('cumulative regret', size=21)
-    plt.xticks(size=14)
-    plt.yticks(size=14)
-    plt.title(' '.join(name.split("_")))
+        plt.ylabel('cumulative regret', **font_kwargs)
+    plt.xticks(size=18)
+    plt.yticks(size=18)
+    plt.title(f"{representation} {header_dict.get(dataset[0].upper())}", **font_kwargs)
     markers = [plt.Line2D([0,0],[0,0],color=ac.get(algo), marker='o', linestyle='') for algo in algos]
     if legend:
-        plt.legend(markers, algos, loc="lower right", numpoints=1, ncol=len(algos), prop={'size':12})
+        plt.legend(markers, algos, loc="lower right", numpoints=1, ncol=len(algos), prop={'size':14})
     plt.tight_layout()
-    plt.savefig('results/figures/optim/'+name+'_optimization_plot.png')
-    plt.savefig('results/figures/optim/'+name+'_optimization_plot.pdf')
+    plt.savefig('results/figures/optim/'+dataset[0]+'_optimization_plot.png', bbox_inches="tight")
+    plt.savefig('results/figures/optim/'+dataset[0]+'_optimization_plot.pdf', bbox_inches="tight")
     plt.show()
 
 
@@ -722,7 +870,7 @@ def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMA
     representation = list(metrics_values[data_fractions[0]][dataset][methods[0]].keys())[0]
     for metric in metrics:
         observations = __parse_cumulative_results_dict(metrics_values=metrics_values, metric=metric, number_quantiles=number_quantiles)
-        fig, ax = plt.subplots(4, figsize=(10,10), gridspec_kw={'height_ratios': [2, 1, 2, 1]})
+        fig, ax = plt.subplots(2, figsize=(10,10))
         for method in methods:
             # TODO: keep index of NaNs and annotate with stars?
             y = np.nan_to_num(np.array(observations[method]['mean']))
@@ -740,23 +888,12 @@ def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMA
                 label = r"PAC $\lambda$-bound $\delta$=.05" if PAC_BAYES_EPS in metrics else "std"
                 ax[0].fill_between(data_fractions, y+bound, y-bound, alpha=0.2, color=ac.get(method), label=label)
                 ax[0].set_ylim((0, 1))
-            ax[1].plot(data_fractions, np.cumsum(y), marker=am.get(method), lw=3, color=ac.get(method), label=method)
-            ax[2].errorbar(data_fractions, ece, yerr=ece_err, lw=3, color=ac.get(method), label=method)
-            ax[3].plot(data_fractions, np.cumsum(ece), marker=am.get(method), lw=3, color=ac.get(method), label=method)
-            if metric == MLL:
-                ax[1].set_yscale('log')
+            ax[1].errorbar(data_fractions, ece, yerr=ece_err, lw=3, color=ac.get(method), label=method)
         ax[0].set_xlabel('fraction of N')
         if metric == MSE:
             metric = "1-NMSE+"
-        ax[1].set_xticks(data_fractions, np.round(data_fractions, 3), rotation=45, fontsize=12, ha='right')
-        ax[3].set_xticks(data_fractions, np.round(data_fractions, 3), rotation=45, fontsize=12, ha='right')
         ax[0].set_ylabel(f'{metric}', fontsize=21)
-        ax[1].set_ylabel(f'cumulative {metric}', fontsize=21)
-        ax[2].set_ylabel('ECE', fontsize=21)
-        ax[3].set_ylabel('cumulative ECE', fontsize=21)
-        for label_x0, label_x1 in zip(ax[1].xaxis.get_ticklabels()[1::2], ax[3].xaxis.get_ticklabels()[1::2]):
-            label_x0.set_visible(False)
-            label_x1.set_visible(False)
+        ax[1].set_ylabel('ECE', fontsize=21)
         title_string = f"{dataset}: {metric} on {representation} \n over training-fractions"
         if threshold:
             title_string += f" t={threshold}"
