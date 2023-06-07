@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     # MAIN EXPERIMENT
     if not any([isinstance(param,list) for param in [args.data, args.representation, args.protocol, args.method_key]]): # if parameters are passed correctly:
-        run_experiments(dataset=args.data, representation=args.representation, protocol_factory=protocol_factories[args.protocol], factory_key=args.method_key)
+        run_experiments(dataset=args.data, representation=args.representation, protocol_factory=protocol_factories[args.protocol], factory_key=args.method_key, dim=args.dim)
     else: # per default iterate over everything
         data = args.data if isinstance(args.data, list) else [args.data]
         rep = args.representation if isinstance(args.representation, list) else [args.representation]
