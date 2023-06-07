@@ -101,12 +101,8 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.show()
 
 
-def barplot_metric_comparison_bar_splitting(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None, vline=True, legend=True, n_quantiles=4) -> None:
-    # plot_heading = f'Comparison of Algoritms and Representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
-    filename = 'results/figures/benchmark/'+f'BAR_accuracy_{metric}_methods_{x_axis}'
-    font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
-    font_kwargs_small = {'family': 'Arial', 'fontsize': 18, "weight": 'bold'}
-    header_dict = {"1FQG": r"$\beta$-Lactamase", "UBQT": "Ubiquitin"}
+def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None) -> None:
+    plot_heading = f'Comparison of Algoritms and Representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
     if color_by.lower() not in ["algo", "rep", "task"]:
         warn("Misspecified color-scheme. Defaulting to color by algorithm.")
         color_by = "algo"
@@ -117,13 +113,15 @@ def barplot_metric_comparison_bar_splitting(metric_values: dict, cvtype: str, me
     datasets = list(metric_values[splitters[0]])
     methods = list(metric_values[splitters[0]][datasets[0]])
     representations = list(metric_values[splitters[0]][datasets[0]][methods[0]])
+    filename = 'results/figures/benchmark/'+f'BAR_accuracy_{metric}_methods_{x_axis}_{"_".join(datasets)}_{"_".join(methods)}_{"_".join(representations)}'
+    font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
     if x_axis == "rep":
         n_cols = len(representations)*len(splitters)
     elif x_axis == "algo":
         n_cols = len(methods)*len(splitters)
     else:
         n_cols = len(splitters)
-    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*4.1, 4))
+    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*4, 6), sharey="row")
     axs = np.ravel(ax)
     labels = []
     column_spacing = 4
@@ -148,44 +146,49 @@ def barplot_metric_comparison_bar_splitting(metric_values: dict, cvtype: str, me
                     if x_axis == "task":
                         selected_color = tc.get(splitter)
                     for k, (_m, _std_err) in enumerate(zip(mean, std_err)):
-                        axs[d].bar(seps[idx]+k*0.45, _m, yerr=_std_err, color=selected_color, ecolor="black", edgecolor="black", linewidth=2.,
-                                    capsize=3, label=label+str(len(mean)-k), alpha=1/mean.shape[-1]) # NOTE: label reversed mean of quantiles
+                        axs[d].bar(seps[idx]+k*0.45, _m, yerr=_std_err, color=selected_color, ecolor="black",
+                                    capsize=3, label=label if i == 0 else None,
+                                   width=1.2) # NOTE: label reversed mean of quantiles
                     idx += 1
-        if vline:
-            axs[d].axvline((seps[int(len(seps)/2)-1]+seps[int(len(seps)/2)])/2, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.75)
-        axs[d].axhline(0, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.5)
-        axs[d].axhline(0.5, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
-        axs[d].axhline(0.75, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
-        axs[d].axhline(0.25, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
-        axs[d].axhline(-0.25, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
-        axs[d].set_xticks(seps)
-        if x_axis.lower() in ["rep", "algo"]:
-            tick_labels = [label + "_" + splitter for splitter, label in product(splitters, labels)] 
-        elif x_axis.lower() == "task":
-            tick_labels = [l.replace("Splitter", "CV").replace("_p15", " ") for l in labels]
+
+        # Add text elements
+        axs[d].text(x=0.25, y=0.05, s="Random CV", horizontalalignment='center', verticalalignment='center',
+                 transform=axs[d].transAxes, fontsize=12)
+        axs[d].text(x=0.75, y=0.05, s="Position CV", horizontalalignment='center', verticalalignment='center',
+                    transform=axs[d].transAxes, fontsize=12)
+
+        # Add vertical/horizontal lines
+        axs[d].axvline((seps[int(len(seps)/2)-1]+seps[int(len(seps)/2)])/2, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.5)
+        for val in [0, 0.5, 0.75, 0.25, -0.25]:
+            axs[d].axhline(val, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
+
+        # x-axis
+        if x_axis.lower() == "rep":
+            tick_labels = ["One-Hot", "EVE", "EVE (evo-score)", "ProtBert", "ESM"]*2
+        elif x_axis.lower() == "algo":
+            tick_labels = ["GPlinear", "GPsqexp", "GPm52", "RF", "KNN"]*2
         else:
             tick_labels = labels
+        axs[d].set_xticks(seps)
         assert len(seps) == len(tick_labels)
-        axs[d].set_xticklabels(tick_labels, rotation=45, **font_kwargs_small)
-        axs[d].xaxis.set_label_coords(-1., .5, transform=axs[d].transAxes)
-        axs[d].set_ylim((-0.01, 1.01))
+        axs[d].set_xticklabels(tick_labels, size=14, rotation=60, ha='right')
         axs[d].set_xlim((seps[0]-0.75, seps[-1]+0.75+k*0.45))
         axs[d].tick_params(axis='y', which='both', labelsize=22)
-        axs[d].set_title(header_dict.get(dataset_key), **font_kwargs)
-        # yticklabels = axs[d].get_yticklabels()
-        # axs[d].set_yticklabels(yticklabels, **font_kwargs_small)
-        if metric == MSE:
-            metric_label = r"R$^2$"
-        elif metric == SPEARMAN_RHO:
-            metric_label = r"spearman $\rho$" 
-        else:
-            metric_label = metric
+
+        # y-axis
+        metric_label = r'$\mathbf{R^2}$' if metric == MSE else SPEARMAN_RHO
         axs[d].set_ylabel(metric_label, **font_kwargs)
-    if legend:
-        handles, labels = axs[-1].get_legend_handles_labels()
-        fig.legend(handles[:len(labels)], labels[:len(labels)], loc='lower right', ncol=len(labels), prop={'size': 14})
-    plt.tight_layout()
-    plt.subplots_adjust(wspace=0.33, left=0.115, right=0.965, bottom=0.27, top=0.9)
+        axs[d].yaxis.set_label_coords(-.25, .5, transform=axs[d].transAxes)
+        if d > 0:
+            axs[d].set_ylabel("")
+        axs[d].set_yticks([-0.25, 0.0, 0.25, 0.5, 0.75, 1.0])
+        axs[d].set_ylim((-0.25, 1.0))
+
+        # axs[d].set_title(dataset_key_map[dataset_key], size=25)
+    handles, labels = axs[-1].get_legend_handles_labels()
+    # fig.legend(handles[:len(labels)], labels[:len(labels)], loc='lower right', ncol=len(labels), prop={'size': 14})
+    # plt.suptitle(plot_heading, size=12)
+    plt.subplots_adjust(wspace=0.15, left=0.075, right=0.975, bottom=0.25, top=0.95)
     plt.savefig(filename+".png")
     plt.savefig(filename+".pdf")
     plt.show()
@@ -206,8 +209,11 @@ def _compute_metric_results(metric_result_list, metric: str, n_quantiles=3):
             mu = np.mean(mu)
             std_err = np.mean(std_err)
     else:
-        mu = np.mean(obs)
-        std_err = np.std(obs, ddof=1)/np.sqrt(len(obs)) # std-error on metric
+        nan_mask = np.isnan(obs)
+        if np.sum(nan_mask) > 0:
+            print(f"WARNING: {np.sum(nan_mask)} NaNs in metric ({metric}) results")
+        mu = np.array([np.mean(obs[~nan_mask])])
+        std_err = np.array([np.std(obs[~nan_mask], ddof=1)/np.sqrt(len(obs[~nan_mask]))]) # std-error on metric
     if metric == MSE: # case 1-NMSE, works for both 1D and 2D case
         mu = 1-mu
     return np.array([mu]), np.array([std_err])
