@@ -14,6 +14,13 @@ CONDA_BASE=$(conda info --base)
 source ${CONDA_BASE}/etc/profile.d/conda.sh
 conda activate protein_regression
 
+## ENABLE CUDA ON Cluster
+if [ $(cat $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh | wc -l) == 0 ]; then
+    echo 'CUDNN_PATH=$(dirname $(python -c "import nvidia.cudnn;print(nvidia.cudnn.__file__)"))' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+    echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/:$CUDNN_PATH/lib' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+    source $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+fi
+
 CONFIG=/home/pcq275/protein_regression/slurm_experiment_config_DIM_ABLATION.txt
 
 dataset=$(awk -v ArrayID=${SLURM_ARRAY_TASK_ID} '$1==ArrayID {print $2}' ${CONFIG})
