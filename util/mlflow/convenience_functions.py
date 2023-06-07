@@ -51,8 +51,11 @@ def check_results(result_list: list, fill_with_na=True) -> Tuple[list, bool]:
 
 
 def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, train_test_splitter: AbstractTrainTestSplitter, 
-                    augmentation: List[str]=[None], dim: int=None, dim_reduction: str=None, seed: int=None, artifacts=False, 
-                    experiment_ids=None, threshold:List[float]=[None]) -> dict:
+                    augmentation: List[str]=[None], dim: int=None, dim_reduction: str=None, seed: int=None,
+                    optimized=True, 
+                    artifacts=False, 
+                    experiment_ids=None, 
+                    threshold:List[float]=[None]) -> dict:
     experiment_ids = datasets if not experiment_ids else experiment_ids
     results_dict = {}
     for i, dataset in enumerate(datasets):

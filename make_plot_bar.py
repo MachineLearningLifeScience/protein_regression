@@ -15,7 +15,7 @@ from util.mlflow.constants import SPLIT, ONE_HOT, NONSENSE, KNN_name, VAE_DENSIT
 from util.mlflow.convenience_functions import find_experiments_by_tags, get_mlflow_results, get_mlflow_results_optimization
 from util.mlflow.convenience_functions import get_mlflow_results_artifacts, aggregate_fractional_splitter_results, aggregate_optimization_results
 from util import parse_baseline_mutation_observations
-from visualization.plot_metric_for_dataset import barplot_metric_comparison, barplot_metric_comparison_bar_splitting, errorplot_metric_comparison#, barplot_metric_comparison_bar
+from visualization.plot_metric_for_dataset import barplot_metric_comparison, barplot_metric_comparison_bar_splitting, errorplot_metric_comparison, barplot_metric_comparison_bar
 from visualization.plot_metric_for_dataset import barplot_metric_comparison_bar_splitting
 from visualization.plot_metric_for_dataset import barplot_metric_functional_mutation_comparison
 from visualization.plot_metric_for_dataset import barplot_metric_augmentation_comparison, barplot_metric_mutation_comparison
@@ -97,7 +97,7 @@ def plot_metric_comparison_bar(datasets: List[str],
         results_dict = load_results_dict_from_mlflow(datasets, algos, metrics, reps, train_test_splitter, seeds, cache=cached_results, cache_fname=cached_filename, optimized=optimized)
     cvtype = str(set([splitter.get_name()[:12] for splitter in train_test_splitter])) + f"d=full"   
     for metric in metrics:
-        barplot_metric_comparison_bar(metric_values=results_dict, cvtype=cvtype, metric=metric, color_by=color_by, x_axis=x_axis, vline=False, legend=False, n_quantiles=4)
+        barplot_metric_comparison_bar(metric_values=results_dict, cvtype=cvtype, metric=metric, color_by=color_by, x_axis=x_axis)
 
 
 def plot_metric_comparison_bar_splitting(datasets: List[str], 
@@ -227,14 +227,14 @@ if __name__ == "__main__":
     dim_reduction = LINEAR # LINEAR, NON_LINEAR
     ### MAIN FIGURES
     # compare embeddings: # TODO: fix! merge Peter's code and refactor w.r.t. task plotting
-    # plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"], # ["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"]
-    #                       reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM],
-    #                       metrics=metrics,
-    #                       train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
-    #                       algos=[GPonRealSpace(kernel_factory=lambda: Matern52()).get_name()],
-    #                       color_by="rep",
-    #                       x_axis="rep",
-    #                       cached_results=True)
+    plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"], # ["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"]
+                          reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM],
+                          metrics=metrics,
+                          train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
+                          algos=[GPonRealSpace(kernel_factory=lambda: Matern52()).get_name()],
+                          color_by="rep",
+                          x_axis="rep",
+                          cached_results=True)
     # # compare regressors:
     # plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
     #                       reps=[ESM], metrics=metrics,
