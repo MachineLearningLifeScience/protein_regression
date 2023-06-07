@@ -101,7 +101,7 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.show()
 
 
-def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None, vline=True, legend=True, n_quantiles=4) -> None:
+def barplot_metric_comparison_bar_splitting(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None, vline=True, legend=True, n_quantiles=4) -> None:
     # plot_heading = f'Comparison of Algoritms and Representations, cv-type: {cvtype} \n scaled, GP optimized zero-mean, var=0.4 (InvGamma(3,3)), len=0.1 (InvGamma(3,3)), noise=0.1 ∈ [0.01, 1.0] (Uniform)'
     filename = 'results/figures/benchmark/'+f'BAR_accuracy_{metric}_methods_{x_axis}'
     font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
@@ -812,8 +812,8 @@ def plot_optimization_task(metric_values: dict, representation: str, dataset: li
     if legend:
         plt.legend(markers, algos, loc="lower right", numpoints=1, ncol=len(algos), prop={'size':14})
     plt.tight_layout()
-    plt.savefig('results/figures/optim/'+dataset[0]+'_optimization_plot.png', bbox_inches="tight")
-    plt.savefig('results/figures/optim/'+dataset[0]+'_optimization_plot.pdf', bbox_inches="tight")
+    plt.savefig('results/figures/optim/'+name+dataset[0]+representation+'_optimization_plot.png', bbox_inches="tight")
+    plt.savefig('results/figures/optim/'+name+dataset[0]+representation+'_optimization_plot.pdf', bbox_inches="tight")
     plt.show()
 
 
