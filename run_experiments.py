@@ -24,12 +24,12 @@ method_factories = [get_key_for_factory(f) for f in [KNNFactory, RandomForestFac
 
 experiment_iterator = product(datasets, representations, protocol_factories, method_factories)
 
-def run_experiments(dataset, representation, protocol_factory, factory_key):
+def run_experiments(dataset, representation, protocol_factory, factory_key, dim=None):
     # for dataset, representation, protocol_factory, factory_key in experiment_iterator:
     protocol_factory = protocol_factory(dataset) if type(protocol_factory) != list else protocol_factory
     for protocol in protocol_factory:
         run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
-                            protocol=protocol, augmentation=None, dim=None, dim_reduction=LINEAR, mock=MOCK)
+                            protocol=protocol, augmentation=None, dim=dim, dim_reduction=LINEAR, mock=MOCK)
 
 dim_reduction_experiment_iterator = product(["UBQT", "CALM", "1FQG"],
                                             [ONE_HOT, TRANSFORMER, EVE, ESM],
@@ -77,6 +77,7 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--representation", type=str, default=representations, choices=representations, help="Representation of data identifier")
     parser.add_argument("-p", "--protocol", type=int, default=list(range(len(protocol_factories))), help="Index for Protocol from list [Random, Positional, Fractional]")
     parser.add_argument("-m", "--method_key", type=str, default=method_factories, choices=method_factories, help="Method identifier")
+    parser.add_argument("--dim", type=int, default=None, help="Dimension reduction experiments")
     parser.add_argument("--ablation", type=str, default=None, choices=["dim-reduction", "augmentation", "threshold"], help="Specify if ablation should be run")
     args = parser.parse_args()
 
@@ -90,7 +91,7 @@ if __name__ == "__main__":
         method = args.method_key if isinstance(args.method_key, list) else [args.method_key]
         param_iterator = product(data, rep, protocol_idx, method)
         for d, r, p_idx, m in param_iterator:
-            run_experiments(dataset=d, representation=r, protocol_factory=protocol_factories[p_idx], factory_key=m)
+            run_experiments(dataset=d, representation=r, protocol_factory=protocol_factories[p_idx], factory_key=m, dim=args.dim)
 
     # ABLATION STUDIES: (dim-reduction, augmentation, threshold)
     if args.ablation == "dim_reduction":
