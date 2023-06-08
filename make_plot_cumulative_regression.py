@@ -42,7 +42,15 @@ def plot_cumulative_comparison(datasets: List[str],
         if cached_results:
             with open(cached_filename, "wb") as outfile:
                 pickle.dump(results_dict, outfile, protocol=pickle.HIGHEST_PROTOCOL)
-    cumulative_performance_plot(results_dict, threshold=threshold)
+    if len(datasets) > 1:
+        for dataset in datasets:
+            _results_dict = {}
+            for split in results_dict:
+                _results_dict[split] = {}
+                _results_dict[split][dataset] = results_dict[split][dataset] # TODO: subset w.r.t. one data-set
+            cumulative_performance_plot(_results_dict, threshold=threshold)
+    else:
+        cumulative_performance_plot(results_dict, threshold=threshold)
 
 
 if __name__ == "__main__":
