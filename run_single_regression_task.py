@@ -142,9 +142,11 @@ def _run_regression_at_split(X, Y, train_indices, test_indices, split, method, d
 
 def run_single_regression_task(dataset: str, representation: str, method_key: str, protocol: AbstractTrainTestSplitter, 
                                 augmentation: str, dim: int=None, dim_reduction: str=NON_LINEAR, threshold: float=None, 
-                                mock: bool=False, parallel: bool=False):
-    method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
-    print(f"{dataset}: {representation} - {method_key} | {protocol.get_name()} , dim: {dim}")
+                                mock: bool=False, parallel: bool=False, optimize: bool=True):
+    if not optimize:
+        warnings.warn("Optimization for Algorithms disabled.")
+    method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset), optimize)
+    print(f"{dataset}: {representation} - {method_key} | {protocol.get_name()} [dim: {dim}, opt: {optimize}]")
     missed_assay_indices: np.ndarray = None
     # load X for CV splitting
     X, Y = load_dataset(dataset, representation=representation, augmentation=augmentation)

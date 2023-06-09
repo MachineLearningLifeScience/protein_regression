@@ -11,54 +11,48 @@ from algorithms.gmm_regression import GMMRegression
 from util.mlflow.constants import ONE_HOT
 
 
-OPTIMIZE = True
-if not OPTIMIZE:
-    warnings.warn("Optimization for Algorithms disabled.")
+def RandomForestFactory(representation, alphabet, optimize):
+    return RandomForest(optimize=optimize)
 
 
-def RandomForestFactory(representation, alphabet):
-    return RandomForest(optimize=OPTIMIZE)
+def UncertainRFFactory(representation, alphabet, optimize):
+    return UncertainRandomForest(optimize=optimize)
 
 
-def UncertainRFFactory(representation, alphabet):
-    return UncertainRandomForest(optimize=OPTIMIZE)
+def KNNFactory(representation, alphabet, optimize):
+    return KNN(optimize=optimize)
 
 
-def KNNFactory(representation, alphabet):
-    return KNN(optimize=OPTIMIZE)
-
-
-def GPLinearFactory(representation, alphabet):
+def GPLinearFactory(representation, alphabet, optimize):
     if representation is ONE_HOT:
-        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), optimize=OPTIMIZE)
+        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), optimize=optimize)
     else:
-        return GPonRealSpace(optimize=OPTIMIZE)
+        return GPonRealSpace(optimize=optimize)
 
 
-def GPSEFactory(representation, alphabet):
+def GPSEFactory(representation, alphabet, optimize):
     if representation is ONE_HOT:
-        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel_factory=lambda: SquaredExponential(), optimize=OPTIMIZE)
+        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel_factory=lambda: SquaredExponential(), optimize=optimize)
     else:
-        return GPonRealSpace(kernel_factory=lambda: SquaredExponential(), optimize=OPTIMIZE)
+        return GPonRealSpace(kernel_factory=lambda: SquaredExponential(), optimize=optimize)
 
 
-def GPMaternFactory(representation, alphabet):
+def GPMaternFactory(representation, alphabet, optimize):
     if representation is ONE_HOT:
-        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel_factory=lambda: Matern52(), optimize=OPTIMIZE)
+        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel_factory=lambda: Matern52(), optimize=optimize)
     else:
-        return GPonRealSpace(kernel_factory=lambda: Matern52(), optimize=OPTIMIZE)
+        return GPonRealSpace(kernel_factory=lambda: Matern52(), optimize=optimize)
 
 
-def GPLinearRegionFactory(representation, alphabet):
+def GPLinearRegionFactory(representation, alphabet, optimize):
     if representation is ONE_HOT:
-        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel_factory=lambda: LinearCoregionalization(kernels=[Linear(0), Linear(1)]), optimize=OPTIMIZE)
+        return GPOneHotSequenceSpace(alphabet_size=len(alphabet), kernel_factory=lambda: LinearCoregionalization(kernels=[Linear(0), Linear(1)]), optimize=optimize)
     else:
-        return GPonRealSpace(kernel_factory=lambda: LinearCoregionalization(kernels=[Linear(0), Linear(1)]), optimize=OPTIMIZE)
+        return GPonRealSpace(kernel_factory=lambda: LinearCoregionalization(kernels=[Linear(0), Linear(1)]), optimize=optimize)
 
 
-def GMMFactory(representation, alphabet, n_components=2):
+def GMMFactory(representation, alphabet, optimize, n_components=2):
     return GMMRegression(n_components)
-
 
 
 def get_key_for_factory(f: Callable[[], AbstractAlgorithm]):
