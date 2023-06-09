@@ -101,7 +101,7 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.show()
 
 
-def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None) -> None:
+def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None, suffix=None) -> None:
     """
     Barplot Fig. 2 for comparisons (i.e. representation, algorithms, etc.)
     """
@@ -116,6 +116,8 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
     methods = list(metric_values[splitters[0]][datasets[0]])
     representations = list(metric_values[splitters[0]][datasets[0]][methods[0]])
     filename = 'results/figures/benchmark/'+f'BAR_accuracy_{metric}_methods_{x_axis}_{"_".join(datasets)}_{"_".join(methods)}_{"_".join(representations)}'
+    if suffix:
+        filename += str(suffix)
     font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
     if x_axis == "rep":
         n_cols = len(representations)*len(splitters)
@@ -927,10 +929,10 @@ def __parse_cumulative_results_dict(metrics_values: dict, metric: str, number_qu
                 number_splits = len(list(_results.keys()))
                 _metric = [_results[s][metric] for s in range(number_splits)]
                 _eps = [_results[s].get(PAC_BAYES_EPS) for s in range(number_splits)]
-                if metric == MSE: # compute positive 1-NMSE:
-                    mean_metric = np.clip(1-np.mean(_metric), 0, 1)
+                if metric == MSE: # R2 metric
+                    mean_metric = 1-np.mean(_metric)
                 elif metric == SPEARMAN_RHO:
-                    mean_metric = np.clip(np.mean(_metric), 0, 1)
+                    mean_metric = np.mean(_metric)
                 else:
                     mean_metric = np.mean(_metric)
                 std_metric = np.std(_metric)
@@ -960,42 +962,52 @@ def __parse_cumulative_results_dict(metrics_values: dict, metric: str, number_qu
 
 
 def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMAN_RHO], number_quantiles=10, threshold=None):
-    data_fractions = list(metrics_values.keys())
+    header_dict = {"1FQG": r"$\beta$-Lactamase", "UBQT": "Ubiquitin", "CALM": "Calmodulin", 
+                    "TIMB": "TIM-Barrel", "MTH3": "MTH3", "BRCA": "BRCA"}
+    header_rep_dict = {"one_hot": "One-Hot", "transformer": "ProtBert", "eve": "EVE", "esm": "ESM"}
+    font_kwargs = {'family': 'Arial', 'fontsize': 28, "weight": 'bold'}
+    font_kwargs_small = {'family': 'Arial', 'fontsize': 18, "weight": 'bold'}
+    data_fractions = np.array(list(metrics_values.keys())).astype(float)
     dataset = list(metrics_values[data_fractions[0]].keys())[0]
     methods = list(metrics_values[data_fractions[0]][dataset].keys())
     representation = list(metrics_values[data_fractions[0]][dataset][methods[0]].keys())[0]
     for metric in metrics:
         observations = __parse_cumulative_results_dict(metrics_values=metrics_values, metric=metric, number_quantiles=number_quantiles)
-        fig, ax = plt.subplots(2, figsize=(10,10))
+        fig, ax = plt.subplots(2, figsize=(7,5))
         for method in methods:
             # TODO: keep index of NaNs and annotate with stars?
-            y = np.nan_to_num(np.array(observations[method]['mean']))
-            ece = np.nan_to_num(np.array(observations[method]['mean_ece']))
-            yerr = np.nan_to_num(np.array(observations[method]['std_err']))
-            ece_err = np.nan_to_num(np.array(observations[method]['ece_err']))
+            # y = np.nan_to_num(np.array(observations[method]['mean']))
+            # ece = np.nan_to_num(np.array(observations[method]['mean_ece']))
+            yerr = np.array(observations[method]['std_err'])
+            ece_err = np.array(observations[method]['ece_err'])
+            y = np.array(observations[method]['mean'])
+            ece = np.array(observations[method]['mean_ece'])
             if PAC_BAYES_EPS in metrics:
                 bound = np.nan_to_num(np.array(observations[method]['eps']))
             else:
-                bound = np.nan_to_num(np.array(observations[method]['std']))
+                #bound = np.nan_to_num(np.array(observations[method]['std']))
+                bound = np.array(observations[method]['std'])
             ax[0].errorbar(data_fractions, y, yerr=yerr, lw=3, color=ac.get(method), label=method)
             if metric == MLL:
                 ax[0].set_yscale('log')
             if metric in [MSE, SPEARMAN_RHO] and method not in ['RF', 'KNN']:
                 label = r"PAC $\lambda$-bound $\delta$=.05" if PAC_BAYES_EPS in metrics else "std"
                 ax[0].fill_between(data_fractions, y+bound, y-bound, alpha=0.2, color=ac.get(method), label=label)
-                ax[0].set_ylim((0, 1))
+                ax[0].set_ylim((-0.3, 1))
             ax[1].errorbar(data_fractions, ece, yerr=ece_err, lw=3, color=ac.get(method), label=method)
-        ax[0].set_xlabel('fraction of N')
+        ax[1].set_xlabel('fraction of N', **font_kwargs)
         if metric == MSE:
-            metric = "1-NMSE+"
-        ax[0].set_ylabel(f'{metric}', fontsize=21)
-        ax[1].set_ylabel('ECE', fontsize=21)
-        title_string = f"{dataset}: {metric} on {representation} \n over training-fractions"
-        if threshold:
-            title_string += f" t={threshold}"
-        plt.suptitle(f"{dataset}: {metric} on {representation} \n over training-fractions")
+            metric = r"$R^2$"
+        elif metric == SPEARMAN_RHO:
+            metric = r"$\rho$"
+        ax[0].set_ylabel(f'{metric}', **font_kwargs)
+        ax[1].set_ylabel('ECE', **font_kwargs)
+        title_string = f"{header_dict.get(dataset)} ({header_rep_dict.get(representation)})"
+        # if threshold:
+        #     title_string += f" t={threshold}"
+        plt.suptitle(title_string, **font_kwargs)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric}_{representation}.png')
-        plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric}_{representation}.pdf')
+        plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{representation}.png')
+        plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{representation}.pdf')
         plt.show()
