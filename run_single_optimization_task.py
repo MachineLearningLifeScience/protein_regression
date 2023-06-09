@@ -29,8 +29,8 @@ def _expected_improvement(mean, variance, eta):
     return s * (gamma * normal.cdf(gamma) + normal.pdf(gamma))
 
 
-def run_single_optimization_task(dataset: str, method_key: str, seed: int, representation: str, max_iterations: int, log_interval: int=10):
-    method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset))
+def run_single_optimization_task(dataset: str, method_key: str, seed: int, representation: str, max_iterations: int, log_interval: int=10, optimize=True):
+    method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset), optimize)
     X, Y = load_dataset(dataset, representation=representation)
     np.random.seed(seed)
     p = np.random.permutation(X.shape[0])
@@ -54,6 +54,10 @@ def run_single_optimization_task(dataset: str, method_key: str, seed: int, repre
     selected_X = []
     log_interval = np.arange(2, max_iterations, log_interval)
     for i in tqdm(range(1, max_iterations+1)):
+        if i < 3 and "RF" in method.get_name():
+            method.optimize = False # NOTE: RF optimization has internal 3-fold CV => base config for first iterations
+        else:
+            method.optimize = optimize # NOTE: we do not reinstantiate the method, reset to provided optimize parameter
         selected_X.append(next)
         # the .sum() is a hack to get a float value--mlflow complains about numpy arrays
         mlflow.log_metric(OBSERVED_Y, np.squeeze(Y[next, :]).sum(), step=i)
@@ -79,7 +83,6 @@ def run_single_optimization_task(dataset: str, method_key: str, seed: int, repre
         Sharpness = np.std(_unc, ddof=1)/np.mean(_unc)
         mlflow.log_metric('Sharpness', Sharpness, step=i)
         EI_y_corr = stats.spearmanr(scoring,remaining_Y)[0]
-        #print_summary(method.gp)
         mlflow.log_metric('EI_y_corr', EI_y_corr, step=i)
         if i in log_interval:
             _log_optimization_metrics_to_mlflow(method=method, remaining_Y=remaining_Y, mean_y=mean_y, std_y=std_y,
