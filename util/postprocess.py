@@ -1,6 +1,9 @@
+from posixpath import split
+from re import S
 import numpy as np
 from itertools import combinations
-from typing import Tuple
+from typing import Tuple, List
+from util.mlflow.constants import MSE
 
 
 def filter_functional_variant_data_less_than(results_dict: dict, functional_thresholds: list) -> dict:
@@ -109,3 +112,20 @@ def parse_baseline_mutation_observations(results_dict: dict, metric: callable=np
         additive_training_values.append(split_additive_values)
         train_trues.append(training_observations)       
     return np.array(additive_training_values), np.array(true_observations), np.array(train_trues)
+
+
+def compute_delta_between_results(comp_lst: List[dict]):
+    diff = {} 
+    a, b = comp_lst
+    assert a.keys() == b.keys()
+    for splitter in a.keys():
+        diff[splitter] = {}
+        for data in a.get(splitter).keys():
+            diff[splitter][data] = {}
+            for method in a.get(splitter).get(data).keys():
+                diff[splitter][data][method] = {}
+                for rep in a.get(splitter).get(data).get(method).keys():
+                    diff[splitter][data][method][rep] = {None: {}}
+                    for metric in a.get(splitter).get(data).get(method).get(rep).get(None):
+                        diff[splitter][data][method][rep][None][metric] = np.array(a.get(splitter).get(data).get(method).get(rep).get(None).get(metric)) - np.array(b.get(splitter).get(data).get(method).get(rep).get(None).get(metric))
+    return diff
