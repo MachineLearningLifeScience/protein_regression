@@ -269,15 +269,15 @@ if __name__ == "__main__":
                           color_by="rep",
                           x_axis="rep",
                           cached_results=True)
-    # # compare regressors:
-    # plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
-    #                       reps=[ESM], metrics=metrics,
-    #                       train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
-    #                       algos=algos,
-    #                       color_by="algo",
-    #                       x_axis="algo",
-    #                       cached_results=True)
-    # # compare splitters:
+    # compare regressors:
+    plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
+                          reps=[ESM], metrics=metrics,
+                          train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
+                          algos=algos,
+                          color_by="algo",
+                          x_axis="algo",
+                          cached_results=True)
+    # compare splitters:
     fractional_splitters = FractionalSplitterFactory("1FQG")
     plot_metric_comparison_bar_splitting(datasets=["1FQG", "UBQT"],
                           reps=[ESM],
@@ -287,75 +287,95 @@ if __name__ == "__main__":
                           color_by="task",
                           x_axis="task",
                           seeds=seeds,
+                          cached_results=True,
+                          )
+    # MUTATIONSPLITTER BENCHMARK PLOT
+    plot_mutation_comparison_matrix(datasets=["TOXI"], 
+                        algos=[GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()], metrics=[SPEARMAN_RHO, "base_MSE"], 
+                        reps=[ONE_HOT, EVE, ESM],
+                        train_test_splitter=[BioSplitter("TOXI", 1, 1), BioSplitter("TOXI", 1, 2), BioSplitter("TOXI", 2, 2), BioSplitter("TOXI", 2, 3), BioSplitter("TOXI", 3, 3), BioSplitter("TOXI", 3, 4)],
+                        dimension=None, dim_reduction=None,
+                        cached_results=True,
+                        )
+    ## MUTATIONSPLITTING SI: regular MSE
+    plot_mutation_comparison_matrix(datasets=["TOXI"], 
+                        algos=[GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()], 
+                        metrics=[MSE], 
+                        reps=[ONE_HOT, EVE, ESM],
+                        train_test_splitter=[BioSplitter("TOXI", 1, 1), BioSplitter("TOXI", 1, 2), BioSplitter("TOXI", 2, 2), BioSplitter("TOXI", 2, 3), BioSplitter("TOXI", 3, 3), BioSplitter("TOXI", 3, 4)],
+                        dimension=None, 
+                        dim_reduction=None,
+                        cached_results=True)
+    # ### SI: performance across dimensions:
+    plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"], 
+                          reps=[ONE_HOT, EVE, TRANSFORMER, ESM],
+                          metrics=metrics,
+                          train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
+                          algos=[GPonRealSpace(kernel_factory=lambda: Matern52()).get_name()],
+                          color_by="rep",
+                          x_axis="rep",
+                          dim=1000,
+                          dim_reduction=LINEAR,
                           cached_results=True)
-    # # # MUTATIONSPLITTER BENCHMARK PLOT
-    # plot_mutation_comparison_matrix(datasets=["TOXI"], 
-    #                     algos=[GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()], metrics=[SPEARMAN_RHO, "base_MSE"], 
-    #                     reps=[ONE_HOT, EVE, ESM],
-    #                     train_test_splitter=[BioSplitter("TOXI", 1, 1), BioSplitter("TOXI", 1, 2), BioSplitter("TOXI", 2, 2), BioSplitter("TOXI", 2, 3), BioSplitter("TOXI", 3, 3), BioSplitter("TOXI", 3, 4)],
-    #                     dimension=None, dim_reduction=None,
-    #                     cached_results=True)
-    # ## MUTATIONSPLITTING SI: regular MSE
-    # plot_mutation_comparison_matrix(datasets=["TOXI"], 
-    #                     algos=[GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()], 
-    #                     metrics=[MSE], 
-    #                     reps=[ONE_HOT, EVE, ESM],
-    #                     train_test_splitter=[BioSplitter("TOXI", 1, 1), BioSplitter("TOXI", 1, 2), BioSplitter("TOXI", 2, 2), BioSplitter("TOXI", 2, 3), BioSplitter("TOXI", 3, 3), BioSplitter("TOXI", 3, 4)],
-    #                     dimension=None, 
-    #                     dim_reduction=None,
-    #                     cached_results=True)
-    # MUTATIONSPLITTER BENCHMARK metrics on functional (<=0.5)
-    # plot_metric_mutation_comparison(datasets=["TOXI"], algos=[GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()], metrics=[MSE, SPEARMAN_RHO, "base_MSE", MEAN_Y], 
-    #                     reps=[ONE_HOT, EVE, ESM],
-    #                     train_test_splitter=[BioSplitter("TOXI", 1, 2), BioSplitter("TOXI", 2, 3)], # NOTE: there are no functional observations in 4M case, since there are not functional quad.variants
-    #                     dimension=None, dim_reduction=None,
-    #                     cached_results=True, t=-0.5, equality="<")
-    # plot_metric_mutation_comparison(datasets=["TOXI"], algos=[GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()], metrics=[MSE, SPEARMAN_RHO, "base_MSE", MEAN_Y], # "comparative_NMSE", 
-    #                     reps=[ONE_HOT, EVE, ESM],
-    #                     train_test_splitter=[BioSplitter("TOXI", 2, 2), BioSplitter("TOXI", 3, 3)],
-    #                     dimension=None, dim_reduction=None,
-    #                     cached_results=True, t=-0.5, equality="<")
-    # # metrics on non-functional (>= 0.5)
-    # plot_metric_mutation_comparison(datasets=["TOXI"], algos=[GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()], metrics=[MSE, SPEARMAN_RHO, "base_MSE", "comparative_NMSE", MEAN_Y], 
-    #                     reps=[ONE_HOT, EVE, ESM],
-    #                     train_test_splitter=[BioSplitter("TOXI", 1, 2), BioSplitter("TOXI", 2, 3), BioSplitter("TOXI", 3, 4)],
-    #                     dimension=None, dim_reduction=None,
-    #                     cached_results=True, t=-0.5, equality=">")
-    # plot_metric_mutation_comparison(datasets=["TOXI"], algos=[GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()], metrics=[MSE, SPEARMAN_RHO, "base_MSE", "comparative_NMSE", MEAN_Y], # "comparative_NMSE", 
-    #                     reps=[ONE_HOT, EVE, ESM],
-    #                     train_test_splitter=[BioSplitter("TOXI", 2, 2), BioSplitter("TOXI", 3, 3)],
-    #                     dimension=None, dim_reduction=None,
-    #                     cached_results=True, t=-0.5, equality=">")
-    # plot_mutation_comparison_matrix(datasets=["TOXI"], algos=[GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()], metrics=[SPEARMAN_RHO, "base_MSE"],
-    #                     reps=[ONE_HOT, EVE, ESM],
-    #                     train_test_splitter=[BioSplitter("TOXI", 2, 2), BioSplitter("TOXI", 3, 3)],
-    #                     dimension=None, dim_reduction=None,
-    #                     cached_results=True,)
+    plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"], 
+                          reps=[ONE_HOT, EVE, TRANSFORMER, ESM],
+                          metrics=metrics,
+                          train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
+                          algos=[GPonRealSpace(kernel_factory=lambda: Matern52()).get_name()],
+                          color_by="rep",
+                          x_axis="rep",
+                          dim=100,
+                          dim_reduction=LINEAR,
+                          cached_results=True)
+    plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"], 
+                          reps=[ONE_HOT, EVE, TRANSFORMER, ESM],
+                          metrics=metrics,
+                          train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
+                          algos=[GPonRealSpace(kernel_factory=lambda: Matern52()).get_name()],
+                          color_by="rep",
+                          x_axis="rep",
+                          dim=10,
+                          dim_reduction=LINEAR,
+                          cached_results=True)
 
-    # ### SI: delta in performance:    # TODO
-    # plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
-    #                       reps=[ESM], metrics=metrics,
-    #                       train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
-    #                       algos=algos,
-    #                       color_by="algo",
-    #                       x_axis="algo",
-    #                       cached_results=True,
-    #                       optimized=False) # TODO: debug w.r.t. Mlflow loading
+    ### SI: remaining embedding comparisons (different regressors)
+    for algo in [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(),
+             RandomForest().get_name(), KNN().get_name()]:
+        plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
+                            reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM],
+                            metrics=metrics,
+                            train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
+                            algos=[algo],
+                            color_by="rep",
+                            x_axis="rep",
+                            cached_results=True)
+    ### SI: remaining regressor comparisons (different representations):
+    for embedding in [TRANSFORMER, ONE_HOT, EVE]:
+        plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
+                            reps=[embedding], 
+                            metrics=metrics,
+                            train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
+                            algos=algos,
+                            color_by="algo",
+                            x_axis="algo",
+                            cached_results=True)
+    ### SI: delta in performance:    # TODO
+    for rep in [ESM, ONE_HOT, EVE]:
+        plot_metric_comparison_bar_param_delta(datasets=["1FQG", "UBQT", "TIMB", "MTH3", "BRCA"], # ,  "UBQT", "TIMB", "MTH3", "BRCA"
+                            reps=[rep], # ESM, ONE_HOT, EVE ; TODO: TRANSFORMER
+                            metrics=metrics,
+                            train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")], #
+                            algos=algos,
+                            color_by="algo",
+                            x_axis="algo",
+                            cached_results=True) 
     ### SUPPLEMENTARY FIGURES
-    # # RANDOMSPLITTER BENCHMARK PLOT
-    # plot_metric_comparison(datasets=["MTH3", "TIMB", "UBQT", "1FQG", "BRCA", "TOXI"], 
-    #                     algos=algos, metrics=metrics, reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM], 
-    #                     train_test_splitter=RandomSplitter("1FQG"), dimension=None, dim_reduction=None)
-    # # POSITIONSPLITTER BENCHMARK PLOT
-    # plot_metric_comparison(datasets=["MTH3", "TIMB", "UBQT", "1FQG", "BRCA"], 
-    #                     algos=algos, metrics=metrics, reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM], 
-    #                     train_test_splitter=PositionSplitter("1FQG"), dimension=None, dim_reduction=None)
     # # AUGMENTATION RANDOMSPLITTER # NOTE: EXCLUDED
     # plot_metric_augmentation_comparison(datasets=["1FQG", "UBQT",  "CALM"], algos=algos, metrics=[MSE],
     #                                     reps=[ONE_HOT, EVE, TRANSFORMER, ESM],
     #                                     dim=None, train_test_splitter=RandomSplitter("1FQG"),
     #                                     augmentation=[ROSETTA, EVE_DENSITY], reference_bars=True)
-    # # AUGMENTATION POSITIONSPLITTER
+    # # AUGMENTATION POSITIONSPLITTER # NOTE: EXCLUDED
     # plot_metric_augmentation_comparison(datasets=["1FQG", "UBQT", "CALM"], algos=algos, metrics=[MSE],
     #                                     reps=[ONE_HOT, EVE, TRANSFORMER, ESM],
     #                                     dim=None, train_test_splitter=PositionSplitter("1FQG"),
