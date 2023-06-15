@@ -127,5 +127,8 @@ def compute_delta_between_results(comp_lst: List[dict]):
                 for rep in a.get(splitter).get(data).get(method).keys():
                     diff[splitter][data][method][rep] = {None: {}}
                     for metric in a.get(splitter).get(data).get(method).get(rep).get(None):
-                        diff[splitter][data][method][rep][None][metric] = np.array(a.get(splitter).get(data).get(method).get(rep).get(None).get(metric)) - np.array(b.get(splitter).get(data).get(method).get(rep).get(None).get(metric))
+                        if metric == MSE: # NOTE: 1-NMSE - 1-NMSE = -NMSE + NMSE , diff in std.R2 scores, denote as such, otherwise downstream issues when computing the metric
+                            diff[splitter][data][method][rep][None]["R2"] = (1-np.array(a.get(splitter).get(data).get(method).get(rep).get(None).get(metric))) - (1-np.array(b.get(splitter).get(data).get(method).get(rep).get(None).get(metric)))
+                        else:
+                            diff[splitter][data][method][rep][None][metric] = np.array(a.get(splitter).get(data).get(method).get(rep).get(None).get(metric)) - np.array(b.get(splitter).get(data).get(method).get(rep).get(None).get(metric))
     return diff
