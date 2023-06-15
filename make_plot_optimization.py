@@ -70,9 +70,12 @@ def compute_metrics_optimization_results(results: dict, datasets: list, algos: l
     return minObs_dict, regret_dict, meanObs_dict, lastObs_dict
 
 
-def plot_optimization_results(datasets: List[str], algos: List[str], representations: List[str], seeds: List[int], reference_benchmark_rep: List[str], plot_calibration: bool=False, cached_results: bool=False) -> None:
+def plot_optimization_results(datasets: List[str], algos: List[str], representations: List[str], seeds: List[int], reference_benchmark_rep: List[str], plot_calibration: bool=False, cached_results: bool=False, savefig=True) -> None:
     for representation in representations:
-        cache_filename = f"./results/cache/results_optimization_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={representation}.pkl"
+        cache_filename = f"/Users/rcml/protein_regression/results/cache/results_optimization_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={representation}.pkl"
+        cache_filename_ref = f"/Users/rcml/protein_regression/results/cache/results_optimization_d={'_'.join(datasets)}_a={reference_benchmark_rep}_r={representation}.pkl"
+        cache_filename_rand = f"/Users/rcml/protein_regression/results/cache/results_optimization_d={'_'.join(datasets)}_a={AT_RANDOM}_r={representation}.pkl"
+        # ALL ALGO RESULTS:
         if cached_results and os.path.exists(cache_filename):
             with open(cache_filename, "rb") as infile:
                 results = pickle.load(infile)
@@ -80,9 +83,22 @@ def plot_optimization_results(datasets: List[str], algos: List[str], representat
             results = get_mlflow_results_optimization(datasets=datasets, algos=algos, reps=[representation], metrics=[OBSERVED_Y, STD_Y], seeds=seeds)
             with open(cache_filename, "wb") as outfile:
                 pickle.dump(results, outfile)
-        # benchmark against VAE scored sorted list
-        reference_results = get_mlflow_results_optimization(datasets=datasets, algos=reference_benchmark_rep, reps=[None], metrics=[OBSERVED_Y])
-        random_reference_results = get_mlflow_results_optimization(datasets=datasets, algos=[AT_RANDOM], reps=[None], metrics=[OBSERVED_Y], seeds=seeds)
+        # COMPARATIVE REFERENCE RESULTS
+        if cached_results and os.path.exists(cache_filename_ref):
+            with open(cache_filename_ref, "rb") as infile:
+                reference_results = pickle.load(infile)
+        else:
+            reference_results = get_mlflow_results_optimization(datasets=datasets, algos=reference_benchmark_rep, reps=[None], metrics=[OBSERVED_Y])
+            with open(cache_filename_ref, "wb") as outfile:
+                pickle.dump(reference_results, outfile)
+        # RANDOM REFERENCE:
+        if cached_results and os.path.exists(cache_filename_rand):
+            with open(cache_filename_rand, "rb") as infile:
+                random_reference_results = pickle.load(infile)
+        else:
+            random_reference_results = get_mlflow_results_optimization(datasets=datasets, algos=[AT_RANDOM], reps=[None], metrics=[OBSERVED_Y], seeds=seeds)
+            with open(cache_filename_rand, "wb") as outfile:
+                pickle.dump(random_reference_results, outfile)
 
         minObs_dict, regret_dict, meanObs_dict, lastObs_dict = compute_metrics_optimization_results(results=results, datasets=datasets, algos=algos, representations=[representation], seeds=seeds)
         ref_minObs_dict, ref_regret_dict, ref_meanObs_dict, ref_lastObs_dict = compute_metrics_optimization_results(results=reference_results, datasets=datasets, algos=reference_benchmark_rep, representations=[None], seeds=[None])
@@ -99,10 +115,10 @@ def plot_optimization_results(datasets: List[str], algos: List[str], representat
         meanObs_dict[datasets[0]][AT_RANDOM] = random_meanObs_dict[datasets[0]].get(AT_RANDOM)
         lastObs_dict[datasets[0]][AT_RANDOM] = random_lastObs_dict[datasets[0]].get(AT_RANDOM)
 
-        plot_optimization_task(metric_values=minObs_dict, name=f'Best_observed', representation=representation, dataset=datasets)
-        plot_optimization_task(metric_values=regret_dict, name=f'Regret', representation=representation, dataset=datasets)
-        plot_optimization_task(metric_values=meanObs_dict, name=f'Mean_observed', representation=representation, dataset=datasets)
-        plot_optimization_task(metric_values=lastObs_dict, name=f'Last_observed', representation=representation, dataset=datasets, legend=True)
+        plot_optimization_task(metric_values=minObs_dict, name=f'Best_observed', representation=representation, dataset=datasets, savefig=savefig)
+        plot_optimization_task(metric_values=regret_dict, name=f'Regret', representation=representation, dataset=datasets, legend=True, savefig=savefig)
+        plot_optimization_task(metric_values=meanObs_dict, name=f'Mean_observed', representation=representation, dataset=datasets, savefig=savefig)
+        plot_optimization_task(metric_values=lastObs_dict, name=f'Last_observed', representation=representation, dataset=datasets, legend=True, savefig=savefig)
 
         if plot_calibration:
             plot_uncertainty_optimization(dataset=datasets[0], algos=algos, rep=representation, seeds=seeds, number_quantiles=10, 
@@ -122,10 +138,6 @@ if __name__ == "__main__":
             GPonRealSpace(kernel_factory=lambda: Linear()).get_name(), 
             UncertainRandomForest().get_name()]
 
-    # plot_optimization_results(datasets, algos, representations, seeds, reference_benchmark_rep, plot_calibration=plot_calibration,
-    #                         cached_results=True)
-
-    ### SI:
     plot_optimization_results(["1FQG"], algos, representations, seeds, reference_benchmark_rep, plot_calibration=plot_calibration,
                             cached_results=True) # TODO: UBQT rep: EVE missing!
         
