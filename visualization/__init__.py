@@ -1,5 +1,5 @@
 from util.mlflow.constants import ONE_HOT, ESM, TRANSFORMER, EVE, VAE_AUX, VAE_RAND
-from util.mlflow.constants import ROSETTA, VAE_DENSITY, EVE_DENSITY
+from util.mlflow.constants import ROSETTA, VAE_DENSITY, EVE_DENSITY, AT_RANDOM
 from gpflow.kernels import SquaredExponential, Matern52
 from algorithms import GPonRealSpace, RandomForest, KNN, UncertainRandomForest
 from visualization.plot_metric_for_mixtures import plot_metric_for_mixtures
@@ -42,7 +42,8 @@ algorithm_colors = {a: colorscheme[i] for i, a in enumerate([
     # UncertainRandomForest().get_name(),
     RandomForest().get_name(),
     KNN().get_name(),
-    EVE_DENSITY
+    EVE_DENSITY,
+    AT_RANDOM,
 ])}
 
 algorithm_markers = {
