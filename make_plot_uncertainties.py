@@ -46,7 +46,7 @@ if __name__ == "__main__":
         #                   augmentations = augmentations, number_quantiles=number_quantiles, optimize=True, 
         #                   d=d, dim_reduction=None, cached_results=cached_results)
         ##########
-        #### SUPPLEMENTARY:
+        # #### SUPPLEMENTARY:
         for dataset in ["UBQT", "TIMB", "MTH3", "BRCA"]:
                 plot_uncertainty_eval(datasets=[dataset], reps=reps,
                           algos=algos, train_test_splitter=RandomSplitter(datasets[0]),

@@ -22,11 +22,13 @@ def plot_cumulative_comparison(datasets: List[str],
                             algos: List[str],
                             metrics: str,  
                             reps: List[str],
+                            testing_fractions,
                             train_test_splitters,
                             dimension=None,
                             dim_reduction=None,
                             threshold: float=None,
-                            cached_results: bool=False):
+                            cached_results: bool=False,
+                            savefig=True):
     # TODO: refactor
     cached_filename = f"/Users/rcml/protein_regression/results/cache/results_cumulative_split_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={'_'.join([s.get_name()[:5] for s in train_test_splitters[:5]])}.pkl"
     if cached_results and os.path.exists(cached_filename):
@@ -48,14 +50,14 @@ def plot_cumulative_comparison(datasets: List[str],
             for split in results_dict:
                 _results_dict[split] = {}
                 _results_dict[split][dataset] = results_dict[split][dataset] # TODO: subset w.r.t. one data-set
-            cumulative_performance_plot(_results_dict, threshold=threshold)
+            cumulative_performance_plot(_results_dict, threshold=threshold, savefig=savefig)
     else:
-        cumulative_performance_plot(results_dict, threshold=threshold)
+        cumulative_performance_plot(results_dict, threshold=threshold, savefig=savefig)
 
 
 if __name__ == "__main__":
     datasets = ["1FQG", "CALM", "BRCA", "UBQT", "MTH3", "TIMB"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
-    thresholds = [None] # [0.] # 
+    thresholds = [None]
     algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(), 
         #GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), 
         UncertainRandomForest().get_name()]
@@ -67,6 +69,6 @@ if __name__ == "__main__":
     testing_fractions = np.concatenate([np.arange(0.001, .3, 0.01), np.arange(.3, .6, 0.03), np.arange(.6, 1.05, 0.05)])
     train_test_splitters = [FractionalRandomSplitter(datasets[0], n) for n in testing_fractions]
     for rep in representations:    
-        plot_cumulative_comparison(datasets=datasets, algos=algos, metrics=metrics, reps=[rep], 
+        plot_cumulative_comparison(datasets=datasets, algos=algos, metrics=metrics, reps=[rep], testing_fractions=testing_fractions,
                             train_test_splitters=train_test_splitters, dimension=dim,
                             dim_reduction=dim_reduction, threshold=thresholds, cached_results=True)

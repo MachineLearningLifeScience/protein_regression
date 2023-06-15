@@ -101,7 +101,7 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.show()
 
 
-def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None, suffix=None) -> None:
+def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None, suffix=None, dim=None, savefig=True) -> None:
     """
     Barplot Fig. 2 for comparisons (i.e. representation, algorithms, etc.)
     """
@@ -116,6 +116,8 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
     methods = list(metric_values[splitters[0]][datasets[0]])
     representations = list(metric_values[splitters[0]][datasets[0]][methods[0]])
     filename = 'results/figures/benchmark/'+f'BAR_accuracy_{metric}_methods_{x_axis}_{"_".join(datasets)}_{"_".join(methods)}_{"_".join(representations)}'
+    if dim:
+        filename += f"_dim={str(dim)}"
     if suffix:
         filename += str(suffix)
     font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
@@ -131,6 +133,7 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
     column_spacing = 4
     for d, dataset_key in enumerate(metric_values[splitters[0]].keys()):
         idx = 0
+        dimensions = []
         for s, splitter in enumerate(metric_values.keys()):
             for i, algo in enumerate(metric_values[splitter][dataset_key].keys()):
                 seps = np.linspace(-width*column_spacing*n_cols, width*column_spacing*n_cols, n_cols)
@@ -144,11 +147,11 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
                     if label not in labels:
                         labels.append(label)
                     mean, std_err = _compute_metric_results(metric_values[splitter][dataset_key][algo][rep][augmentation][metric], metric=metric)
-                    mean = mean
-                    std_err = std_err
                     selected_color = ac.get(algo) if color_by.lower() == "algo" else rc.get(rep) 
                     if x_axis == "task":
                         selected_color = tc.get(splitter)
+                    if "dim" in metric_values[splitter][dataset_key][algo][rep][augmentation].keys():
+                        dimensions.append(metric_values[splitter][dataset_key][algo][rep][augmentation]["dim"])
                     for k, (_m, _std_err) in enumerate(zip(mean, std_err)):
                         axs[d].bar(seps[idx]+k*0.45, _m, yerr=_std_err, color=selected_color, ecolor="black",
                                     capsize=3, label=label if i == 0 else None,
@@ -169,6 +172,10 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
         # x-axis
         if x_axis.lower() == "rep":
             tick_labels = ["One-Hot", "EVE", "EVE (evo-score)", "ProtBert", "ESM"]*2
+            if dimensions:
+                tick_labels.remove("EVE (evo-score)")
+                tick_labels.remove("EVE (evo-score)") # NOTE: dim reduction SI experiments don't include evo-score
+                tick_labels = [f"PCA({rep}) d={d}" for rep, d in zip(tick_labels, dimensions)]
         elif x_axis.lower() == "algo":
             tick_labels = ["GPlinear", "GPsqexp", "GPm52", "RF", "KNN"]*2
         else:
@@ -180,7 +187,9 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
         axs[d].tick_params(axis='y', which='both', labelsize=22)
 
         # y-axis
-        metric_label = r'$\mathbf{R^2}$' if metric == MSE else SPEARMAN_RHO
+        #metric_label = r'$\mathbf{R^2}$' if metric == MSE or metric == "R2" else metric
+        metric_label = r'$R^2$' if metric == MSE or metric == "R2" else metric
+        metric_label = r'spearman $\rho$' if metric == SPEARMAN_RHO else metric_label
         axs[d].set_ylabel(metric_label, **font_kwargs)
         axs[d].yaxis.set_label_coords(-.25, .5, transform=axs[d].transAxes)
         if d > 0:
@@ -193,12 +202,13 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
     # fig.legend(handles[:len(labels)], labels[:len(labels)], loc='lower right', ncol=len(labels), prop={'size': 14})
     # plt.suptitle(plot_heading, size=12)
     plt.subplots_adjust(wspace=0.15, left=0.075, right=0.975, bottom=0.25, top=0.95)
-    plt.savefig(filename+".png")
-    plt.savefig(filename+".pdf")
+    if savefig:
+        plt.savefig(filename+".png", bbox_inches="tight")
+        plt.savefig(filename+".pdf", bbox_inches="tight")
     plt.show()
 
 
-def barplot_metric_comparison_bar_splitting(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None, vline=True, legend=True, n_quantiles=4) -> None:
+def barplot_metric_comparison_bar_splitting(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None, vline=True, legend=True, n_quantiles=4, savefig=True) -> None:
     filename = 'results/figures/benchmark/'+f'BAR_accuracy_{metric}_methods_{x_axis}'
     font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
     font_kwargs_small = {'family': 'Arial', 'fontsize': 18, "weight": 'bold'}
@@ -280,8 +290,9 @@ def barplot_metric_comparison_bar_splitting(metric_values: dict, cvtype: str, me
         fig.legend(handles[:len(labels)], labels[:len(labels)], loc='lower right', ncol=len(labels), prop={'size': 14})
     plt.tight_layout()
     plt.subplots_adjust(wspace=0.33, left=0.115, right=0.965, bottom=0.27, top=0.9)
-    plt.savefig(filename+".png")
-    plt.savefig(filename+".pdf")
+    if savefig:
+        plt.savefig(filename+".png")
+        plt.savefig(filename+".pdf")
     plt.show()
 
 
@@ -306,7 +317,9 @@ def _compute_metric_results(metric_result_list, metric: str, n_quantiles=3):
             print(f"WARNING: {np.sum(nan_mask)} NaNs in metric ({metric}) results")
         mu = np.array([np.mean(obs[~nan_mask])])
         std_err = np.array([np.std(obs[~nan_mask], ddof=1)/np.sqrt(len(obs[~nan_mask]))]) # std-error on metric
-    if metric == MSE: # case 1-NMSE, works for both 1D and 2D case
+    if metric != MSE:
+        return np.array([mu]), np.array([std_err])
+    else: # case 1-NMSE, works for both 1D and 2D case
         mu = 1-mu
     return np.array([mu]), np.array([std_err])
 
@@ -609,7 +622,7 @@ def barplot_metric_mutation_comparison(metric_values: dict, metric: str, dataset
     plt.show()
 
 
-def barplot_metric_mutation_matrix(metric_values: dict, metric: str, datasets: List[str], dim=None):
+def barplot_metric_mutation_matrix(metric_values: dict, metric: str, datasets: List[str], dim=None, savefig=True):
     """
     Figure for mutation plotting for TOXI data
     """
@@ -691,8 +704,8 @@ def barplot_metric_mutation_matrix(metric_values: dict, metric: str, datasets: L
             _metric_val = np.mean(metric_per_split)
             _metric_std_err = np.std(metric_per_split, ddof=1)/np.sqrt(len(metric_per_split)) if len(metric_per_split) > 1 else 0.
             if rep == "additive" and bool(_metric_val): #NOTE: 1M rank-corr is NaN for constant additive values.
-                if metric == SPEARMAN_RHO:
-                    ax[row, col].plot(seps, np.repeat(_metric_val, len(seps)), color=rc.get(rep), label=rep, linestyle="dashed", lw=3.)
+                # if metric == SPEARMAN_RHO:
+                ax[row, col].plot(seps, np.repeat(_metric_val, len(seps)), color=rc.get(rep), label=rep, linestyle="dashed", lw=3.)
                 # else:
                 #     ax[row, col].text(seps[0], -0.05, f"add.={np.round(_metric_val,2)}", **font_kwargs_small)
             else:
@@ -722,8 +735,9 @@ def barplot_metric_mutation_matrix(metric_values: dict, metric: str, datasets: L
     plt.subplots_adjust(wspace=0.38, left=0.055, right=0.99, bottom=0.11, top=0.95)
     if not plot_dists:
         plt.subplots_adjust(wspace=0.38, left=0., right=0.99, bottom=0.11, top=0.95)
-    plt.savefig(filename+".png")
-    plt.savefig(filename+".pdf")
+    if savefig:
+        plt.savefig(filename+".png")
+        plt.savefig(filename+".pdf")
     plt.show()
 
 
@@ -876,7 +890,7 @@ def barplot_metric_functional_mutation_comparison(metric_values: dict, metric: s
     plt.show()
 
 
-def plot_optimization_task(metric_values: dict, representation: str, dataset: list, name: str, max_iterations=500, legend=False):
+def plot_optimization_task(metric_values: dict, representation: str, dataset: list, name: str, max_iterations=500, legend=False, savefig=True):
     plt.figure()
     font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
     header_dict = {"1FQG": r"$\beta$-Lactamase", "UBQT": "Ubiquitin"}
@@ -894,7 +908,7 @@ def plot_optimization_task(metric_values: dict, representation: str, dataset: li
                 if 'best' in name.lower():
                     _, Y = load_dataset(dataset_key, representation=ONE_HOT)
                     plt.hlines(min(Y), 0, len(means), linestyles='--', linewidth=2.5, colors='dimgrey')
-    plt.xlabel('Iterations', **font_kwargs)
+    plt.xlabel('iterations', **font_kwargs)
     plt.ylabel('observed value', **font_kwargs)
     if 'best' in name.lower():
         if 'fqg' in dataset[0].lower():
@@ -903,15 +917,21 @@ def plot_optimization_task(metric_values: dict, representation: str, dataset: li
             plt.ylim(-0.1, 0.2)
     if 'regret' in name.lower():
         plt.ylabel('cumulative regret', **font_kwargs)
+    if 'best' in name.lower():
+        plt.ylabel('best observed value', **font_kwargs)
+    if 'mean' in name.lower():
+        plt.ylabel('mean observed value', **font_kwargs)
     plt.xticks(size=18)
     plt.yticks(size=18)
     plt.title(f"{representation} {header_dict.get(dataset[0].upper())}", **font_kwargs)
     markers = [plt.Line2D([0,0],[0,0],color=ac.get(algo), marker='o', linestyle='') for algo in algos]
     if legend:
-        plt.legend(markers, algos, loc="lower right", numpoints=1, ncol=len(algos), prop={'size':14})
+        #plt.legend(markers, algos, loc="lower right", numpoints=1, ncol=len(algos), prop={'size':14})
+        plt.legend(markers, algos, loc="upper left", numpoints=1, ncol=1, prop={'size':14})
     plt.tight_layout()
-    plt.savefig('results/figures/optim/'+name+dataset[0]+representation+'_optimization_plot.png', bbox_inches="tight")
-    plt.savefig('results/figures/optim/'+name+dataset[0]+representation+'_optimization_plot.pdf', bbox_inches="tight")
+    if savefig:
+        plt.savefig('results/figures/optim/'+name+dataset[0]+representation+'_optimization_plot.png', bbox_inches="tight")
+        plt.savefig('results/figures/optim/'+name+dataset[0]+representation+'_optimization_plot.pdf', bbox_inches="tight")
     plt.show()
 
 
@@ -961,7 +981,7 @@ def __parse_cumulative_results_dict(metrics_values: dict, metric: str, number_qu
     return observations
 
 
-def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMAN_RHO], number_quantiles=10, threshold=None):
+def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMAN_RHO], number_quantiles=10, threshold=None, savefig=False):
     header_dict = {"1FQG": r"$\beta$-Lactamase", "UBQT": "Ubiquitin", "CALM": "Calmodulin", 
                     "TIMB": "TIM-Barrel", "MTH3": "MTH3", "BRCA": "BRCA"}
     header_rep_dict = {"one_hot": "One-Hot", "transformer": "ProtBert", "eve": "EVE", "esm": "ESM"}
@@ -1008,6 +1028,7 @@ def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMA
         plt.suptitle(title_string, **font_kwargs)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{representation}.png')
-        plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{representation}.pdf')
+        if savefig:
+            plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{representation}.png')
+            plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{representation}.pdf')
         plt.show()

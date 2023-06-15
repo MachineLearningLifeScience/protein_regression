@@ -8,7 +8,7 @@ import mlflow
 from mlflow.entities import ViewType
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
-from util.mlflow.constants import DATASET, METHOD, REPRESENTATION, SPLIT, SEED
+from util.mlflow.constants import DATASET, METHOD, ONE_HOT, OPTIMIZATION, REPRESENTATION, SPLIT, SEED
 from util.mlflow.constants import AUGMENTATION, NO_AUGMENT, DIMENSION, LINEAR, NON_LINEAR, VAE, EVE, THRESHOLD
 from data.train_test_split import AbstractTrainTestSplitter
 from typing import List, Tuple
@@ -73,12 +73,14 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                         filter_string += f" and tags.{SPLIT} = '{train_test_splitter.get_name()}'"
                     if aug:
                         filter_string += f" and tags.{AUGMENTATION} = '{aug}'"
-                    if dim and not (rep==VAE and dim >= 30): #and not (rep==EVE and dim >= 50):
+                    if dim and not (rep==VAE and dim >= 30) and not (rep==EVE and dim >= 50):
                         filter_string += f" and tags.{DIMENSION} = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'"
                     if seed:
                         filter_string += f" and tags.{SEED} = '{seed}'"
                     if threshold[0] and threshold[i]:
                         filter_string += f" and tags.{THRESHOLD} = '{threshold}'"
+                    if not "_optimization" in exps.name:
+                        filter_string += f" and tags.OPTIMIZE = '{str(optimized)}'"
                     runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY)
                     runs = runs[runs['status'] == 'FINISHED']
                     if not dim and f'tags.{DIMENSION}' in runs.columns:
@@ -91,14 +93,14 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                     if len(runs) == 0 and rep == EVE and dim > 50:
                         filter_string = filter_string.replace(f"and tags.{DIMENSION} = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'", "")
                         runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
-                    else: # dimensions lower
+                    if len(runs) == 0 and dim is not None: # dimensions lower
                         _dim = dim
                         while len(runs) == 0 and dim and _dim >= 1: # for lower-dimensions, if not exists: take next smaller in steps of 10, e.g. one-hot reduction d=1000 may not compute
                             _dim = int(re.search(r'\'\d+\'', filter_string).group()[1:-1]) # NOTE: \' to cover if other elements in the string have int elements
                             lower_dim = _dim - int(dim/10)
                             filter_string = filter_string.replace(f"tags.{DIMENSION} = '{_dim}'", f"tags.{DIMENSION} = '{lower_dim}'")
                             runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
-                    runs = runs.iloc[:1] # pick latest run
+                    runs = runs.iloc[:1] # pick latest run, by implicit results order
                     assert len(runs) == 1 , str(rep)+str(a)+str(dataset)+str(augmentation)
                     metric_results = {metric: [] for metric in metrics}     
                     for metric in metrics:
@@ -107,6 +109,11 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                                 metric_results[metric].append(r.value)
                         except MlflowException as e:
                             continue
+                    if dim is not None: # Save reduced dimension for later plotting
+                        if re.search(r'\'\d+\'', filter_string) == None:
+                            metric_results["dim"] = "full"
+                        else:
+                            metric_results["dim"] = int(re.search(r'\'\d+\'', filter_string).group()[1:-1])
                     aug_results[aug] = metric_results
                 reps_results[rep] = aug_results
             if a == 'GPsquared_exponential':
