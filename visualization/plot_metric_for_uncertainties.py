@@ -101,7 +101,7 @@ def plot_polygon(ax, poly, **kwargs):
     return collection
 
 
-def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representation='', optimize_flag=False, dim=None, dim_reduction=None):
+def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representation='', optimize_flag=False, dim=None, dim_reduction=None, savefig=True):
     """
     Visualize X**2 statistic on predictions.
     AUTHOR: Richard M
@@ -166,14 +166,15 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
     handles, labels = axs[plt_idx].get_legend_handles_labels()
     fig.legend(handles[(len(algos)-1):], labels[(len(algos)-1):], loc='lower center', ncol=len(algos)+1, prop={'size': 14})
     plt.subplots_adjust(wspace=0.1, left=0.075, right=0.975, bottom=0.2)
-    plt.savefig(filename+".png")
-    plt.savefig(filename+".pdf")
+    if savefig:
+        plt.savefig(filename+".png")
+        plt.savefig(filename+".pdf")
     plt.show()
 
 
     
 
-def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', optimize_flag=False, dim=None, dim_reduction=None):
+def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', optimize_flag=False, dim=None, dim_reduction=None, savefig=True):
     """
     Plotting calibration Curves.
     AUTHOR: Jacob KH, 
@@ -263,8 +264,9 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     plt.xticks(size=14)
     plt.yticks(size=14)
     plt.tight_layout()
-    plt.savefig(filename+".png")
-    plt.savefig(filename+".pdf")
+    if savefig:
+        plt.savefig(filename+".png")
+        plt.savefig(filename+".pdf")
     plt.show()
 
 
@@ -333,7 +335,7 @@ def multi_dim_reliabilitydiagram(metric_values: dict, number_quantiles: int, cvt
 
 
 def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', 
-                    optimize_flag=True, dim=None, dim_reduction=None):
+                    optimize_flag=True, dim=None, dim_reduction=None, savefig=True):
     qs = np.linspace(0,1,1+number_quantiles)
     n_prot = len(list(metric_values.keys()))
     for d in metric_values.keys():
@@ -379,8 +381,9 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
     plt.legend() 
     plt.suptitle(f"{str(dataset)} Split: {cvtype} , d={dim} {dim_reduction}")
     #plt.tight_layout()
-    plt.savefig(filename+'.png')
-    plt.savefig(filename+'.pdf')
+    if savefig:
+        plt.savefig(filename+'.png')
+        plt.savefig(filename+'.pdf')
     plt.show()
 
 
@@ -434,8 +437,9 @@ def multi_dim_confidencecurve(metric_values: dict, number_quantiles: int, cvtype
 def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str], 
                         train_test_splitter,  augmentations: str = [NO_AUGMENT], number_quantiles: int = 10, 
                         optimize: bool=True, d: int=None, dim_reduction: str=None, metrics: str=[GP_L_VAR, STD_Y, RF_ESTIMATORS, ],
-                        cached_results: bool=False, confidence_plot: bool=False):
-    filename = f"./results/cache/results_calibration_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={train_test_splitter.get_name()}.pkl"
+                        cached_results: bool=False, confidence_plot: bool=False,
+                        savefig=True):
+    filename = f"/Users/rcml/protein_regression/results/cache/results_calibration_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={train_test_splitter.get_name()}.pkl"
     if cached_results and os.path.exists(filename):
         with open(filename, "rb") as infile:
             results_dict = pickle.load(infile)
@@ -444,10 +448,10 @@ def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str]
                                                     dim=d, dim_reduction=dim_reduction, optimize=optimize)
         with open(filename, "wb") as outfile:
             pickle.dump(results_dict, outfile)
-    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
-    chi_square_fig(results_dict, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+    reliabilitydiagram(results_dict, number_quantiles,  cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction, savefig=savefig)
+    chi_square_fig(results_dict, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction, savefig=savefig)
     if confidence_plot:
-        confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction)
+        confidence_curve(results_dict, number_quantiles, cvtype=train_test_splitter.get_name(), dataset=datasets, representation=reps, optimize_flag=optimize, dim=d, dim_reduction=dim_reduction, savefig=savefig)
 
 
 def plot_uncertainty_eval_across_dimensions(datasets: List[str], reps: List[str], algos: List[str], train_test_splitter, dimensions: List[int], augmentation = [NO_AUGMENT], number_quantiles=10,
