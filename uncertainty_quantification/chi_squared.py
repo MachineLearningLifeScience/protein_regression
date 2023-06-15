@@ -47,4 +47,6 @@ def chi_squared_anees(y: np.array, y_pred: np.ndarray, var_pred: np.ndarray, eps
         cov = cov + np.diag(np.repeat(eps, cov.shape[0])) # add epsilon for p.d.
         L, lower = scipy.linalg.cho_factor(cov, lower=True)
         normalized_discrepancies = centered_mean @ scipy.linalg.cho_solve((L, lower), centered_mean)
+    except ValueError: # e.g. Nans in the diagonal
+        return np.nan # NOTE: case NaN predictions in the results
     return np.mean(normalized_discrepancies)
