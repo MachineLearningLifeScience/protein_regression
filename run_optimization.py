@@ -44,4 +44,4 @@ if __name__ == "__main__":
     seeds = [args.seeds] if not isinstance(args.seeds, list) else args.seeds
 
     optimization_experiment(datasets=datasets, method_keys=methods, representations=representations, 
-                budget=args.budget, seeds=seeds)
+                budget=args.budget, seeds=seeds) # TODO: schedule all UBQT runs on cluster
