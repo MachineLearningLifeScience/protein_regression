@@ -15,7 +15,7 @@ CONDA_BASE=$(conda info --base)
 source ${CONDA_BASE}/etc/profile.d/conda.sh
 conda activate protein_regression
 
-CONFIG=/home/pcq275/protein_regression/slurm_experiment_config_no_GP_positionsplitter.txt
+CONFIG=/home/pcq275/protein_regression/slurm_configs/slurm_experiment_config_no_GP_positionsplitter.txt
 
 dataset=$(awk -v ArrayID=${SLURM_ARRAY_TASK_ID} '$1==ArrayID {print $2}' ${CONFIG})
 representation=$(awk -v ArrayID=${SLURM_ARRAY_TASK_ID} '$1==ArrayID {print $3}' ${CONFIG})

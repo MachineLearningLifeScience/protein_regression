@@ -21,7 +21,7 @@ if [ $(cat $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh | wc -l) == 0 ]; then
     source $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
 fi
 
-CONFIG=/home/pcq275/protein_regression/slurm_experiment_config_DIM_ABLATION.txt
+CONFIG=/home/pcq275/protein_regression/slurm_configs/slurm_experiment_config_DIM_ABLATION.txt
 
 dataset=$(awk -v ArrayID=${SLURM_ARRAY_TASK_ID} '$1==ArrayID {print $2}' ${CONFIG})
 representation=$(awk -v ArrayID=${SLURM_ARRAY_TASK_ID} '$1==ArrayID {print $3}' ${CONFIG})
