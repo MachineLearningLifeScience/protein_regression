@@ -2,6 +2,7 @@ from distutils.log import error
 from sys import stderr
 from warnings import warn
 from typing import List
+from typing import Tuple
 from itertools import product
 import numpy as np
 import pandas as pd
@@ -101,7 +102,7 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.show()
 
 
-def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None, suffix=None, dim=None, savefig=True) -> None:
+def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None, suffix=None, dim=None, savefig=True, annotate_NA=True) -> None:
     """
     Barplot Fig. 2 for comparisons (i.e. representation, algorithms, etc.)
     """
@@ -121,6 +122,8 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
     if suffix:
         filename += str(suffix)
     font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
+    labelsize = 19
+    font_kwargs_small = {'family': 'Arial', 'fontsize': 20, "weight": 'bold'}
     if x_axis == "rep":
         n_cols = len(representations)*len(splitters)
     elif x_axis == "algo":
@@ -146,7 +149,8 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
                         label = splitter
                     if label not in labels:
                         labels.append(label)
-                    mean, std_err = _compute_metric_results(metric_values[splitter][dataset_key][algo][rep][augmentation][metric], metric=metric)
+                    num_obs = len(metric_values[splitter][dataset_key][algo][rep][augmentation][metric])
+                    mean, std_err, num_NA = _compute_metric_results(metric_values[splitter][dataset_key][algo][rep][augmentation][metric], metric=metric, suffix=f"{dataset_key}, {algo}, {rep}, {splitter}")
                     selected_color = ac.get(algo) if color_by.lower() == "algo" else rc.get(rep) 
                     if x_axis == "task":
                         selected_color = tc.get(splitter)
@@ -156,16 +160,18 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
                         axs[d].bar(seps[idx]+k*0.45, _m, yerr=_std_err, color=selected_color, ecolor="black",
                                     capsize=3, label=label if i == 0 else None,
                                    width=1.2) # NOTE: label reversed mean of quantiles
+                        if num_NA:
+                            axs[d].text(seps[idx]+k*0.45-0.25, np.nan_to_num(_m)+np.nan_to_num(_std_err)+0.02, r'$^*\frac{{{vals}}}{{{num_obs}}}$'.format(vals=num_obs-num_NA, num_obs=num_obs), color="black", **font_kwargs_small)
                     idx += 1
 
         # Add text elements
         axs[d].text(x=0.25, y=0.05, s="Random CV", horizontalalignment='center', verticalalignment='center',
-                 transform=axs[d].transAxes, fontsize=12)
+                 transform=axs[d].transAxes, fontsize=labelsize)
         axs[d].text(x=0.75, y=0.05, s="Position CV", horizontalalignment='center', verticalalignment='center',
-                    transform=axs[d].transAxes, fontsize=12)
+                    transform=axs[d].transAxes, fontsize=labelsize)
 
         # Add vertical/horizontal lines
-        axs[d].axvline((seps[int(len(seps)/2)-1]+seps[int(len(seps)/2)])/2, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.5)
+        axs[d].axvline((seps[int(len(seps)/2)-1]+seps[int(len(seps)/2)])/2, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='black', ls='--', linewidth=2)
         for val in [0, 0.5, 0.75, 0.25, -0.25]:
             axs[d].axhline(val, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
 
@@ -182,7 +188,7 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
             tick_labels = labels
         axs[d].set_xticks(seps)
         assert len(seps) == len(tick_labels)
-        axs[d].set_xticklabels(tick_labels, size=14, rotation=60, ha='right')
+        axs[d].set_xticklabels(tick_labels, size=labelsize, rotation=60, ha='right')
         axs[d].set_xlim((seps[0]-0.75, seps[-1]+0.75+k*0.45))
         axs[d].tick_params(axis='y', which='both', labelsize=22)
 
@@ -247,7 +253,8 @@ def barplot_metric_comparison_bar_splitting(metric_values: dict, cvtype: str, me
                         label = splitter
                     if label not in labels:
                         labels.append(label)
-                    mean, std_err = _compute_metric_results(metric_values[splitter][dataset_key][algo][rep][augmentation][metric], metric=metric, n_quantiles=n_quantiles)
+                    num_obs = len(metric_values[splitter][dataset_key][algo][rep][augmentation][metric])
+                    mean, std_err, num_NA = _compute_metric_results(metric_values[splitter][dataset_key][algo][rep][augmentation][metric], metric=metric, n_quantiles=n_quantiles, suffix=f"{dataset_key}, {rep}, {algo}, {splitter}")
                     mean = mean
                     std_err = std_err
                     selected_color = ac.get(algo) if color_by.lower() == "algo" else rc.get(rep) 
@@ -256,6 +263,8 @@ def barplot_metric_comparison_bar_splitting(metric_values: dict, cvtype: str, me
                     for k, (_m, _std_err) in enumerate(zip(mean, std_err)):
                         axs[d].bar(seps[idx]+k*0.45, _m, yerr=_std_err, color=selected_color, ecolor="black", edgecolor="black", linewidth=2.,
                                     capsize=3, label=label+str(len(mean)-k), alpha=1/mean.shape[-1]) # NOTE: label reversed mean of quantiles
+                        if num_NA:
+                            axs[d].text(seps[idx]+k*0.45-0.2, np.nanmax(_m)+np.nanmax(_std_err)+0.01, r'$^*\frac{{{vals}}}{{{num_obs}}}$'.format(vals=num_obs-num_NA, num_obs=num_obs), color="black", **font_kwargs_small)
                     idx += 1
         if vline:
             axs[d].axvline((seps[int(len(seps)/2)-1]+seps[int(len(seps)/2)])/2, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.75)
@@ -297,7 +306,11 @@ def barplot_metric_comparison_bar_splitting(metric_values: dict, cvtype: str, me
 
 
 
-def _compute_metric_results(metric_result_list, metric: str, n_quantiles=3):
+def _compute_metric_results(metric_result_list, metric: str, n_quantiles=3, suffix=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Compute mean and STD across observation, given metric results.
+    Return number of missing values (not computed values) if exists
+    """
     obs = np.array(metric_result_list)
     if obs.ndim == 2: # Case: Fraction Splitter or Optimization aggregate results
         if obs.shape[0] < obs.shape[1]: # NOTE: #CV/seed splits << #observations
@@ -318,10 +331,10 @@ def _compute_metric_results(metric_result_list, metric: str, n_quantiles=3):
         mu = np.array([np.mean(obs[~nan_mask])])
         std_err = np.array([np.std(obs[~nan_mask], ddof=1)/np.sqrt(len(obs[~nan_mask]))]) # std-error on metric
     if metric != MSE:
-        return np.array([mu]), np.array([std_err])
+        return np.array([mu]), np.array([std_err]), np.isnan(obs).sum()
     else: # case 1-NMSE, works for both 1D and 2D case
         mu = 1-mu
-    return np.array([mu]), np.array([std_err])
+    return np.array([mu]), np.array([std_err]), np.isnan(obs).sum()
 
 
 def _compute_missing_reference(df, observation_column):
@@ -645,6 +658,7 @@ def barplot_metric_mutation_matrix(metric_values: dict, metric: str, datasets: L
     n_reps = len(representations)
     width = 3+1/(n_reps) # 3 elements (1 bar + 2 arrows) + 2 extra space
     ax[0, 0].axis('off')
+    true_mean_vals = []
     for row, col in product(range(1,4), range(1,5)):
         splitter_key = f"BioSplitter{row}_{col}"
         if row>0 and col>0 and row!=col and row+1!=col:
@@ -654,6 +668,7 @@ def barplot_metric_mutation_matrix(metric_values: dict, metric: str, datasets: L
             continue
         if row == col: # joint distribution is all available data for 1->2;2->3;3->4
             joint_obs_vals = metric_values[splitter_key][dataset][method][representations[0]][None][0].get('train_trues') +  metric_values[splitter_key][dataset][method][representations[0]][None][0].get('trues')
+            true_mean_vals.append(np.mean(joint_obs_vals))
             sns.kdeplot(-np.array(joint_obs_vals), ax=ax[row, 0], color=rc.get(representations[0]), linewidth=LW)
             if row == 1:
                 sns.kdeplot(-np.array(joint_obs_vals), ax=ax[0, col], color=rc.get(representations[0]), linewidth=LW) # 1M is symmetric
@@ -738,6 +753,11 @@ def barplot_metric_mutation_matrix(metric_values: dict, metric: str, datasets: L
     if savefig:
         plt.savefig(filename+".png")
         plt.savefig(filename+".pdf")
+    plt.show()
+    sns.regplot(np.arange(len(true_mean_vals)), true_mean_vals)
+    plt.xlabel("k mutations (extrapolation)")
+    plt.ylabel(r"$\mu_k$")
+    plt.title("Concentration")
     plt.show()
 
 
@@ -993,7 +1013,7 @@ def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMA
     representation = list(metrics_values[data_fractions[0]][dataset][methods[0]].keys())[0]
     for metric in metrics:
         observations = __parse_cumulative_results_dict(metrics_values=metrics_values, metric=metric, number_quantiles=number_quantiles)
-        fig, ax = plt.subplots(2, figsize=(7,5))
+        fig, ax = plt.subplots(2, figsize=(7,6))
         for method in methods:
             # TODO: keep index of NaNs and annotate with stars?
             # y = np.nan_to_num(np.array(observations[method]['mean']))
@@ -1022,11 +1042,15 @@ def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMA
             metric = r"$\rho$"
         ax[0].set_ylabel(f'{metric}', **font_kwargs)
         ax[1].set_ylabel('ECE', **font_kwargs)
+        ax[0].yaxis.set_tick_params(labelsize=20)
+        ax[1].yaxis.set_tick_params(labelsize=20)
+        ax[0].xaxis.set_tick_params(labelsize=20)
+        ax[1].xaxis.set_tick_params(labelsize=20)
         title_string = f"{header_dict.get(dataset)} ({header_rep_dict.get(representation)})"
         # if threshold:
         #     title_string += f" t={threshold}"
         plt.suptitle(title_string, **font_kwargs)
-        plt.legend()
+        plt.legend(prop={'size': 18})
         plt.tight_layout()
         if savefig:
             plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{representation}.png')
