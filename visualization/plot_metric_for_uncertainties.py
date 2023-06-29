@@ -145,34 +145,37 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
                         y_true =  np.array(metric_values[dataset_key][algo][rep][aug][s]['trues'])
                         y_pred =  np.array(metric_values[dataset_key][algo][rep][aug][s]['pred'])
                         standardized_chi = chi_squared_anees(y_true, y_pred, pred_var) / (len(y_true)-1) # NOTE: unbiased standardize: chi^2 * 1/(N-1)
+                        if standardized_chi == np.nan:
+                            print(f"NaN in Xi^2 for {dataset_key}, {algo}, {rep}")
                         chis.append(standardized_chi)
                     yerr = np.std(chis) / np.sqrt(len(chis)) # NOTE: std. error across CV splits
+                    # print(f"ch.squ. value: {np.mean(chis)}")
                     axs[plt_idx].errorbar(i, np.mean(chis), yerr=yerr, c=ac.get(algo), marker="D", fillstyle='full', ms=12, lw=2, linestyle='-', capsize=4., label=algo)
-                    # if np.mean(chis) > 10e2:
-                    #     axs[plt_idx].text(i-0.2, 575, f"{np.round(np.mean(chis),2)}", color=ac.get(algo), **font_kwargs_small)
+                    if np.mean(chis) > 10e4:
+                        axs[plt_idx].text(i-0.2, 8500, '{:,.2f}'.format(np.round(np.mean(chis),2)), color=ac.get(algo), **font_kwargs_small)
                     axs[plt_idx].hlines(1., -0.26, len(metric_values[dataset_key].keys())-0.0125, linestyles='dotted', color='k', label='Perfect Calibration', linewidths=2.5)
                     axs[plt_idx].fill_between(np.arange(-0.26, len(metric_values[dataset_key].keys())+0.0125), 0.5, 1.5, alpha=0.0125, color="k")
                     axs[plt_idx].set_title(name_dict[rep], **font_kwargs)
                     axs[plt_idx].set_yscale("log")
-                    axs[plt_idx].set_ylim((10e-4, 10e4))
+                    if dataset_key.lower() == "1fqg":
+                        axs[plt_idx].set_ylim((10e-2, 10e3))
+                    else:
+                        axs[plt_idx].set_ylim((10e-4, 10e4))
                     axs[plt_idx].set_xlim((-0.24, float(len(metric_values[dataset_key].keys())-0.5)))
                     axs[plt_idx].yaxis.set_tick_params(labelsize=20)
-                    axs[plt_idx].grid(color="k", alpha=0.125, which="both", linestyle="--")
+                    axs[plt_idx].grid(True, color="k", alpha=0.125, which="both", linestyle="--")
                     axs[plt_idx].set_xticks([])
-
                     # align text in pairs of two around curves: upper left two, lower right two
     # plt.suptitle(f"{str(dataset)} Chi squ. (standardized) Stat. Split: {cvtype}", fontsize=22)
     plt.tight_layout()
     handles, labels = axs[plt_idx].get_legend_handles_labels()
-    fig.legend(handles[(len(algos)-1):], labels[(len(algos)-1):], loc='lower center', ncol=len(algos)+1, prop={'size': 14})
+    fig.legend(handles[(len(algos)-1):], labels[(len(algos)-1):], loc='lower center', ncol=len(algos)+1, prop={'size': 19})
     plt.subplots_adjust(wspace=0.1, left=0.075, right=0.975, bottom=0.2)
     if savefig:
         plt.savefig(filename+".png")
         plt.savefig(filename+".pdf")
     plt.show()
 
-
-    
 
 def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', optimize_flag=False, dim=None, dim_reduction=None, savefig=True):
     """
@@ -188,6 +191,12 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                 "TIMB": "TIM-Barrel", 
                 "MTH3": "MTH3", 
                 "BRCA": "BRCA"}
+    name_dict = {
+        ONE_HOT: "One-Hot",
+        EVE: "EVE",
+        TRANSFORMER: "ProtBert",
+        ESM: "ESM",
+    }
     cv_names_dict = {"RandomSplitter": "Random CV", 
                     "PositionSplitter_p15": "Position CV",
                     "BioSplitter1_2": r"1M $\rightarrow$ 2M",
@@ -197,7 +206,7 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     "BioSplitter3_4": r"3M $\rightarrow$ 4M",
                     }
     font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
-    font_kwargs_small = {'family': 'Arial', 'fontsize': 18, "weight": 'bold'}
+    font_kwargs_small = {'family': 'Arial', 'fontsize': 20, "weight": 'bold'}
     for d in metric_values.keys():
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
@@ -216,8 +225,6 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                         axs[plt_idx].set_ylabel('confidence', **font_kwargs_small)
                     count = []
                     uncertainties_list = [] # point of investigation
-                    ece = []
-                    sharpness = []
                     nan_count = 0.
                     for s in metric_values[dataset_key][algo][rep][aug].keys():
                         trues = metric_values[dataset_key][algo][rep][aug][s]['trues']
@@ -234,35 +241,28 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                         #C, perc = confidence_based_calibration(preds, uncertainties, y_ref_mean=np.mean(trues))
                         count.append(c)
                         uncertainties_list.append(np.array(uncertainties))
-                        ece.append(e)
-                        sharpness.append(s)
                     try:
                         count = np.mean(np.vstack(count), axis=0)
                         uncertainties = np.concatenate(uncertainties_list)
                     except ValueError:
                         print(f"Missing values for {algo} at {rep}.")
                         continue
-                    #ece_mean = np.mean(ece)
-                    #ece_err = np.std(ece) / np.sqrt(number_splits)
-                    #sharpness_mean = np.mean(sharpness)
-                    #sharpness_err = np.std(sharpness) / np.sqrt(number_splits)
                     axs[plt_idx].plot(perc, count, c=ac.get(algo), marker=am.get(algo), fillstyle='none', ms=8, lw=2, linestyle='-', label=algo)
                     axs[plt_idx].plot(perc, perc, ls=':', color='k',) # label='Perfect Calibration'
-                    axs[plt_idx].set_title(rep, **font_kwargs)
-                    axs[d+1, j].hist(uncertainties, 100, label=f"{algo}; {rep}", alpha=0.7, color=ac.get(algo))
-                    # if nan_count != 0.:
-                    #     axs[plt_idx].text(1.0, count[-1]-i/10, f"*{int(nan_count)} failed", fontsize=12, c=ac.get(algo))
+                    axs[plt_idx].set_title(name_dict.get(rep), **font_kwargs)
+                    axs[plt_idx].yaxis.set_tick_params(labelsize=18)
+                    axs[plt_idx].xaxis.set_tick_params(labelsize=18)
+                    axs[d+1,j].hist(uncertainties, 100, label=f"{algo}; {rep}", alpha=0.7, color=ac.get(algo))
                     axs[plt_idx].set_xlabel('percentile', **font_kwargs_small)
-                    axs[d+1, j].set_xlabel('pred. unc.', **font_kwargs_small)
-                    # # align text in pairs of two around curves: upper left two, lower right two
-                    # axs[plt_idx].text((0.05+0.55*(i//2)), 0.9-(0.2*i)-(0.3*(i//2)), f"ECE={np.round(ece_mean,3)}\nsharp={np.round(sharpness_mean,3)}",
-                    #                 fontsize=12, bbox=dict(facecolor=ac.get(algo), alpha=0.2))
+                    axs[d+1,j].set_xlabel('pred. unc.', **font_kwargs_small)
+                    axs[d+1,j].yaxis.set_tick_params(labelsize=18)
+                    axs[d+1,j].xaxis.set_tick_params(labelsize=18)
                     axs[plt_idx].set_xlim(0, 1.)
     handles, labels = axs[plt_idx].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='lower right', ncol=len(algos)+1, prop={'size': 14})
+    fig.legend(handles, labels, loc='lower right', ncol=len(algos)+1, prop={'size': 16})
     plt.suptitle(f"{header_dict.get(dataset[0])} {cv_names_dict.get(cvtype)}", **font_kwargs)
-    plt.xticks(size=14)
-    plt.yticks(size=14)
+    plt.xticks(size=20)
+    plt.yticks(size=20)
     plt.tight_layout()
     if savefig:
         plt.savefig(filename+".png")
@@ -374,11 +374,11 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
                     axs[d,j].plot(qs, np.flip(quantile_errs), c=ac.get(algo), marker=am.get(algo), fillstyle='none', ms=8, lw=2, linestyle='-', label=algo)
                     #axs[d,j].text(0, 0-i, f'AUCO {algo}: {np.round(pgon.area,3)}\nError drop: {np.round(quantile_errs[-1]/quantile_errs[0],3)}', transform=axs[d,j].transAxes)
                     axs[d,j].plot(qs, np.flip(oracle_errs), "k--", lw=2, label='Oracle') 
-                    axs[d,j].set_ylabel('NMSE', size=14)
-                    axs[d,j].set_title(f"Confidence Curves: {dataset_key} Algo: {algo}  Rep: {rep}", size=12)
-                axs[-1,j].set_xlabel('Percentile', size=14)
+                    axs[d,j].set_ylabel('NMSE', size=19)
+                    axs[d,j].set_title(f"Confidence Curves: {dataset_key} Algo: {algo}  Rep: {rep}", size=20)
+                axs[-1,j].set_xlabel('Percentile', size=19)
     filename = f'results/figures/uncertainties/{algo}_{cvtype}_confidence_curve_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}_{dim_reduction}'
-    plt.legend() 
+    plt.legend(prop={'size': 19}) 
     plt.suptitle(f"{str(dataset)} Split: {cvtype} , d={dim} {dim_reduction}")
     #plt.tight_layout()
     if savefig:

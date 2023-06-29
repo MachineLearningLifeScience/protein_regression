@@ -39,11 +39,11 @@ algorithm_colors = {a: colorscheme[i] for i, a in enumerate([
     GPonRealSpace().get_name(),
     'GPsqexp',
     GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(),
-    # UncertainRandomForest().get_name(),
     RandomForest().get_name(),
     KNN().get_name(),
     EVE_DENSITY,
     AT_RANDOM,
+    UncertainRandomForest().get_name(),
 ])}
 
 algorithm_markers = {
