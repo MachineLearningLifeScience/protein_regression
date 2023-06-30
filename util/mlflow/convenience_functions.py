@@ -1,19 +1,20 @@
 import re
 import os
 import json
-import warnings
+import pickle
 from os.path import join
 import numpy as np
 import mlflow
 from mlflow.entities import ViewType
-from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
 from util.mlflow.constants import DATASET, METHOD, ONE_HOT, OPTIMIZATION, REPRESENTATION, SPLIT, SEED
 from util.mlflow.constants import AUGMENTATION, NO_AUGMENT, DIMENSION, LINEAR, NON_LINEAR, VAE, EVE, THRESHOLD
+from util.mlflow.constants import STD_Y, OBSERVED_Y
 from data.train_test_split import AbstractTrainTestSplitter
 from typing import List, Tuple
 
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
+
 
 def make_experiment_name_from_tags(tags: dict) -> str:
     return "".join([t + "_" + tags[t] + "__" for t in tags.keys()])
@@ -186,7 +187,7 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
     return results_dict
 
 
-def get_mlflow_results_optimization(datasets: list, algos: list, reps: list, metrics: list, augmentation: list=[None], dim: int=None, dim_reduction: str=None, seeds: List[int]=[None]):
+def get_mlflow_results_optimization(datasets: list, algos: list, reps: list, metrics: list, augmentation: list=[None], dim: int=None, dim_reduction: str=None, seeds: List[int]=[None]) -> dict:
     experiment_ids = [d + '_optimization' for d in datasets]
     results_dict = {seed: get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, 
                                             train_test_splitter=None, augmentation=augmentation, dim=dim, dim_reduction=dim_reduction, seed=seed, experiment_ids=experiment_ids) 
@@ -262,4 +263,45 @@ def stack_and_parse_into_dict(metric_results:dict, datasets: list, methods: list
             for representation in representations:
                 for metric in metrics:
                     results_dict[dataset] = {method: {representation: {augmentation: metric_results.get(dataset)}}}
+    return results_dict
+
+
+def load_results_dict_from_mlflow(datasets: List[str], 
+                            algos: List[str],
+                            metrics: List[str],  
+                            reps: List[str],
+                            train_test_splitter: list,
+                            seeds: List[int]=None,
+                            cache=False,
+                            cache_fname=None,
+                            optimized=True,
+                            dim=None,
+                            dim_reduction=LINEAR) -> dict:
+    results_dict = {}
+    fractional_splitter_results = []
+    optimization_dict = None
+    for splitter in train_test_splitter:
+        if "optimization" in splitter.get_name().lower():
+            optimization_dict = get_mlflow_results_optimization(datasets=datasets, algos=algos, reps=reps, metrics=metrics+[OBSERVED_Y, STD_Y], seeds=seeds)
+        elif "fraction" in splitter.get_name().lower():
+            _dict = get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, train_test_splitter=splitter, augmentation=[None], dim=dim, dim_reduction=dim_reduction)
+            fractional_splitter_results.append(_dict)
+        else:
+            _dict = get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, train_test_splitter=splitter, optimized=optimized, augmentation=[None], dim=dim, dim_reduction=dim_reduction)
+            results_dict[splitter.get_name()] = _dict
+    if fractional_splitter_results:
+        _fractional_results = aggregate_fractional_splitter_results(fractional_splitter_results, metrics=metrics)
+        results_dict["Fractional"] = _fractional_results
+    if optimization_dict:
+        _opt_results = aggregate_optimization_results(optimization_dict, metrics=metrics)
+        results_dict["Optimization"] = _opt_results
+    if cache and cache_fname:
+        with open(cache_fname, "wb") as outfile:
+            pickle.dump(results_dict, outfile, protocol=pickle.HIGHEST_PROTOCOL)
+    return results_dict
+
+
+def load_cached_results(cached_results_filename: str) -> dict:
+    with open(cached_results_filename, "rb") as infile:
+        results_dict = pickle.load(infile)
     return results_dict

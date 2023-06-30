@@ -1,27 +1,27 @@
-import sys
-from os.path import exists
 import pickle
-import numpy as np
-from scipy.special import comb
+from os.path import exists
 from gpflow.kernels import SquaredExponential, Matern52
-from data.train_test_split import PositionSplitter, RandomSplitter, BioSplitter, AbstractTrainTestSplitter, WeightedTaskSplitter, FractionalRandomSplitter, OptimizationSplitter
 from protocol_factories import FractionalSplitterFactory
 from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.random_forest import RandomForest
 from algorithms.KNN import KNN
+from util import parse_baseline_mutation_observations
+from util import compute_delta_between_results
+from util.mlflow.convenience_functions import load_cached_results
+from util.mlflow.convenience_functions import load_results_dict_from_mlflow
+from util.mlflow.convenience_functions import get_mlflow_results
+from util.mlflow.convenience_functions import get_mlflow_results_artifacts
 from util.mlflow.constants import AUGMENTATION, DATASET, LINEAR, METHOD, MSE, SPEARMAN_RHO
 from util.mlflow.constants import NON_LINEAR, REPRESENTATION, ROSETTA, TRANSFORMER, VAE, ESM, VAE_AUX, VAE_RAND, EVE, EVE_DENSITY
 from util.mlflow.constants import SPLIT, ONE_HOT, NONSENSE, KNN_name, VAE_DENSITY, VAE_AUX, NO_AUGMENT, LINEAR, NON_LINEAR, MEAN_Y, STD_Y, OBSERVED_Y
-from util.mlflow.convenience_functions import find_experiments_by_tags, get_mlflow_results, get_mlflow_results_optimization
-from util.mlflow.convenience_functions import get_mlflow_results_artifacts, aggregate_fractional_splitter_results, aggregate_optimization_results
-from util import parse_baseline_mutation_observations
-from util import compute_delta_between_results
+from data.train_test_split import PositionSplitter, RandomSplitter
+from data.train_test_split import BioSplitter, AbstractTrainTestSplitter
+from data.train_test_split import WeightedTaskSplitter, FractionalRandomSplitter, OptimizationSplitter
 from visualization.plot_metric_for_dataset import barplot_metric_comparison, barplot_metric_comparison_bar_splitting, errorplot_metric_comparison, barplot_metric_comparison_bar
 from visualization.plot_metric_for_dataset import barplot_metric_comparison_bar_splitting
 from visualization.plot_metric_for_dataset import barplot_metric_functional_mutation_comparison
 from visualization.plot_metric_for_dataset import barplot_metric_augmentation_comparison, barplot_metric_mutation_comparison
 from visualization.plot_metric_for_dataset import barplot_metric_mutation_matrix
-from visualization.plot_metric_for_dataset import scatterplot_metric_threshold_comparison
 from visualization.plot_metric_for_dataset import threshold_metric_comparison
 from typing import List
 
@@ -33,54 +33,15 @@ def plot_metric_comparison(datasets: List[str],
                             train_test_splitter,
                             dimension=None,
                             dim_reduction=None) -> None:
-    results_dict = get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, train_test_splitter=train_test_splitter, dim=dimension, dim_reduction=dim_reduction)
+    results_dict = get_mlflow_results(datasets=datasets, algos=algos, reps=reps, 
+                        metrics=metrics, train_test_splitter=train_test_splitter, 
+                        dim=dimension, dim_reduction=dim_reduction)
     cvtype = train_test_splitter.get_name() + f"d={dimension}_{dim_reduction}"   
     for metric in metrics:
         if metric == MSE:
             barplot_metric_comparison(metric_values=results_dict, cvtype=cvtype, metric=metric)
         if metric == SPEARMAN_RHO:
             errorplot_metric_comparison(metric_values=results_dict, cvtype=cvtype, metric=metric, plot_reference=True)
-
-
-def load_cached_results(cached_results_filename: str) -> dict:
-    with open(cached_results_filename, "rb") as infile:
-        results_dict = pickle.load(infile)
-    return results_dict
-
-
-def load_results_dict_from_mlflow(datasets: List[str], 
-                            algos: List[str],
-                            metrics: List[str],  
-                            reps: List[str],
-                            train_test_splitter: list,
-                            seeds: List[int]=None,
-                            cache=False,
-                            cache_fname=None,
-                            optimized=True,
-                            dim=None,
-                            dim_reduction=LINEAR) -> dict:
-    results_dict = {}
-    fractional_splitter_results = []
-    optimization_dict = None
-    for splitter in train_test_splitter:
-        if "optimization" in splitter.get_name().lower():
-            optimization_dict = get_mlflow_results_optimization(datasets=datasets, algos=algos, reps=reps, metrics=metrics+[OBSERVED_Y, STD_Y], seeds=seeds)
-        elif "fraction" in splitter.get_name().lower():
-            _dict = get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, train_test_splitter=splitter, augmentation=[None], dim=dim, dim_reduction=dim_reduction)
-            fractional_splitter_results.append(_dict)
-        else:
-            _dict = get_mlflow_results(datasets=datasets, algos=algos, reps=reps, metrics=metrics, train_test_splitter=splitter, optimized=optimized, augmentation=[None], dim=dim, dim_reduction=dim_reduction)
-            results_dict[splitter.get_name()] = _dict
-    if fractional_splitter_results:
-        _fractional_results = aggregate_fractional_splitter_results(fractional_splitter_results, metrics=metrics)
-        results_dict["Fractional"] = _fractional_results
-    if optimization_dict:
-        _opt_results = aggregate_optimization_results(optimization_dict, metrics=metrics)
-        results_dict["Optimization"] = _opt_results
-    if cache and cache_fname:
-        with open(cache_fname, "wb") as outfile:
-            pickle.dump(results_dict, outfile, protocol=pickle.HIGHEST_PROTOCOL)
-    return results_dict
 
 
 def plot_metric_comparison_bar(datasets: List[str], 
