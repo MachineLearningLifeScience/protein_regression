@@ -8,6 +8,7 @@ from util.mlflow.constants import ESM, EVE, ONE_HOT, TRANSFORMER, EVE_DENSITY
 import seaborn as sns
 from pathlib import Path
 
+
 def plot_reduced_representations(dataset: str, representation: str, augmentation: str=None) -> None:
     # TODO: load data and observations
     # TODO: UMAP reduce X
@@ -23,7 +24,6 @@ def plot_reduced_representations(dataset: str, representation: str, augmentation
 
 
 def plot_reduced_representations_all_datasets(datasets: Tuple[str, ...], representations: Tuple[str, ...], augmentation=None):
-
     # Dictionary to map representation to name
     name_dict = {
         ONE_HOT: "One-Hot",
@@ -108,5 +108,4 @@ if __name__ == "__main__":
     datasets = ["1FQG", "UBQT", "TIMB", "MTH3", "BRCA"]
     # representations = [EVE_DENSITY, TRANSFORMER, ONE_HOT, ESM, EVE]
     representations = [ONE_HOT, EVE, TRANSFORMER, ESM]
-
     plot_reduced_representations_all_datasets(datasets, representations, augmentation=None)

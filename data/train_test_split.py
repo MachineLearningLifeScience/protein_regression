@@ -4,7 +4,8 @@ import numpy as np
 from sklearn.model_selection import KFold
 from scipy.optimize import minimize
 from scipy.spatial import distance_matrix
-from data.load_dataset import get_wildtype_and_offset, load_sequences_of_representation
+from data.load_dataset import get_wildtype_and_offset
+from data.load_dataset import load_sequences_of_representation
 from util.mlflow.constants import ONE_HOT
 
 
