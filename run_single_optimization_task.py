@@ -30,7 +30,7 @@ def _expected_improvement(mean, variance, eta):
 
 
 def run_single_optimization_task(dataset: str, method_key: str, seed: int, representation: str, max_iterations: int, log_interval: int=10, optimize=True):
-    if method_key == "uncertainRF":
+    if "uncertainrf" in method_key.lower():
         optimize = False # minimal delta w.r.t. optimization and substantial difference in overall compute time.
     method = ALGORITHM_REGISTRY[method_key](representation, get_alphabet(dataset), optimize)
     X, Y = load_dataset(dataset, representation=representation)
