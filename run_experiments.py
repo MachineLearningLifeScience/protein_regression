@@ -15,22 +15,21 @@ from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 
 datasets = ["MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
 representations = [TRANSFORMER, ESM, EVE, EVE_DENSITY, ONE_HOT] # VAE_AUX, VAE_RAND, TRANSFORMER, VAE, ONE_HOT, ESM, EVE, VAE_AUX EXTRA 1D rep: VAE_DENSITY
-MOCK = False
 # Protocols: RandomSplitterFactory, BlockSplitterFactory, PositionalSplitterFactory, BioSplitterFactory, FractionalSplitterFactory
 protocol_factories = [RandomSplitterFactory, PositionalSplitterFactory] # TODO: FractionalSplitterFactory
-# protocol_factories = [BioSplitterFactory("TOXI", 1, 1), BioSplitterFactory("TOXI", 1, 2), BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4), BioSplitterFactory("TOXI", 4, 4)]
+biosplitter_factories = [BioSplitterFactory("TOXI", 1, 1), BioSplitterFactory("TOXI", 1, 2), BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4), BioSplitterFactory("TOXI", 4, 4)]
 
 # Methods: # KNNFactory, RandomForestFactory, UncertainRFFactory, GPSEFactory, GPLinearFactory, GPMaternFactory
 method_factories = [get_key_for_factory(f) for f in [KNNFactory, RandomForestFactory, GPSEFactory, GPLinearFactory, GPMaternFactory, UncertainRFFactory]] # NOTE: run UncertainRFF after RF parameters have been obtained
 
 experiment_iterator = product(datasets, representations, protocol_factories, method_factories)
 
-def run_experiments(dataset, representation, protocol_factory, factory_key, dim=None, optimize=True):
+def run_experiments(dataset, representation, protocol_factory, factory_key, dim=None, optimize=True, mock=False):
     # for dataset, representation, protocol_factory, factory_key in experiment_iterator:
     protocol_factory = protocol_factory(dataset) if type(protocol_factory) != list else protocol_factory
     for protocol in protocol_factory:
         run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
-                            protocol=protocol, augmentation=None, dim=dim, dim_reduction=LINEAR, mock=MOCK, optimize=optimize)
+                            protocol=protocol, augmentation=None, dim=dim, dim_reduction=LINEAR, mock=mock, optimize=optimize)
 
 dim_reduction_experiment_iterator = product(["UBQT", "CALM", "1FQG"],
                                             [ONE_HOT, TRANSFORMER, EVE, ESM],
@@ -38,7 +37,7 @@ dim_reduction_experiment_iterator = product(["UBQT", "CALM", "1FQG"],
                                             method_factories,
                                             [LINEAR],
                                             [2, 10, 100, 1000])
-def run_dim_reduction_experiments(dataset, representation, protocol_factory, factory_key, dim_reduction, dim):
+def run_dim_reduction_experiments(dataset, representation, protocol_factory, factory_key, dim_reduction, dim, mock=False):
     for protocol in protocol_factory(dataset):
         if representation == VAE and dim and int(dim) > 30:
             continue # skip, dimensions greater than original -> None
@@ -46,7 +45,7 @@ def run_dim_reduction_experiments(dataset, representation, protocol_factory, fac
             continue
         print(f"{dataset}: {representation} - {factory_key} | {protocol.get_name()} , dim: {dim} {dim_reduction}, aug: None")
         run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
-                                        protocol=protocol, augmentation=None, dim=dim, dim_reduction=dim_reduction, mock=MOCK)
+                                        protocol=protocol, augmentation=None, dim=dim, dim_reduction=dim_reduction, mock=mock)
 
 
 augmentation_experiment_iterator = product(["CALM", "UBQT", "1FQG"],
@@ -54,11 +53,11 @@ augmentation_experiment_iterator = product(["CALM", "UBQT", "1FQG"],
                                     [PositionalSplitterFactory, RandomSplitterFactory],
                                     method_factories,
                                     [ROSETTA, EVE_DENSITY])
-def run_augmentation_experiments(dataset, representation, protocol_factory, factory_key, augmentation):
+def run_augmentation_experiments(dataset, representation, protocol_factory, factory_key, augmentation, mock=False):
     for protocol in protocol_factory(dataset):
         print(f"{dataset}: {representation} - {factory_key} | {protocol.get_name()} , dim: full, aug: {augmentation}")
         run_single_regression_task(dataset=dataset, representation=representation, method_key=factory_key,
-                                    protocol=protocol, augmentation=augmentation, dim=None, dim_reduction=LINEAR, mock=MOCK)
+                                    protocol=protocol, augmentation=augmentation, dim=None, dim_reduction=LINEAR, mock=mock)
 
 
 def run_threshold_experiments():
@@ -81,12 +80,16 @@ if __name__ == "__main__":
     parser.add_argument("--dim", type=int, default=None, help="Dimension reduction experiments")
     parser.add_argument("--ablation", type=str, default=None, choices=["dim-reduction", "augmentation", "threshold"], help="Specify type of ablation for the run.")
     parser.add_argument("--no_optimize", action='store_true', help="Do not optimize regressor.")
+    parser.add_argument("--mock", action='store_true', help="Mock experiment iterations.")
     args = parser.parse_args()
     optimize_flag = True if not args.no_optimize else False
 
+    if "TOXI" in args.data:
+        protocol_factories += biosplitter_factories
+
     # MAIN EXPERIMENT
     if not any([isinstance(param,list) for param in [args.data, args.representation, args.protocol, args.method_key]]): # if parameters are passed correctly:
-        run_experiments(dataset=args.data, representation=args.representation, protocol_factory=protocol_factories[args.protocol], factory_key=args.method_key, dim=args.dim, optimize=optimize_flag)
+        run_experiments(dataset=args.data, representation=args.representation, protocol_factory=protocol_factories[args.protocol], factory_key=args.method_key, dim=args.dim, optimize=optimize_flag, mock=args.mock)
     else: # per default iterate over everything
         data = args.data if isinstance(args.data, list) else [args.data]
         rep = args.representation if isinstance(args.representation, list) else [args.representation]
@@ -94,7 +97,7 @@ if __name__ == "__main__":
         method = args.method_key if isinstance(args.method_key, list) else [args.method_key]
         param_iterator = product(data, rep, protocol_idx, method)
         for d, r, p_idx, m in param_iterator:
-            run_experiments(dataset=d, representation=r, protocol_factory=protocol_factories[p_idx], factory_key=m, dim=args.dim, optimize=optimize_flag)
+            run_experiments(dataset=d, representation=r, protocol_factory=protocol_factories[p_idx], factory_key=m, dim=args.dim, optimize=optimize_flag, mock=args.mock)
 
     # ABLATION STUDIES: (dim-reduction, augmentation, threshold)
     if args.ablation == "dim_reduction":

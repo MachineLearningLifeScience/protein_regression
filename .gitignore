@@ -27,3 +27,4 @@ data/.DS_Store
 # no logging
 log/
 *.log
+*.out
