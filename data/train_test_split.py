@@ -113,7 +113,7 @@ class BioSplitter(AbstractTrainTestSplitter):
             np.random.shuffle(n_mutants_indices) # random permutation of target mutations
             for idx in range(self.n_splits):
                 test_indices.append(n_mutants_indices[N_test*idx:N_test*idx+N_test])
-                train_indices.append(np.setdiff1d(all_indices, test_indices))
+                train_indices.append(np.setdiff1d(all_indices, test_indices[idx]))
         else: # No CV splitting possible for change in domains, case is: from all available k-M to k+1M
             train_indices = np.where(diff_to_wt <= self.n_mutations_train)[0][np.newaxis, :]
             test_indices = np.where(diff_to_wt == self.n_mutations_test)[0][np.newaxis, :]
