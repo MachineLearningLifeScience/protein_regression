@@ -2,10 +2,8 @@ import argparse
 from pickletools import optimize
 from typing import List
 from itertools import product
-from joblib import Parallel, delayed
 from algorithm_factories import GPMaternFactory, get_key_for_factory, UncertainRFFactory, GPSEFactory, GPLinearFactory, KNNFactory, RandomForestFactory
-from algorithm_factories import GMMFactory#, GPMOFactory
-from protocol_factories import RandomSplitterFactory, BlockSplitterFactory, PositionalSplitterFactory
+from protocol_factories import RandomSplitterFactory, PositionalSplitterFactory
 from protocol_factories import BioSplitterFactory, FractionalSplitterFactory, WeightedTaskSplitterFactory, WeightedTaskRegressSplitterFactory
 from run_single_regression_task import run_single_regression_task
 from util.mlflow.constants import TRANSFORMER, EVE, VAE, VAE_AUX, ONE_HOT, ESM
