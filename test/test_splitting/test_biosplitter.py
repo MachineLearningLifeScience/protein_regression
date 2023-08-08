@@ -57,3 +57,19 @@ def test_are_all_previous_mutations_contained_in_next_domains():
         assert all(np.in1d(sequences_test[idx], sequences_train[idx+1])) # Test of D_n should be in train of D_n+1
 
     # TODO: test that all singles are in next domain and doubles are in next etc.
+
+
+@pytest.mark.parametrize("n_mutations", [1, 2, 3, 4])
+def test_setsize_in_domain_equal_size(n_mutations):
+    bs = BioSplitter("TOXI", n_mutations_train=n_mutations, n_mutations_test=n_mutations)
+    train, _, test = bs.split(toxi_data)
+    target_val = len(train[0]) + len(test[0])
+    np.testing.assert_array_equal(np.array([len(train_idx)+len(test_idx) for train_idx, test_idx in zip(train, test)]), target_val)
+
+
+@pytest.mark.parametrize("n_mutations", [(1,1), (1,2), (2,2), (2,3), (3,3), (3,4), (4,4)])
+def test_set_indices_unique(n_mutations):
+    bs = BioSplitter("TOXI", n_mutations_train=n_mutations[0], n_mutations_test=n_mutations[1])
+    train, _, test = bs.split(toxi_data)
+    for idx_train, idx_test in zip(train, test):
+        np.testing.assert_array_equal(np.setdiff1d(idx_train, idx_test), idx_train)
