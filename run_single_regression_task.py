@@ -151,9 +151,6 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
     X, Y = load_dataset(dataset, representation=representation, augmentation=augmentation)
     if augmentation: # augmentation call requires Y unpacking
         Y, missed_assay_indices = Y
-    print(f"Protein {dataset}: N={X.shape[0]}; L={X.shape[1]}")
-    if mock:
-        return
 
     if threshold is not None: # filter by observation threshold
         t_idx = np.where(Y<threshold)[0] # y-values are inverted
@@ -166,6 +163,12 @@ def run_single_regression_task(dataset: str, representation: str, method_key: st
         train_indices, _, test_indices = protocol.split(X, Y)
     else: # BASE CASE splitting:
         train_indices, _, test_indices = protocol.split(X)
+
+    print(f"Protein {dataset}: N={X.shape[0]}; L={X.shape[1]}")
+    print(f"Protocol: {protocol.get_name()}\n k={len(train_indices)}")
+    print(f" |S|_train={'| '.join([str(len(s)).rjust(5) for s in train_indices])}\n |S|_test ={'| '.join([str(len(s)).rjust(5) for s in test_indices])}")
+    if mock:
+        return
 
     tags = {DATASET: dataset, 
             METHOD: method.get_name(), 
