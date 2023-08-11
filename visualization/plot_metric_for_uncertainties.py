@@ -503,11 +503,11 @@ def plot_uncertainty_optimization(dataset: str, rep: str, seeds: List[int], algo
             count = np.mean(np.vstack(count_list), axis=0)
             std_count = np.std(np.vstack(count_list), axis=0)
             uncertainties = np.concatenate(uncertainties_list)
-            ax[0, k].plot(perc, count, c=c[k], lw=2, linestyle='-', label=f"{algo}")
-            ax[0, k].errorbar(perc, count, std_count, linestyle=None, c=c[k], marker="o", ms=7)
+            ax[0, k].plot(perc, count, c=ac[k], lw=2, linestyle='-', label=f"{algo}")
+            ax[0, k].errorbar(perc, count, std_count, linestyle=None, c=ac[k], marker="o", ms=7)
             ax[0, k].plot(perc, perc, ls=':', color='k', label='Perfect Calibration')
             ax[0, k].set_title(f"{algo}")
-            ax[1, k].hist(uncertainties, 100, alpha=0.7, color=c[k])
+            ax[1, k].hist(uncertainties, 100, alpha=0.7, color=ac[k])
             ax[1, k].set_xlim([0., 1.6])
             # ax[1, k].set_ylim([0, 750])
             ax[1, k].set_ylim([0, 1700])
@@ -517,12 +517,12 @@ def plot_uncertainty_optimization(dataset: str, rep: str, seeds: List[int], algo
             std_observed_values = np.std(best_observed_list, ddof=1, axis=0)/np.sqrt(mean_best_observed_values.shape[0])
             mean_regret_values = np.mean(np.vstack(regret_list), axis=0)
             std_regret_values = np.std(regret_list, ddof=1, axis=0)/np.sqrt(std_observed_values.shape[0])
-            ax[2, 0].plot(mean_best_observed_values, color=c[k], label=algo, linewidth=2) # best observed values over steps
+            ax[2, 0].plot(mean_best_observed_values, color=ac[k], label=algo, linewidth=2) # best observed values over steps
             ax[2, 0].fill_between(list(range(len(mean_best_observed_values))), mean_best_observed_values-std_observed_values, 
-                                            mean_best_observed_values+std_observed_values, color=c[k], alpha=0.5)
-            ax[2, 1].plot(mean_regret_values, color=c[k], label=algo, linewidth=2) # regret over steps
+                                            mean_best_observed_values+std_observed_values, color=ac[k], alpha=0.5)
+            ax[2, 1].plot(mean_regret_values, color=ac[k], label=algo, linewidth=2) # regret over steps
             ax[2, 1].fill_between(list(range(len(mean_regret_values))), mean_regret_values-std_regret_values, 
-                                            mean_regret_values+std_regret_values, color=c[k], alpha=0.5)
+                                            mean_regret_values+std_regret_values, color=ac[k], alpha=0.5)
         ax[2, 0].set_xlabel('Iterations', size=16)
         ax[2, 0].set_ylim([-0.41, 1.1])
         ax[2, 1].set_xlabel('Iterations', size=16)
@@ -531,7 +531,7 @@ def plot_uncertainty_optimization(dataset: str, rep: str, seeds: List[int], algo
         ax[2, 0].set_ylabel('observed value', size=9)
         ax[2, 0].set_title('Best observed value')
         ax[2, 1].set_title('Regret values')
-        markers = [plt.Line2D([0,0],[0,0], color=color, marker='o', linestyle='') for color in c]
+        markers = [plt.Line2D([0,0],[0,0], color=color, marker='o', linestyle='') for color in ac]
         ax[2, 1].legend(markers, algos, loc="lower right", numpoints=1, prop={'size':12})
         gif_files_list.append(filename)
         plt.suptitle(f"Calibration on {rep}\n @ step {step}")
