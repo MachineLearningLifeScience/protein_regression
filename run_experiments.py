@@ -14,7 +14,7 @@ from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 datasets = ["MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
 representations = [TRANSFORMER, ESM, EVE, EVE_DENSITY, ONE_HOT] # VAE_AUX, VAE_RAND, TRANSFORMER, VAE, ONE_HOT, ESM, EVE, VAE_AUX EXTRA 1D rep: VAE_DENSITY
 # Protocols: RandomSplitterFactory, BlockSplitterFactory, PositionalSplitterFactory, BioSplitterFactory, FractionalSplitterFactory
-protocol_factories = [RandomSplitterFactory, PositionalSplitterFactory] # TODO: FractionalSplitterFactory
+protocol_factories = [RandomSplitterFactory, PositionalSplitterFactory, FractionalSplitterFactory]
 biosplitter_factories = [BioSplitterFactory("TOXI", 1, 1), BioSplitterFactory("TOXI", 1, 2), BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4), BioSplitterFactory("TOXI", 4, 4)]
 
 # Methods: # KNNFactory, RandomForestFactory, UncertainRFFactory, GPSEFactory, GPLinearFactory, GPMaternFactory
