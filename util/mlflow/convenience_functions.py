@@ -91,7 +91,7 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                     if not threshold[0] and f'tags.{THRESHOLD}' in runs.columns:
                         runs = runs[(runs[f'tags.{THRESHOLD}'].isnull()) | (runs["tags.THRESHOLD"] == "None")]
                     # DEFAULT EVE case: no reduction
-                    if len(runs) == 0 and rep == EVE and dim > 50:
+                    if len(runs) == 0 and rep == EVE and (dim is None or dim > 50):
                         filter_string = filter_string.replace(f"and tags.{DIMENSION} = '{dim}' and tags.DIM_REDUCTION = '{dim_reduction}'", "")
                         runs = mlflow.search_runs(experiment_ids=[exps.experiment_id], filter_string=filter_string, max_results=1, run_view_type=ViewType.ACTIVE_ONLY)
                     if len(runs) == 0 and dim is not None: # dimensions lower
@@ -117,7 +117,7 @@ def get_mlflow_results(datasets: list, algos: list, reps: list, metrics: list, t
                             metric_results["dim"] = int(re.search(r'\'\d+\'', filter_string).group()[1:-1])
                     aug_results[aug] = metric_results
                 reps_results[rep] = aug_results
-            if a == 'GPsquared_exponential':
+            if a == 'GPsquared_exponential': # NOTE: backward compatibility
                 a = "GPsqexp"
             algo_results[a] = reps_results
         results_dict[dataset] = algo_results
@@ -165,7 +165,7 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
                     runs = runs.iloc[:1]  # get most recent result
                     assert len(runs) == 1 , rep+a+dataset+str(aug)
                     for id in runs['run_id'].to_list():
-                        PATH = f"/Users/rcml/protein_regression/results/mlruns/{exps.experiment_id}/{id}" + "/" + "artifacts"
+                        PATH = f"/Users/rcml/protein_regression/results/mlruns/{exps.experiment_id}/{id}" + "/" + "artifacts" # TODO: replace with project path
                         split_dict = {}
                         for s, split in enumerate(mlflow.tracking.MlflowClient().list_artifacts(id)):
                             with open(PATH+ "//" + split.path +'/output.json') as infile:
