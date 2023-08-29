@@ -127,7 +127,7 @@ def plot_optimization_results(datasets: List[str], algos: List[str], representat
 
 if __name__ == "__main__":
     # gathers all our results and saves them into a numpy array
-    datasets = ["1FQG"] 
+    datasets = ["1FQG", "UBQT"] 
     representations = [TRANSFORMER, ESM, ONE_HOT, EVE] # TRANSFORMER, ESM, ONE_HOT, EVE
     plot_calibration = False
     seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245] # 11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245
@@ -138,7 +138,8 @@ if __name__ == "__main__":
             GPonRealSpace(kernel_factory=lambda: Linear()).get_name(), 
             UncertainRandomForest().get_name()]
 
-    plot_optimization_results(["1FQG"], algos, representations, seeds, reference_benchmark_rep, plot_calibration=plot_calibration,
+    for dataset in datasets:
+        plot_optimization_results([dataset], algos, representations, seeds, reference_benchmark_rep, plot_calibration=plot_calibration,
                             cached_results=True) # TODO: UBQT rep: EVE missing!
         
     
