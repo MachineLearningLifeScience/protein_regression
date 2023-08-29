@@ -1,3 +1,7 @@
+"""
+Utility function to merge mlflow results from different sources.
+Merges by meta.yaml accounts for input results directories.
+"""
 import os
 import shutil
 import yaml
