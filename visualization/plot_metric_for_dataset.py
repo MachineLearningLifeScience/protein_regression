@@ -746,8 +746,8 @@ def barplot_metric_mutation_matrix(metric_values: dict, metric: str, datasets: L
                     ax[row, col].set_ylabel(metric_name, **font_kwargs)
     handles, labels = ax[row, -1].get_legend_handles_labels()
     fig.legend(handles, labels, loc='lower center', ncol=len(reps), prop={'size': 19})
-    plt.tight_layout()
-    plt.subplots_adjust(wspace=0.38, left=0.055, right=0.99, bottom=0.11, top=0.95)
+    #plt.tight_layout()
+    plt.subplots_adjust(wspace=0.37, left=0.055, right=0.99, bottom=0.11, top=0.95)
     if not plot_dists:
         plt.subplots_adjust(wspace=0.38, left=0., right=0.99, bottom=0.11, top=0.95)
     if savefig:
@@ -960,8 +960,11 @@ def __parse_cumulative_results_dict(metrics_values: dict, metric: str, number_qu
     dataset = list(metrics_values[data_fractions[0]].keys())[0]
     methods = list(metrics_values[data_fractions[0]][dataset].keys())
     representations = list(metrics_values[data_fractions[0]][dataset][methods[0]].keys())
-    observations = {m: {'mean': [], 'std': [], 'std_err': [], 'eps': [],
-                        'mean_ece': [], 'ece_err': [], 'sharpness': []} for m in methods}
+    observations = {m: 
+                        {rep: 
+                            {'mean': [], 'std': [], 'std_err': [], 'eps': [], 'mean_ece': [], 'ece_err': [], 'sharpness': []} 
+                        for rep in representations} 
+                    for m in methods}
     for fraction in data_fractions:
         for method in methods:
             for representation in representations:
@@ -976,12 +979,12 @@ def __parse_cumulative_results_dict(metrics_values: dict, metric: str, number_qu
                 else:
                     mean_metric = np.mean(_metric)
                 std_metric = np.std(_metric)
-                observations[method]['mean'].append(mean_metric)
-                observations[method]['std'].append(std_metric)
-                observations[method]['std_err'].append(std_metric/np.sqrt(len(_metric)))
+                observations[method][representation]['mean'].append(mean_metric)
+                observations[method][representation]['std'].append(std_metric)
+                observations[method][representation]['std_err'].append(std_metric/np.sqrt(len(_metric)))
                 if all(_eps) and (metric is MSE or metric is SPEARMAN_RHO):
                     epsilon_observation = np.mean(_eps)
-                    observations[method]['eps'].append(epsilon_observation)
+                    observations[method][representation]['eps'].append(epsilon_observation)
                 ece = []
                 sharpness = []
                 for s in _results.keys():
@@ -995,9 +998,9 @@ def __parse_cumulative_results_dict(metrics_values: dict, metric: str, number_qu
                     _, _, e, s = prep_reliability_diagram(trues, preds, uncertainties, number_quantiles)
                     ece.append(e)
                     sharpness.append(s)
-                observations[method]['mean_ece'].append(np.mean(ece))
-                observations[method]['ece_err'].append(np.std(ece) / np.sqrt(len(_metric))) # standard error
-                observations[method]['sharpness'].append(np.mean(sharpness))
+                observations[method][representation]['mean_ece'].append(np.mean(ece))
+                observations[method][representation]['ece_err'].append(np.std(ece) / np.sqrt(len(_metric))) # standard error
+                observations[method][representation]['sharpness'].append(np.mean(sharpness))
     return observations
 
 
@@ -1010,49 +1013,50 @@ def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMA
     data_fractions = np.array(list(metrics_values.keys())).astype(float)
     dataset = list(metrics_values[data_fractions[0]].keys())[0]
     methods = list(metrics_values[data_fractions[0]][dataset].keys())
-    representation = list(metrics_values[data_fractions[0]][dataset][methods[0]].keys())[0]
+    representations = list(metrics_values[data_fractions[0]][dataset][methods[0]].keys())
     for metric in metrics:
         observations = __parse_cumulative_results_dict(metrics_values=metrics_values, metric=metric, number_quantiles=number_quantiles)
-        fig, ax = plt.subplots(2, figsize=(7,6))
-        for method in methods:
-            # TODO: keep index of NaNs and annotate with stars?
-            # y = np.nan_to_num(np.array(observations[method]['mean']))
-            # ece = np.nan_to_num(np.array(observations[method]['mean_ece']))
-            yerr = np.array(observations[method]['std_err'])
-            ece_err = np.array(observations[method]['ece_err'])
-            y = np.array(observations[method]['mean'])
-            ece = np.array(observations[method]['mean_ece'])
-            if PAC_BAYES_EPS in metrics:
-                bound = np.nan_to_num(np.array(observations[method]['eps']))
-            else:
-                #bound = np.nan_to_num(np.array(observations[method]['std']))
-                bound = np.array(observations[method]['std'])
-            ax[0].errorbar(data_fractions, y, yerr=yerr, lw=3, color=ac.get(method), label=method)
-            if metric == MLL:
-                ax[0].set_yscale('log')
-            if metric in [MSE, SPEARMAN_RHO] and method not in ['RF', 'KNN']:
-                label = r"PAC $\lambda$-bound $\delta$=.05" if PAC_BAYES_EPS in metrics else "std"
-                ax[0].fill_between(data_fractions, y+bound, y-bound, alpha=0.2, color=ac.get(method), label=label)
-                ax[0].set_ylim((-0.3, 1))
-            ax[1].errorbar(data_fractions, ece, yerr=ece_err, lw=3, color=ac.get(method), label=method)
-        ax[1].set_xlabel('fraction of N', **font_kwargs)
-        if metric == MSE:
-            metric = r"$R^2$"
-        elif metric == SPEARMAN_RHO:
-            metric = r"$\rho$"
-        ax[0].set_ylabel(f'{metric}', **font_kwargs)
-        ax[1].set_ylabel('ECE', **font_kwargs)
-        ax[0].yaxis.set_tick_params(labelsize=20)
-        ax[1].yaxis.set_tick_params(labelsize=20)
-        ax[0].xaxis.set_tick_params(labelsize=20)
-        ax[1].xaxis.set_tick_params(labelsize=20)
-        title_string = f"{header_dict.get(dataset)} ({header_rep_dict.get(representation)})"
-        # if threshold:
-        #     title_string += f" t={threshold}"
-        plt.suptitle(title_string, **font_kwargs)
-        plt.legend(prop={'size': 18})
-        plt.tight_layout()
-        if savefig:
-            plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{representation}.png')
-            plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{representation}.pdf')
-        plt.show()
+        for rep in representations:
+            fig, ax = plt.subplots(2, figsize=(7,6))
+            for method in methods:
+                # TODO: keep index of NaNs and annotate with stars?
+                # y = np.nan_to_num(np.array(observations[method]['mean']))
+                # ece = np.nan_to_num(np.array(observations[method]['mean_ece']))
+                yerr = np.array(observations[method][rep]['std_err'])
+                ece_err = np.array(observations[method][rep]['ece_err'])
+                y = np.array(observations[method][rep]['mean'])
+                ece = np.array(observations[method][rep]['mean_ece'])
+                if PAC_BAYES_EPS in metrics:
+                    bound = np.nan_to_num(np.array(observations[method][rep]['eps']))
+                else:
+                    #bound = np.nan_to_num(np.array(observations[method]['std']))
+                    bound = np.array(observations[method][rep]['std'])
+                ax[0].errorbar(data_fractions, y, yerr=yerr, lw=3, color=ac.get(method), label=method)
+                if metric == MLL:
+                    ax[0].set_yscale('log')
+                if metric in [MSE, SPEARMAN_RHO] and method not in ['RF', 'KNN']:
+                    label = r"PAC $\lambda$-bound $\delta$=.05" if PAC_BAYES_EPS in metrics else "std"
+                    ax[0].fill_between(data_fractions, y+bound, y-bound, alpha=0.2, color=ac.get(method), label=label)
+                    ax[0].set_ylim((-0.3, 1))
+                ax[1].errorbar(data_fractions, ece, yerr=ece_err, lw=3, color=ac.get(method), label=method)
+                ax[1].set_xlabel('fraction of N', **font_kwargs)
+            if metric == MSE:
+                metric = r"$R^2$"
+            elif metric == SPEARMAN_RHO:
+                metric = r"$\rho$"
+            ax[0].set_ylabel(f'{metric}', **font_kwargs)
+            ax[1].set_ylabel('ECE', **font_kwargs)
+            ax[0].yaxis.set_tick_params(labelsize=20)
+            ax[1].yaxis.set_tick_params(labelsize=20)
+            ax[0].xaxis.set_tick_params(labelsize=20)
+            ax[1].xaxis.set_tick_params(labelsize=20)
+            title_string = f"{header_dict.get(dataset)} ({header_rep_dict.get(rep)})"
+            # if threshold:
+            #     title_string += f" t={threshold}"
+            plt.suptitle(title_string, **font_kwargs)
+            plt.legend(prop={'size': 18})
+            plt.tight_layout()
+            if savefig:
+                plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{rep}.png')
+                plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{rep}.pdf')
+            plt.show()
