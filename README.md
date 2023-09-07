@@ -27,6 +27,8 @@ and either NVIDIA-CUDA support or MacOS (M1) ``metal`` support.
 After installing the ``protein_regression`` enviroment and activating it,
 please download the required data into the ``./data`` directory.
 
+All data required to replicate the experiments can be found as an archived directory: ``https://erda.ku.dk/archives/31bf8a65612c3d2c76167143f65cd86e/published-archive.html``.
+
 To run the experiments in the default configuration: ``python run_experiments.py``.
 
 To run the optimization requirements: ``python run_optimization.py``.
