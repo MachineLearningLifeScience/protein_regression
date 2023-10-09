@@ -1004,7 +1004,7 @@ def __parse_cumulative_results_dict(metrics_values: dict, metric: str, number_qu
     return observations
 
 
-def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMAN_RHO], number_quantiles=10, threshold=None, savefig=False):
+def cumulative_performance_plot(metrics_values: dict, metrics=[MSE, SPEARMAN_RHO], number_quantiles=10, threshold=None, savefig=False):
     header_dict = {"1FQG": r"$\beta$-Lactamase", "UBQT": "Ubiquitin", "CALM": "Calmodulin", 
                     "TIMB": "TIM-Barrel", "MTH3": "MTH3", "BRCA": "BRCA"}
     header_rep_dict = {"one_hot": "One-Hot", "transformer": "ProtBert", "eve": "EVE", "esm": "ESM"}
@@ -1015,6 +1015,8 @@ def cumulative_performance_plot(metrics_values: dict, metrics=[MLL, MSE, SPEARMA
     methods = list(metrics_values[data_fractions[0]][dataset].keys())
     representations = list(metrics_values[data_fractions[0]][dataset][methods[0]].keys())
     for metric in metrics:
+        if metric.lower() not in ["mll", MSE.lower(), SPEARMAN_RHO.lower()]:
+            continue
         observations = __parse_cumulative_results_dict(metrics_values=metrics_values, metric=metric, number_quantiles=number_quantiles)
         for rep in representations:
             fig, ax = plt.subplots(2, figsize=(7,6))
