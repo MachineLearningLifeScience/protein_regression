@@ -4,6 +4,7 @@ from gpflow.kernels import SquaredExponential, Matern52
 from protocol_factories import FractionalSplitterFactory
 from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.random_forest import RandomForest
+from algorithms.uncertain_rf import UncertainRandomForest
 from algorithms.KNN import KNN
 from util import parse_baseline_mutation_observations
 from util import compute_delta_between_results
@@ -220,7 +221,7 @@ if __name__ == "__main__":
     seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245]
     dim = None
     dim_reduction = LINEAR # LINEAR, NON_LINEAR
-    ### MAIN FIGURES
+    # ### MAIN FIGURES
     # compare embeddings:
     plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"], # ["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"]
                           reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM],
@@ -231,7 +232,7 @@ if __name__ == "__main__":
                           x_axis="rep",
                           cached_results=True)
     # compare regressors:
-    plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
+    plot_metric_comparison_bar(datasets=["1FQG", "UBQT", "TIMB", "MTH3", "BRCA"],
                           reps=[ESM], metrics=metrics,
                           train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
                           algos=algos,
@@ -267,7 +268,7 @@ if __name__ == "__main__":
                         dimension=None, 
                         dim_reduction=None,
                         cached_results=True)
-    # ### SI: performance across dimensions:
+    ### SI: performance across dimensions:
     plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"], 
                           reps=[ONE_HOT, EVE, TRANSFORMER, ESM],
                           metrics=metrics,
@@ -299,9 +300,12 @@ if __name__ == "__main__":
                           dim_reduction=LINEAR,
                           cached_results=True)
 
-    ### SI: remaining embedding comparisons (different regressors)
-    for algo in [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(),
-             RandomForest().get_name(), KNN().get_name()]:
+    # ### SI: remaining embedding comparisons (different regressors) # TODO: continue here:
+    for algo in [GPonRealSpace().get_name(), 
+                GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(),
+                RandomForest().get_name(),
+                KNN().get_name()]:
+        print(algo)
         plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
                             reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM],
                             metrics=metrics,
