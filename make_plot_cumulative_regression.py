@@ -50,9 +50,9 @@ def plot_cumulative_comparison(datasets: List[str],
             for split in results_dict:
                 _results_dict[split] = {}
                 _results_dict[split][dataset] = results_dict[split][dataset] # TODO: subset w.r.t. one data-set
-            cumulative_performance_plot(_results_dict, threshold=threshold, savefig=savefig)
+            cumulative_performance_plot(_results_dict, threshold=threshold, savefig=savefig, metrics=metrics)
     else:
-        cumulative_performance_plot(results_dict, threshold=threshold, savefig=savefig)
+        cumulative_performance_plot(results_dict, threshold=threshold, savefig=savefig, metrics=metrics)
 
 
 if __name__ == "__main__":
@@ -60,15 +60,27 @@ if __name__ == "__main__":
     thresholds = [None]
     algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(), 
         #GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), 
-        UncertainRandomForest().get_name()]
-    metrics = [MLL, MSE, GP_L_VAR, STD_Y, SPEARMAN_RHO] # MSE OPTIONAL: PAC_BAYES_EPS
-    representations = [TRANSFORMER, ESM, ONE_HOT, EVE] # SPECIAL CASE [UBQT, BLAT]: VAE+"_clusterval" 
-    dim = None
-    dim_reduction = LINEAR # LINEAR, NON_LINEAR
-    # gathers all our results and saves them into a numpy array
+            UncertainRandomForest().get_name()]
     testing_fractions = np.concatenate([np.arange(0.001, .3, 0.01), np.arange(.3, .6, 0.03), np.arange(.6, 1.05, 0.05)])
     train_test_splitters = [FractionalRandomSplitter(datasets[0], n) for n in testing_fractions]
-    for rep in representations:    
-        plot_cumulative_comparison(datasets=datasets, algos=algos, metrics=metrics, reps=[rep], testing_fractions=testing_fractions,
-                            train_test_splitters=train_test_splitters, dimension=dim,
-                            dim_reduction=dim_reduction, threshold=thresholds, cached_results=True)
+    metrics = [MSE, GP_L_VAR, STD_Y]
+    representations = [TRANSFORMER, ESM, ONE_HOT, EVE]
+    dim = None
+    dim_reduction = LINEAR # LINEAR, NON_LINEAR
+    # individual dataset 
+    plot_cumulative_comparison(datasets=["1FQG"], algos=algos, metrics=metrics, reps=representations, testing_fractions=testing_fractions,
+                        train_test_splitters=train_test_splitters, dimension=dim,
+                        dim_reduction=dim_reduction, threshold=thresholds, cached_results=True)
+    plot_cumulative_comparison(datasets=["UBQT"], algos=algos, metrics=metrics, reps=representations, testing_fractions=testing_fractions,
+                        train_test_splitters=train_test_splitters, dimension=dim,
+                        dim_reduction=dim_reduction, threshold=thresholds, cached_results=True)
+    plot_cumulative_comparison(datasets=["TIMB"], algos=algos, metrics=metrics, reps=representations, testing_fractions=testing_fractions,
+                        train_test_splitters=train_test_splitters, dimension=dim,
+                        dim_reduction=dim_reduction, threshold=thresholds, cached_results=True)
+    # # ### BULK computation per representation NOTE: taken out
+    # # # gathers all our results and saves them into a numpy array
+    # datasets = ["1FQG", "CALM", "BRCA", "UBQT", "MTH3", "TIMB"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
+    # # for rep in representations:    
+    # plot_cumulative_comparison(datasets=datasets, algos=algos, metrics=metrics, reps=[EVE], testing_fractions=testing_fractions,
+    #                         train_test_splitters=train_test_splitters, dimension=dim,
+    #                         dim_reduction=dim_reduction, threshold=thresholds, cached_results=True)
