@@ -16,6 +16,7 @@ representations = [TRANSFORMER, ESM, EVE, EVE_DENSITY, ONE_HOT] # VAE_AUX, VAE_R
 # Protocols: RandomSplitterFactory, BlockSplitterFactory, PositionalSplitterFactory, BioSplitterFactory, FractionalSplitterFactory
 protocol_factories = [RandomSplitterFactory, PositionalSplitterFactory, FractionalSplitterFactory]
 biosplitter_factories = [BioSplitterFactory("TOXI", 1, 1), BioSplitterFactory("TOXI", 1, 2), BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4), BioSplitterFactory("TOXI", 4, 4)]
+ablation_protocols_random_cv = [RandomSplitterFactory("TIMB", k=i) for i in [2, 3, 5, 7, 15]] + [PositionalSplitterFactory("TIMB", positions=p) for p in [5,10,20,25]] 
 
 # Methods: # KNNFactory, RandomForestFactory, UncertainRFFactory, GPSEFactory, GPLinearFactory, GPMaternFactory
 method_factories = [get_key_for_factory(f) for f in [KNNFactory, RandomForestFactory, GPSEFactory, GPLinearFactory, GPMaternFactory, UncertainRFFactory]] # NOTE: run UncertainRFF after RF parameters have been obtained
@@ -76,7 +77,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--protocol", type=int, default=list(range(len(protocol_factories))), help="Index for Protocol from list [Random, Positional, Fractional]")
     parser.add_argument("-m", "--method_key", type=str, default=method_factories, choices=method_factories, help="Method identifier")
     parser.add_argument("--dim", type=int, default=None, help="Dimension reduction experiments")
-    parser.add_argument("--ablation", type=str, default=None, choices=["dim-reduction", "augmentation", "threshold"], help="Specify type of ablation for the run.")
+    parser.add_argument("--ablation", type=str, default=None, choices=["dim-reduction", "augmentation", "threshold", "cv"], help="Specify type of ablation for the run.")
     parser.add_argument("--no_optimize", action='store_true', help="Do not optimize regressor.")
     parser.add_argument("--mock", action='store_true', help="Mock experiment iterations.")
     args = parser.parse_args()
@@ -84,18 +85,18 @@ if __name__ == "__main__":
 
     if "TOXI" in args.data:
         protocol_factories += biosplitter_factories
-
-    # MAIN EXPERIMENT
-    if not any([isinstance(param,list) for param in [args.data, args.representation, args.protocol, args.method_key]]): # if parameters are passed correctly:
-        run_experiments(dataset=args.data, representation=args.representation, protocol_factory=protocol_factories[args.protocol], factory_key=args.method_key, dim=args.dim, optimize=optimize_flag, mock=args.mock)
-    else: # per default iterate over everything
-        data = args.data if isinstance(args.data, list) else [args.data]
-        rep = args.representation if isinstance(args.representation, list) else [args.representation]
-        protocol_idx = args.protocol if isinstance(args.protocol, list) else [args.protocol]
-        method = args.method_key if isinstance(args.method_key, list) else [args.method_key]
-        param_iterator = product(data, rep, protocol_idx, method)
-        for d, r, p_idx, m in param_iterator:
-            run_experiments(dataset=d, representation=r, protocol_factory=protocol_factories[p_idx], factory_key=m, dim=args.dim, optimize=optimize_flag, mock=args.mock)
+    if not args.ablation:
+        # MAIN EXPERIMENT
+        if not any([isinstance(param,list) for param in [args.data, args.representation, args.protocol, args.method_key]]): # if parameters are passed correctly:
+            run_experiments(dataset=args.data, representation=args.representation, protocol_factory=protocol_factories[args.protocol], factory_key=args.method_key, dim=args.dim, optimize=optimize_flag, mock=args.mock, subset_N=args.subset_N)
+        else: # per default iterate over everything
+            data = args.data if isinstance(args.data, list) else [args.data]
+            rep = args.representation if isinstance(args.representation, list) else [args.representation]
+            protocol_idx = args.protocol if isinstance(args.protocol, list) else [args.protocol]
+            method = args.method_key if isinstance(args.method_key, list) else [args.method_key]
+            param_iterator = product(data, rep, protocol_idx, method)
+            for d, r, p_idx, m in param_iterator:
+                run_experiments(dataset=d, representation=r, protocol_factory=protocol_factories[p_idx], factory_key=m, dim=args.dim, optimize=optimize_flag, mock=args.mock)
 
     # ABLATION STUDIES: (dim-reduction, augmentation, threshold)
     if args.ablation == "dim_reduction":
@@ -106,4 +107,14 @@ if __name__ == "__main__":
             run_augmentation_experiments(dataset, representation, protocol_factory, factory_key, augmentation) 
     if args.ablation == "threshold":
         run_threshold_experiments() # TODO: parallelize
+    if args.ablation == "cv":
+        ablation_protocols_random_cv_iterator = product(["TIMB"],
+                                            [ONE_HOT, TRANSFORMER, EVE, ESM],
+                                            ablation_protocols_random_cv,
+                                            method_factories)
+        for d, r, p, m in ablation_protocols_random_cv_iterator:
+            assert d == p[0].dataset, f"Mismatch between dataset {d} and instantiated protocol dataset {p[0].dataset}!"
+            run_experiments(dataset=d, representation=r, protocol_factory=p, factory_key=m, mock=args.mock)
+    else:
+        raise NotImplementedError("The provided configuration does not exist!")
     
