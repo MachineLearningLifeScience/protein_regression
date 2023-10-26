@@ -31,8 +31,8 @@ def BlockSplitterFactory(dataset) -> List[AbstractTrainTestSplitter]:
     return [BlockPostionSplitter(dataset)]
 
 
-def RandomSplitterFactory(dataset) -> List[AbstractTrainTestSplitter]:
-    return [RandomSplitter(dataset)]
+def RandomSplitterFactory(dataset, k: int=10) -> List[AbstractTrainTestSplitter]:
+    return [RandomSplitter(dataset, k=k)]
 
 
 def WeightedTaskSplitterFactory(dataset, threshold=3) -> List[AbstractTrainTestSplitter]:

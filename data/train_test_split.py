@@ -21,19 +21,26 @@ class AbstractTrainTestSplitter:
 
 
 class RandomSplitter(AbstractTrainTestSplitter):
-    def __init__(self, dataset, seed: int = 42):
+    def __init__(self, dataset, k: int=10, seed: int = 42):
         super().__init__()
         self.dataset = dataset
         self.seed = seed
+        self.k = k
 
     def split(self, X):
-        kf = KFold(n_splits=10, random_state=self.seed, shuffle=True)
+        kf = KFold(n_splits=self.k, random_state=self.seed, shuffle=True)
         train_indices = []
         test_indices = []
         for train, test in kf.split(X):
             train_indices.append(train)
             test_indices.append(test)
         return train_indices, None, test_indices
+    
+    def get_name(self):
+        if self.k == 10: # previous default behavior backward compat
+            return super().get_name()
+        splitter_name = f"{self.name}_k={str(self.k)}"
+        return splitter_name
 
 
 class FractionalRandomSplitter(AbstractTrainTestSplitter):
