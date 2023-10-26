@@ -209,6 +209,18 @@ def __load_eve_df(name) -> Tuple[np.ndarray, np.ndarray]:
     return merged_df_eve_observations
 
 
+def __convert_log_sm_to_prob_vec(x: np.array):
+    print("Converting decoder log-softmax to P vector...")
+    _x = x.copy()
+    # reshape to [N, L, |AA|]
+    x_vec = np.concatenate(x, axis=-1).reshape((_x.shape[0], np.concatenate(_x, axis=-1).shape[0], np.concatenate(_x, axis=0).shape[1]))
+    probits = np.exp(x_vec)
+    # convert log-softmax output to probability vectors
+    X = probits / np.sum(probits, axis=-1)[...,None]
+    assert np.all(np.sum(X, axis=-1)) == 1. , "Probability Vector does not sum to one!"
+    return X
+
+
 def load_nonsense(name) -> Tuple[np.ndarray, np.ndarray]:
     _, Y = load_dataset(name, representation=ONE_HOT)
     restore_seed = np.random.randint(12345)
@@ -239,6 +251,7 @@ def load_sequences_of_representation(name, representation, augmentation=None):
 
 
 def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT, augmentation=None) -> tuple:
+    print(f"Loading {name} representation: {representation}...")
     if desired_alphabet is not None and representation is not ONE_HOT:
         raise ValueError("Desired alphabet can only have a value when representation is one hot!")
     # Representation Loading
