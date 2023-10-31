@@ -91,6 +91,7 @@ def __compute_observation_and_deduplication_indices(df) -> Tuple[np.ndarray, np.
     returns:
     observation_idx: np.ndarray ,
     representation_idx: np.ndarray 
+    NOTE: property of the dataframe is that observations are stacked last, first elements are family information.
     """
     idx = np.logical_not(np.isnan(df["assay"])) # observations by assay values
     observations_start: int = np.argwhere(idx.values==True)[0][0] # first observation index
@@ -101,6 +102,7 @@ def __compute_observation_and_deduplication_indices(df) -> Tuple[np.ndarray, np.
     observation_idx = np.logical_and(idx, ~duplicated_index) # combine observation AND INVERT duplicate for later selection
     anchored_duplicated_index = duplicated_index.set_axis(duplicated_index.index-observations_start) # adjust index by first observation
     representation_index = np.invert(anchored_duplicated_index[anchored_duplicated_index.index >= 0])
+    assert len(representation_index) + observations_start == len(observation_idx)
     return observation_idx.values, representation_index.values
 
 
@@ -116,7 +118,11 @@ def load_plm(name: str, model_key="esm") -> Tuple[np.ndarray, np.ndarray]:
         observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
         d = d.loc[observation_idx]
         Y = np.vstack(d["assay"])
-        X = pickle.load(open(join(base_path, f"brca_{model_key}_rep.pkl"), "rb"))[representation_idx]
+        rep = pickle.load(open(join(base_path, f"brca_{model_key}_rep.pkl"), "rb"))
+        if rep.shape[0] != Y.shape[0]:
+            X = rep[representation_idx] # NOTE base esm is of shape representation_idx (not deduplicated and requires indexing)
+        else:
+            X = rep
     elif name == "CALM":
         d = pickle.load(open(join(base_path, "calm_seq_reps_n_phyla.pkl"), "rb"))
         observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
@@ -140,7 +146,11 @@ def load_plm(name: str, model_key="esm") -> Tuple[np.ndarray, np.ndarray]:
         observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
         d = d.loc[observation_idx]
         Y = np.vstack(d["assay"])
-        X = pickle.load(open(join(base_path, f"ubqt_{model_key}_rep.pkl"), "rb"))[representation_idx]
+        rep = pickle.load(open(join(base_path, f"ubqt_{model_key}_rep.pkl"), "rb"))
+        if rep.shape[0] != Y.shape[0]:
+            X = rep[representation_idx] # NOTE base esm is of shape representation_idx (not deduplicated and requires indexing)
+        else:
+            X = rep
     elif name == "TOXI":
         d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
         observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
