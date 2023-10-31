@@ -11,7 +11,7 @@ from util.mlflow.constants import LINEAR, NON_LINEAR, VAE_DENSITY, VAE_RAND, EVE
 from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 
 
-datasets = ["MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
+datasets = ["MTH3", "TIMB", "CALM", "1FQG", "BRCA", "TOXI", "UBQT"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
 representations = [TRANSFORMER, ESM, EVE, EVE_DENSITY, ONE_HOT, ESM1V, ESM2, PROTT5] # VAE_AUX, VAE_RAND, TRANSFORMER, VAE, ONE_HOT, ESM, EVE, VAE_AUX EXTRA 1D rep: VAE_DENSITY
 # Protocols: RandomSplitterFactory, BlockSplitterFactory, PositionalSplitterFactory, BioSplitterFactory, FractionalSplitterFactory
 protocol_factories = [RandomSplitterFactory, PositionalSplitterFactory, FractionalSplitterFactory]
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     if not args.ablation:
         # MAIN EXPERIMENT
         if not any([isinstance(param,list) for param in [args.data, args.representation, args.protocol, args.method_key]]): # if parameters are passed correctly:
-            run_experiments(dataset=args.data, representation=args.representation, protocol_factory=protocol_factories[args.protocol], factory_key=args.method_key, dim=args.dim, optimize=optimize_flag, mock=args.mock, subset_N=args.subset_N)
+            run_experiments(dataset=args.data, representation=args.representation, protocol_factory=protocol_factories[args.protocol], factory_key=args.method_key, dim=args.dim, optimize=optimize_flag, mock=args.mock)
         else: # per default iterate over everything
             data = args.data if isinstance(args.data, list) else [args.data]
             rep = args.representation if isinstance(args.representation, list) else [args.representation]
@@ -97,17 +97,16 @@ if __name__ == "__main__":
             param_iterator = product(data, rep, protocol_idx, method)
             for d, r, p_idx, m in param_iterator:
                 run_experiments(dataset=d, representation=r, protocol_factory=protocol_factories[p_idx], factory_key=m, dim=args.dim, optimize=optimize_flag, mock=args.mock)
-
     # ABLATION STUDIES: (dim-reduction, augmentation, threshold)
-    if args.ablation == "dim_reduction":
+    elif args.ablation == "dim_reduction":
         for dataset, representation, protocol_factory, factory_key, dim_reduction, dim in dim_reduction_experiment_iterator:
             run_dim_reduction_experiments(dataset, representation, protocol_factory, factory_key, dim_reduction, dim) 
-    if args.ablation == "augmentation":
+    elif args.ablation == "augmentation":
         for dataset, representation, protocol_factory, factory_key, augmentation in augmentation_experiment_iterator:
             run_augmentation_experiments(dataset, representation, protocol_factory, factory_key, augmentation) 
-    if args.ablation == "threshold":
+    elif args.ablation == "threshold":
         run_threshold_experiments() # TODO: parallelize
-    if args.ablation == "cv":
+    elif args.ablation == "cv":
         ablation_protocols_random_cv_iterator = product(["TIMB"],
                                             [ONE_HOT, TRANSFORMER, EVE, ESM],
                                             ablation_protocols_random_cv,
