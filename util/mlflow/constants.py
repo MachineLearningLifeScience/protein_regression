@@ -44,11 +44,14 @@ RF_MAX_FEAT = "max_features"
 ONE_HOT = "one_hot"
 TRANSFORMER = "transformer"
 EVE = "eve"
+EVE_DECODER = "eve_decoder"
 VAE = "vae"
 VAE_AUX = "vae_aux"
 VAE_RAND = "vae_rand"
 NONSENSE = "nonsense"
 ESM = "esm"
+ESM1V = "esm1v"
+ESM2 = "esm2"
 KNN_name = 'knn'
 
 # dim-reduction
