@@ -6,13 +6,13 @@ from algorithm_factories import GPMaternFactory, get_key_for_factory, UncertainR
 from protocol_factories import RandomSplitterFactory, PositionalSplitterFactory
 from protocol_factories import BioSplitterFactory, FractionalSplitterFactory, WeightedTaskSplitterFactory, WeightedTaskRegressSplitterFactory
 from run_single_regression_task import run_single_regression_task
-from util.mlflow.constants import TRANSFORMER, EVE, VAE, VAE_AUX, ONE_HOT, ESM
+from util.mlflow.constants import TRANSFORMER, EVE, VAE, VAE_AUX, ONE_HOT, ESM, ESM1V, ESM2, PROTT5
 from util.mlflow.constants import LINEAR, NON_LINEAR, VAE_DENSITY, VAE_RAND, EVE_DENSITY
 from util.mlflow.constants import VAE_DENSITY, ROSETTA, NO_AUGMENT
 
 
 datasets = ["MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"] # "MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"
-representations = [TRANSFORMER, ESM, EVE, EVE_DENSITY, ONE_HOT] # VAE_AUX, VAE_RAND, TRANSFORMER, VAE, ONE_HOT, ESM, EVE, VAE_AUX EXTRA 1D rep: VAE_DENSITY
+representations = [TRANSFORMER, ESM, EVE, EVE_DENSITY, ONE_HOT, ESM1V, ESM2, PROTT5] # VAE_AUX, VAE_RAND, TRANSFORMER, VAE, ONE_HOT, ESM, EVE, VAE_AUX EXTRA 1D rep: VAE_DENSITY
 # Protocols: RandomSplitterFactory, BlockSplitterFactory, PositionalSplitterFactory, BioSplitterFactory, FractionalSplitterFactory
 protocol_factories = [RandomSplitterFactory, PositionalSplitterFactory, FractionalSplitterFactory]
 biosplitter_factories = [BioSplitterFactory("TOXI", 1, 1), BioSplitterFactory("TOXI", 1, 2), BioSplitterFactory("TOXI", 2, 2), BioSplitterFactory("TOXI", 2, 3), BioSplitterFactory("TOXI", 3, 3), BioSplitterFactory("TOXI", 3, 4), BioSplitterFactory("TOXI", 4, 4)]
