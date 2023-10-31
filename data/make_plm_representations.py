@@ -150,7 +150,7 @@ def plm_routine(model_key: str,
                 stepsize=stepsize,
             )
     # persist results
-    out_filepath = output_path / f'./{data_key}_{model_key}_rep.pkl'
+    out_filepath = output_path / f'./{data_key.lower()}_{model_key}_rep.pkl'
     np.savez(out_filepath.with_suffix(".npz"), plm_rep)
     with open(out_filepath, "wb") as outfile:
         pickle.dump(plm_rep, outfile)
@@ -162,7 +162,7 @@ def plm_routine(model_key: str,
             dev=device,
             stepsize=stepsize,
         )
-        out_filepath = output_path / f'./{data_key}_{model_key}_plls.pkl'
+        out_filepath = output_path / f'./{data_key.lower()}_{model_key}_plls.pkl'
         np.savez(out_filepath.with_suffix(".npz"), model_pll)
         with open(out_filepath, "wb") as outfile:
             pickle.dump(model_pll, outfile)
