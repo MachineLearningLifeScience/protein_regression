@@ -16,27 +16,27 @@ SUFFIX=06_22
 
 computation_mode='all_singles'
 all_singles_mutations_folder=${MNT_DIR}/protein_gym/substitutions_raw_DMS/
-output_evol_indices_location=${MNT_DIR}/eve_results/
+output_evol_indices_location=${MNT_DIR}/eve_results/ # output_evol_indices_location=${MNT_DIR}/eve_results_dec/
 num_samples_compute_evol_indices=2000
 batch_size=2048
 
-#for idx in $(seq 0 6); do
-## BLAT is idx=1
-#echo ${idx}
-#python /home/pcq275/EVE/compute_evol_indices.py \
-#    --MSA_data_folder ${MSA_DIR} \
-#    --MSA_list ${MSA_LIST} \
-#    --protein_index ${idx} \
-#    --MSA_weights_location ${VAE_CHECKPOINT} \
-#    --VAE_checkpoint_location ${VAE_CHECKPOINT} \
-#    --model_name_suffix ${SUFFIX} \
-#    --model_parameters_location ${MODEL_PARAMETERS} \
-#    --computation_mode ${computation_mode} \
-#    --all_singles_mutations_folder ${all_singles_mutations_folder} \
-#    --output_evol_indices_location ${output_evol_indices_location} \
-#    --num_samples_compute_evol_indices ${num_samples_compute_evol_indices} \
-#    --batch_size ${batch_size}
-#done
+for idx in $(seq 0 6); do
+# BLAT is idx=1
+echo ${idx}
+python /home/pcq275/EVE/compute_evol_indices.py \
+   --MSA_data_folder ${MSA_DIR} \
+   --MSA_list ${MSA_LIST} \
+   --protein_index ${idx} \
+   --MSA_weights_location ${VAE_CHECKPOINT} \
+   --VAE_checkpoint_location ${VAE_CHECKPOINT} \
+   --model_name_suffix ${SUFFIX} \
+   --model_parameters_location ${MODEL_PARAMETERS} \
+   --computation_mode ${computation_mode} \
+   --all_singles_mutations_folder ${all_singles_mutations_folder} \
+   --output_evol_indices_location ${output_evol_indices_location} \
+   --num_samples_compute_evol_indices ${num_samples_compute_evol_indices} \
+   --batch_size ${batch_size}
+done
 
 # !WARN! SPECIAL CASE: BRCA1 , TOXI
 # FOR BRCA all_singles list != the experimental mutations:
