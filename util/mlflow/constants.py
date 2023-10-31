@@ -43,7 +43,7 @@ RF_MAX_FEAT = "max_features"
 # representations
 ONE_HOT = "one_hot"
 TRANSFORMER = "transformer"
-PROTT5 = "protT5"
+PROTT5 = "prott5"
 EVE = "eve"
 EVE_DECODER = "eve_decoder"
 VAE = "vae"
