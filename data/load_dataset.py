@@ -8,7 +8,7 @@ from os.path import join, dirname
 from data.get_alphabet import get_alphabet
 from util import numpy_one_hot_2dmat
 from util.aa2int import map_alphabets
-from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM, EVE
+from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM, EVE, ESM1V, ESM2, PROTT5
 from util.mlflow.constants import VAE_DENSITY, VAE_AUX, VAE_RAND, EVE_DENSITY, ROSETTA
 
 base_path = join(dirname(__file__), "files")
@@ -104,49 +104,49 @@ def __compute_observation_and_deduplication_indices(df) -> Tuple[np.ndarray, np.
     return observation_idx.values, representation_index.values
 
 
-def load_esm(name: str) -> Tuple[np.ndarray, np.ndarray]:
+def load_plm(name: str, model_key="esm") -> Tuple[np.ndarray, np.ndarray]:
     if name == "1FQG":
         d = pickle.load(open(join(base_path, "blat_seq_reps_n_phyla.pkl"), "rb"))
         observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
         d = d.loc[observation_idx]
         Y = np.vstack(d["assay"])
-        X = pickle.load(open(join(base_path, "blat_esm_rep.pkl"), "rb"))[representation_idx]
+        X = pickle.load(open(join(base_path, f"blat_{model_key}_rep.pkl"), "rb"))[representation_idx]
     elif name == "BRCA":
         d = pickle.load(open(join(base_path, "brca_seq_reps_n_phyla.pkl"), "rb"))
         observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
         d = d.loc[observation_idx]
         Y = np.vstack(d["assay"])
-        X = pickle.load(open(join(base_path, "brca_esm_rep.pkl"), "rb"))[representation_idx]
+        X = pickle.load(open(join(base_path, f"brca_{model_key}_rep.pkl"), "rb"))[representation_idx]
     elif name == "CALM":
         d = pickle.load(open(join(base_path, "calm_seq_reps_n_phyla.pkl"), "rb"))
         observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
         d = d.loc[observation_idx]
         Y = np.vstack(d["assay"])
-        X = pickle.load(open(join(base_path, "calm_esm_rep.pkl"), "rb"))[representation_idx]
+        X = pickle.load(open(join(base_path, f"calm_{model_key}_rep.pkl"), "rb"))[representation_idx]
     elif name == "MTH3":
         d = pickle.load(open(join(base_path, "mth3_seq_reps_n_phyla.pkl"), "rb"))
         observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
         d = d.loc[observation_idx]
         Y = np.vstack(d["assay"])
-        X = pickle.load(open(join(base_path, "mth3_esm_rep.pkl"), "rb"))[representation_idx]
+        X = pickle.load(open(join(base_path, f"mth3_{model_key}_rep.pkl"), "rb"))[representation_idx]
     elif name == "TIMB":
         d = pickle.load(open(join(base_path, "timb_seq_reps_n_phyla.pkl"), "rb"))
         observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
         d = d.loc[observation_idx]
         Y = np.vstack(d["assay"])
-        X = pickle.load(open(join(base_path, "timb_esm_rep.pkl"), "rb"))[representation_idx]
+        X = pickle.load(open(join(base_path, f"timb_{model_key}_rep.pkl"), "rb"))[representation_idx]
     elif name == "UBQT":
         d = pickle.load(open(join(base_path, "ubqt_seq_reps_n_phyla.pkl"), "rb"))
         observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
         d = d.loc[observation_idx]
         Y = np.vstack(d["assay"])
-        X = pickle.load(open(join(base_path, "ubqt_esm_rep.pkl"), "rb"))[representation_idx]
+        X = pickle.load(open(join(base_path, f"ubqt_{model_key}_rep.pkl"), "rb"))[representation_idx]
     elif name == "TOXI":
         d = pickle.load(open(join(base_path, "toxi_data_df.pkl"), "rb"))
         observation_idx, representation_idx = __compute_observation_and_deduplication_indices(d)
         d = d.loc[observation_idx]
         Y = np.vstack(d["assay"])
-        X = pickle.load(open(join(base_path, "toxi_esm_rep.pkl"), "rb"))[representation_idx[observation_idx==True]]
+        X = pickle.load(open(join(base_path, f"toxi_{model_key}_rep.pkl"), "rb"))[representation_idx[observation_idx==True]]
     else:
         raise ValueError("Unknown dataset: %s" % name)
     assert X.shape[0] == Y.shape[0]
@@ -268,7 +268,13 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT, augme
         # elif representation == VAE_AUX: # VAE WITH AUXILIARY ELBO NN
         #     X, Y, A = load_vae(name, vae_suffix="AUX_VAE_reps_RANDOM_VAL")
         elif representation == ESM:
-            X, Y = load_esm(name)
+            X, Y = load_plm(name, model_key=ESM)
+        elif representation == ESM2:
+            X, Y = load_plm(name, model_key=ESM2)
+        elif representation == ESM1V:
+            X, Y = load_plm(name, model_key=ESM1V)
+        elif representation == PROTT5:
+            X, Y = load_plm(name, model_key=PROTT5)
         elif representation == EVE:
             eve_S, X, Y, A = load_eve(name)
             missed_assay_indices = None # EVE protocol covers all possible single variants
