@@ -96,7 +96,7 @@ def compute_prot_representation(model, seqs: List[str], alphabet, seq_enc_alphab
             input_ids = torch.tensor(ids["input_ids"]).to(dev)
             attention_mask = torch.tensor(ids["attention_mask"]).to(dev)
             model_attn = model(input_ids=input_ids, attention_mask=attention_mask)
-            representation = model_attn.cpu().detach().numpy().mean(axis=1)
+            representation = model_attn.last_hidden_state.cpu().detach().numpy().mean(axis=1)
             rep.append(representation)
     print(f"Computed representations in shape (B, D) => {representation.shape}")
     rep_array = np.vstack(np.array(rep))
