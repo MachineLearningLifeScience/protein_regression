@@ -107,10 +107,11 @@ if __name__ == "__main__":
     elif args.ablation == "threshold":
         run_threshold_experiments() # TODO: parallelize
     elif args.ablation == "cv":
+        ablate_methods = [get_key_for_factory(f) for f in [KNNFactory, GPLinearFactory, GPMaternFactory]]
         ablation_protocols_random_cv_iterator = product(["TIMB"],
                                             [ONE_HOT, TRANSFORMER, EVE, ESM],
                                             ablation_protocols_random_cv,
-                                            method_factories)
+                                            ablate_methods)
         for d, r, p, m in ablation_protocols_random_cv_iterator:
             assert d == p[0].dataset, f"Mismatch between dataset {d} and instantiated protocol dataset {p[0].dataset}!"
             run_experiments(dataset=d, representation=r, protocol_factory=p, factory_key=m, mock=args.mock)
