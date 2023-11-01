@@ -1,8 +1,10 @@
 __author__ = "R. Michael"
 from pathlib import Path
+from warnings import warn
 import numpy as np
 import pickle
 from typing import List, Tuple
+from Bio import SearchIO
 from data.load_dataset import get_wildtype_and_offset
 from data.get_alphabet import get_alphabet
 from data.load_dataset import load_one_hot
@@ -32,7 +34,7 @@ BACKGROUND_AA_FREQUENCIES = {
 DATA_HMM_KVP = {
     "MTH3": "MTH3_HAEAESTABILIZED_1_b0.5", 
     "TIMB": "TRPC_THEMA_1_b0.5",
-    "CALM": "CALM1_HUMAN_1_b0.5.hmm",
+    "CALM": "CALM1_HUMAN_1_b0.5",
     "1FQG": "BLAT_ECOLX_hmmerbit_plmc_n5_m30_f50_t0.2_r24-286_id100_b105",
     "UBQT": "RL401_YEAST_1_b0.5",
     "BRCA": "BRCA1_HUMAN_BRCT_1_b0.3",
@@ -84,13 +86,46 @@ def calculate_pssm(hmm_emissions, background_frequencies):
     return pssm
 
 
-def compute_sequence_encoding_from_pssm(pssm: np.ndarray, sequences: List[str], encoding_alphabet: dict, offset: int=0) -> np.ndarray:
+def compute_indices_from_alignment_against_sequence_wt_search(data_key: str) -> np.ndarray:
+    """
+    If sequences are of different length than the PSSM, the alignment and WT are different in length
+    and subsequently the used HMM file.
+    Use prior hmmsearch to obtain indices on which residues of the WT are part of the HMM/PSSM.
+    """
+    print(f"Length of WT {data_key} and PSSM different, aligning against HMMR search ...")
+    hmmsearch_filename = Path(__file__).parent.resolve() / "files" / "hmms" / f"hmmsearch_{data_key.lower()}.txt"
+    hmmsearch = SearchIO.read(hmmsearch_filename, "hmmer3-text")
+    if len(hmmsearch.hits[0].hsps) == 1:
+        indices = np.arange(*hmmsearch.hits[0].hsps[0].hit_range)
+    else: 
+        raise NotImplementedError("Multiple Hits found! Index composition not yet implemented.") # TODO
+    return indices
+
+
+def compute_sequence_encoding_from_pssm(data_key: str, pssm: np.ndarray, sequences: List[str], encoding_alphabet: dict) -> np.ndarray:
     pssm_encoding = []
+    # check data-dimensions against available PSSM
+    if sequences.shape[1] != len(pssm):
+        seq_indices = compute_indices_from_alignment_against_sequence_wt_search(data_key=data_key)
+    else:
+        seq_indices = np.arange(len(seq))
+    if seq_indices.shape[0] <= pssm.shape[0]: # Case: fewer hits from hmmsearch against WT than available from computed HMM - we have to subset
+        warn("Less Sequence positions than PSSM positions!\n Subsetting PSSM ...")
+        reset_search_idx = seq_indices - seq_indices[0] # subtract starting position s.t. first element 0
+        pssm = pssm[reset_search_idx]
+    else:
+        warn("More Sequence positions than PSSM positions!\n Clipping Sequence index ...")
+        seq_indices = seq_indices[:pssm.shape[0]]
+    encoding_aa_inverse_dict = {v:k for k,v in encoding_alphabet.items()}
+    pssm_aa_lookup_list = list(BACKGROUND_AA_FREQUENCIES.keys())
+    # assert BACKGROUND_AA_FREQUENCIES.keys() == encoding_alphabet.keys(), "Mismatch Sequence encoding and PSSM indices!"
+    # compute PSSM scores for each sequence
     for seq in sequences:
-        assert len(seq) == len(pssm), "Sequence and computed PSSM mismatch in length!"
-        enc = [pssm[i][list(encoding_alphabet.values()).index(aa)] for i, aa in enumerate(seq)]
+        assert len(seq[seq_indices]) == len(pssm), "Sequence and computed PSSM mismatch in length!"
+        # NOTE: alphabets mismatch convert from seq label-encoding to PSSM encoding
+        enc = np.array([pssm[idx][pssm_aa_lookup_list.index(encoding_aa_inverse_dict[aa])] for idx, aa in enumerate(seq[seq_indices])]) # label encoded aa required to be the same as position in reference AA_FREQUENCIES KVP
         pssm_encoding.append(enc)
-    pssm_encoding = np.ndarray
+    pssm_encoding = np.stack(pssm_encoding)
     return pssm_encoding
 
 
@@ -104,10 +139,10 @@ def compute_pssm_and_persist(data_key: str, output_filepath: Path, hmm_filename_
 
     # load data
     seq_enc_alphabet = get_alphabet(data_key)
-    wt, offset = get_wildtype_and_offset(data_key)
     # wt_sequence, offset = get_wildtype_and_offset(data_key)
     sequences, _ = load_one_hot(data_key)
-    compute_sequence_encoding_from_pssm(pssm, sequences=sequences, encoding_alphabet=seq_enc_alphabet, offset=offset)
+    # encode sequences with computed PSSM
+    encoding = compute_sequence_encoding_from_pssm(data_key=data_key, pssm=pssm, sequences=sequences, encoding_alphabet=seq_enc_alphabet)
     
     # persist base PSSM
     if not (output_filepath / f"{data_key.lower()}_pssm.pkl").exists():
@@ -116,7 +151,7 @@ def compute_pssm_and_persist(data_key: str, output_filepath: Path, hmm_filename_
     # persist encoding of sequences
     output_filename = output_filepath / f"{data_key.lower()}_pssm_rep.pkl"
     with open(output_filename, "wb") as outfile:
-        pickle.dump(pssm, outfile)
+        pickle.dump(encoding, outfile)
     
 
 if __name__ == "__main__":
