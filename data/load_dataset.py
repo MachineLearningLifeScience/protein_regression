@@ -8,7 +8,7 @@ from os.path import join, dirname
 from data.get_alphabet import get_alphabet
 from util import numpy_one_hot_2dmat
 from util.aa2int import map_alphabets
-from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM, EVE, ESM1V, ESM2, PROTT5
+from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM, EVE, ESM1V, ESM2, PROTT5, PSSM
 from util.mlflow.constants import VAE_DENSITY, VAE_AUX, VAE_RAND, EVE_DENSITY, ROSETTA
 
 base_path = join(dirname(__file__), "files")
@@ -285,6 +285,8 @@ def load_dataset(name: str, desired_alphabet=None, representation=ONE_HOT, augme
             X, Y = load_plm(name, model_key=ESM1V)
         elif representation == PROTT5:
             X, Y = load_plm(name, model_key=PROTT5)
+        elif representation == PSSM:
+            X, Y = load_plm(name, model_key=PSSM)
         elif representation == EVE:
             eve_S, X, Y, A = load_eve(name)
             missed_assay_indices = None # EVE protocol covers all possible single variants
