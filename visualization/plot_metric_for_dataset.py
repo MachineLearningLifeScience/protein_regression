@@ -1,12 +1,14 @@
 from distutils.log import error
 from sys import stderr
 from warnings import warn
-from typing import List
+from typing import List, OrderedDict
 from typing import Tuple
 from itertools import product
+import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import seaborn as sns
 import matplotlib.patches as mpatches
 from matplotlib.transforms import Affine2D
@@ -20,6 +22,7 @@ from visualization import augmentation_colors as aug_c
 from visualization import representation_colors as rc
 from visualization import representation_markers as rm
 from visualization import task_colors as tc
+from visualization import task_colors_to_algos_ablation as tcaa
 from util.mlflow.constants import GP_L_VAR, LINEAR, VAE, EVE, VAE_DENSITY, ONE_HOT, EVE_DENSITY
 from util.mlflow.constants import MLL, MSE, SPEARMAN_RHO, PAC_BAYES_EPS, STD_Y, PAC_BAYES_EPS
 from util.postprocess import filter_functional_variant_data_less_than
@@ -130,7 +133,7 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
         n_cols = len(methods)*len(splitters)
     else:
         n_cols = len(splitters)
-    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*4, 6), sharey="row")
+    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*8, 6), sharey="row")
     axs = np.ravel(ax)
     labels = []
     column_spacing = 4
@@ -177,13 +180,15 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
 
         # x-axis
         if x_axis.lower() == "rep":
-            tick_labels = ["One-Hot", "EVE", "EVE (evo-score)", "ProtBert", "ESM"]*2
+            # tick_labels = ["One-Hot", "EVE", "EVE (evo-score)", "ProtBert", "ESM"]*2
+            tick_labels = list(metric_values.get(splitter).get(dataset_key).get(algo).keys())*2
             if dimensions:
                 tick_labels.remove("EVE (evo-score)")
                 tick_labels.remove("EVE (evo-score)") # NOTE: dim reduction SI experiments don't include evo-score
                 tick_labels = [f"PCA({rep}) d={d}" for rep, d in zip(tick_labels, dimensions)]
         elif x_axis.lower() == "algo":
-            tick_labels = ["GPlinear", "GPsqexp", "GPm52", "RF", "KNN"]*2
+            # tick_labels = ["GPlinear", "GPsqexp", "GPm52", "RF", "KNN"]*2
+            tick_labels = list(metric_values.get(splitter).get(dataset_key).keys())*2
         else:
             tick_labels = labels
         axs[d].set_xticks(seps)
@@ -1062,3 +1067,78 @@ def cumulative_performance_plot(metrics_values: dict, metrics=[MSE, SPEARMAN_RHO
                 plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{rep}.png')
                 plt.savefig(f'results/figures/fraction_benchmark/{dataset}_{metric.replace("$", "").replace("^", "")}_{rep}.pdf')
             plt.show()
+
+
+def _split_camel_case(key: str) -> List[str]:
+    """
+    Utility function to split string by upper-/lowercase 
+    i.e. extract Random from RandomSplitter
+    """
+    # Use regular expression to split the string before each uppercase letter
+    return [match.group(0) for match in re.finditer('.+?(?:(?=[A-Z])|$)', key)]
+
+
+def errorplot_cv_comparison(metric_values: dict, metric: str, width: float=0.17, suffix=None, savefig=True, annotate_NA=True) -> None:
+    """
+    Line err. plot for ablation on CV experiments Fig. 2 for comparisons (i.e. representation, algorithms, etc.)
+    """
+    splitters = list(metric_values.keys())
+    datasets = list(metric_values[splitters[0]])
+    methods = list(metric_values[splitters[0]][datasets[0]])
+    representations = list(metric_values[splitters[0]][datasets[0]][methods[0]])
+    filename = 'results/figures/benchmark/'+f'CV_ablation_test_{metric}_methods_{"_".join(datasets)}_{"_".join(methods)}_{"_".join(representations)}'
+    if suffix:
+        filename += str(suffix)
+    font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
+    labelsize = 19
+    font_kwargs_small = {'family': 'Arial', 'fontsize': 20, "weight": 'bold'}
+    fig, ax = plt.subplots(1, len(representations), figsize=(len(representations)*5, 5), sharey="row")
+    axs = np.ravel(ax)
+    labels = []
+    splitter_ids_dict = {}
+    for d, dataset_key in enumerate(metric_values[splitters[0]].keys()):
+        for s, splitter in enumerate(metric_values.keys()):
+            splitter_fam = _split_camel_case(splitter)[0]
+            splitter_id = int(re.findall(r"\d+", splitter)[0])
+            if splitter_fam not in splitter_ids_dict.keys():
+                splitter_ids_dict[splitter_fam] = []
+            splitter_ids_dict[splitter_fam].append(splitter_id)
+            for i, algo in enumerate(metric_values[splitter][dataset_key].keys()):
+                filtered_splitters_list = [s for s in metric_values.keys() if splitter_fam in s]
+                idx = filtered_splitters_list.index(splitter) # index respective the splitting family (Random/Positional)
+                for j, rep in enumerate(metric_values[splitter][dataset_key][algo].keys()):
+                    label = f"{splitter_fam} {algo}"
+                    if label not in labels:
+                        labels.append(label)
+                    num_obs = len(metric_values[splitter][dataset_key][algo][rep][None][metric])
+                    mean, std_err, num_NA = _compute_metric_results(metric_values[splitter][dataset_key][algo][rep][None][metric], metric=metric, suffix=f"{dataset_key}, {algo}, {rep}, {splitter}")
+                    selected_color = tcaa.get(splitter_fam).get(algo)
+                    for _m, _std_err in zip(mean, std_err):
+                        axs[d].errorbar(idx, _m, yerr=_std_err, color=selected_color, capsize=5, lw=3, label=label)
+                        if num_NA:
+                            axs[d].text(idx+0.45, np.nan_to_num(_m)+np.nan_to_num(_std_err)+0.02, r'$^*\frac{{{vals}}}{{{num_obs}}}$'.format(vals=num_obs-num_NA, num_obs=num_obs), color="black", **font_kwargs_small)
+        # label double x-axis
+        tick_labels = splitter_ids_dict.get(list(splitter_ids_dict.keys())[0])
+        alternate_labels = splitter_ids_dict.get(list(splitter_ids_dict.keys())[1])
+        axs[d].set_xticks(np.arange(len(tick_labels)))
+        axs[d].set_xticklabels([f"{t1}\n{t2}" for t1, t2 in zip(tick_labels, alternate_labels + [""])], size=labelsize)
+        axs[d].tick_params(axis='y', which='both', labelsize=22)
+        axs[d].set_xlabel(f"Splitting k \n p", **font_kwargs_small)
+        # y-axis
+        metric_label = r'$R^2$' if metric == MSE or metric == "R2" else metric
+        metric_label = r'spearman $\rho$' if metric == SPEARMAN_RHO else metric_label
+        axs[d].set_ylabel(metric_label, **font_kwargs)
+        axs[d].yaxis.set_label_coords(-.25, .5, transform=axs[d].transAxes)
+        if d > 0:
+            axs[d].set_ylabel("")
+        axs[d].set_yticks([-0.25, 0.0, 0.25, 0.5, 0.75, 1.0])
+        axs[d].set_ylim((-0.5, 1.0))
+    custom_handles = [Line2D([0], [0], color=tcaa.get(s).get(a), lw=4) for s, a in map(lambda x: x.split(), labels)]
+    plt.subplots_adjust(wspace=0.15, left=0.075, right=0.975, bottom=0.25, top=0.95)
+    plt.legend(handles=custom_handles, labels=labels, ncol=2)
+    if savefig:
+        plt.savefig(filename+".png", bbox_inches="tight")
+        plt.savefig(filename+".pdf", bbox_inches="tight")
+    plt.show()
+
+
