@@ -6,6 +6,7 @@ from algorithms.gp_on_real_space import GPonRealSpace
 from algorithms.random_forest import RandomForest
 from algorithms.uncertain_rf import UncertainRandomForest
 from algorithms.KNN import KNN
+from protocol_factories import RandomSplitterFactory, PositionalSplitterFactory
 from util import parse_baseline_mutation_observations
 from util import compute_delta_between_results
 from util.mlflow.convenience_functions import load_cached_results
@@ -14,6 +15,7 @@ from util.mlflow.convenience_functions import get_mlflow_results
 from util.mlflow.convenience_functions import get_mlflow_results_artifacts
 from util.mlflow.constants import AUGMENTATION, DATASET, LINEAR, METHOD, MSE, SPEARMAN_RHO
 from util.mlflow.constants import NON_LINEAR, REPRESENTATION, ROSETTA, TRANSFORMER, VAE, ESM, VAE_AUX, VAE_RAND, EVE, EVE_DENSITY
+from util.mlflow.constants import PSSM, PROTT5, ESM1V, ESM2
 from util.mlflow.constants import SPLIT, ONE_HOT, NONSENSE, KNN_name, VAE_DENSITY, VAE_AUX, NO_AUGMENT, LINEAR, NON_LINEAR, MEAN_Y, STD_Y, OBSERVED_Y
 from data.train_test_split import PositionSplitter, RandomSplitter
 from data.train_test_split import BioSplitter, AbstractTrainTestSplitter
@@ -24,6 +26,7 @@ from visualization.plot_metric_for_dataset import barplot_metric_functional_muta
 from visualization.plot_metric_for_dataset import barplot_metric_augmentation_comparison, barplot_metric_mutation_comparison
 from visualization.plot_metric_for_dataset import barplot_metric_mutation_matrix
 from visualization.plot_metric_for_dataset import threshold_metric_comparison
+from visualization.plot_metric_for_dataset import errorplot_cv_comparison
 from typing import List
 
 
@@ -66,6 +69,26 @@ def plot_metric_comparison_bar(datasets: List[str],
     cvtype = str(set([splitter.get_name()[:12] for splitter in train_test_splitter])) + f"d=full"   
     for metric in metrics:
         barplot_metric_comparison_bar(metric_values=results_dict, cvtype=cvtype, metric=metric, color_by=color_by, x_axis=x_axis, dim=dim, savefig=savefig)
+
+
+def plot_cv_comparison_error(datasets: List[str], 
+                            algos: List[str],
+                            metrics: List[str],  
+                            reps: List[str],
+                            train_test_splitter: list,
+                            seeds: List[int]=None,
+                            cached_results=False,
+                            optimized=True,
+                            dim=None,
+                            dim_reduction=LINEAR,
+                            savefig=True) -> None:
+    cached_filename = f"/Users/rcml/protein_regression/results/cache/cv_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={'_'.join([s.get_name()[-2:] for s in train_test_splitter])}_opt={str(optimized)}.pkl"
+    if cached_results and exists(cached_filename):
+        results_dict = load_cached_results(cached_filename)
+    else:
+        results_dict = load_results_dict_from_mlflow(datasets, algos, metrics, reps, train_test_splitter, seeds, cache=cached_results, cache_fname=cached_filename, optimized=optimized, dim=dim, dim_reduction=dim_reduction) 
+    for metric in metrics:
+        errorplot_cv_comparison(metric_values=results_dict, metric=metric, savefig=savefig)
 
 
 def plot_metric_comparison_bar_param_delta(datasets: List[str], 
@@ -300,7 +323,7 @@ if __name__ == "__main__":
                           dim_reduction=LINEAR,
                           cached_results=True)
 
-    # ### SI: remaining embedding comparisons (different regressors) # TODO: continue here:
+    # ### SI: remaining embedding comparisons (different regressors)
     for algo in [GPonRealSpace().get_name(), 
                 GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(),
                 RandomForest().get_name(),
@@ -324,7 +347,7 @@ if __name__ == "__main__":
                             color_by="algo",
                             x_axis="algo",
                             cached_results=True)
-    ### SI: delta in performance:    # TODO
+    ### SI: delta in performance:
     for rep in [ESM, ONE_HOT, EVE]:
         plot_metric_comparison_bar_param_delta(datasets=["1FQG", "UBQT", "TIMB", "MTH3", "BRCA"], # ,  "UBQT", "TIMB", "MTH3", "BRCA"
                             reps=[rep], # ESM, ONE_HOT, EVE ; TODO: TRANSFORMER
@@ -334,14 +357,31 @@ if __name__ == "__main__":
                             color_by="algo",
                             x_axis="algo",
                             cached_results=True) 
-    ### SUPPLEMENTARY FIGURES
-    # # AUGMENTATION RANDOMSPLITTER # NOTE: EXCLUDED
-    # plot_metric_augmentation_comparison(datasets=["1FQG", "UBQT",  "CALM"], algos=algos, metrics=[MSE],
-    #                                     reps=[ONE_HOT, EVE, TRANSFORMER, ESM],
-    #                                     dim=None, train_test_splitter=RandomSplitter("1FQG"),
-    #                                     augmentation=[ROSETTA, EVE_DENSITY], reference_bars=True)
-    # # AUGMENTATION POSITIONSPLITTER # NOTE: EXCLUDED
-    # plot_metric_augmentation_comparison(datasets=["1FQG", "UBQT", "CALM"], algos=algos, metrics=[MSE],
-    #                                     reps=[ONE_HOT, EVE, TRANSFORMER, ESM],
-    #                                     dim=None, train_test_splitter=PositionSplitter("1FQG"),
-    #                                     augmentation=[ROSETTA, EVE_DENSITY], reference_bars=True)
+    ### SI: Update Representation Comparison:
+    for algo in [GPonRealSpace().get_name(), 
+                GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(),
+                GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(),
+                #RandomForest().get_name(),
+                KNN().get_name()]:
+        print(algo)
+        plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
+                            reps=[ONE_HOT, PSSM, EVE, EVE_DENSITY, TRANSFORMER, PROTT5, ESM, ESM1V, ESM2],
+                            metrics=metrics,
+                            train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
+                            algos=[algo],
+                            color_by="rep",
+                            x_axis="rep",
+                            cached_results=True)
+    ### SI: CV parameter comparison
+    ablation_protocols_random_cv = [RandomSplitterFactory("TIMB", k=i)[0] for i in [2, 3, 5, 7, 15]] + [PositionalSplitterFactory("TIMB", positions=p)[0] for p in [5,10,20,25]] 
+    for rep in [ESM, TRANSFORMER, EVE, ONE_HOT]:
+        print(rep)
+        plot_cv_comparison_error(
+            datasets=["TIMB"],
+            metrics=[MSE, SPEARMAN_RHO],
+            reps=[rep],
+            train_test_splitter=ablation_protocols_random_cv,
+            algos=[GPonRealSpace().get_name(), KNN().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()],
+            cached_results=True,
+            savefig=True,
+        )
