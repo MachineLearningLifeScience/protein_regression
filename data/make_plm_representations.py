@@ -21,10 +21,13 @@ from data.load_dataset import load_one_hot
 
 
 AVAILABLE_MODELS = {
-    "esm1b": "esm1b_t33_650M_UR50S",
-    "esm1v": "esm1v_t33_650M_UR90S_1",
-    "esm2": "esm2_t36_3B_UR50D",
-    "protT5": "prot_t5_xl_uniref50",
+    "esm1b": {"model_id": "esm1b_t33_650M_UR50S",
+            "layer": 33},
+    "esm1v": {"model_id": "esm1v_t33_650M_UR90S_1",
+            "layer": 33},
+    "esm2": {"model_id": "esm2_t36_3B_UR50D",
+            "layer": 36},
+    "protT5": {"model_id": "prot_t5_xl_uniref50"},
     }
 ALL_DATASETS = ["MTH3", "TIMB", "CALM", "1FQG", "UBQT", "BRCA", "TOXI"]
 DEVICES=["cuda", "mps", "cpu"]
@@ -63,7 +66,7 @@ def compute_esm_plls(model, seqs, seq_enc_alphabet, alphabet, dev, stepsize: int
     return ll_array
 
 
-def compute_esm_representation(model, seqs: List[int], alphabet, seq_enc_alphabet: dict, dev, stepsize: int=10, rep_lyr: List[int]=[33]) -> np.ndarray:
+def compute_esm_representation(model, seqs: List[int], alphabet, seq_enc_alphabet: dict, dev, stepsize: int=10, rep_lyr: int=33) -> np.ndarray:
     rep = []
     batch_converter = alphabet.get_batch_converter()
     converted_sequences = ["".join([list(seq_enc_alphabet.keys())[list(seq_enc_alphabet.values()).index(s_i)] for s_i in seq]) 
@@ -75,7 +78,7 @@ def compute_esm_representation(model, seqs: List[int], alphabet, seq_enc_alphabe
             data = [(f"protein{j}", seq) for j, seq in enumerate(batched_sequences)]
             _, _, batch_tokens = batch_converter(data)
             results = model(batch_tokens.to(dev), repr_layers=rep_lyr, return_contacts=False)
-            representation = results['representations'][rep_lyr[0]].cpu().detach().numpy().mean(axis=1)
+            representation = results['representations'][rep_lyr].cpu().detach().numpy().mean(axis=1)
             rep.append(representation)
     print(f"Computed representations in shape (B, D) => {representation.shape}")
     rep_array = np.vstack(np.array(rep))
@@ -119,7 +122,8 @@ def plm_routine(model_key: str,
                 output_path: Path, 
                 stepsize: int=25, 
                 pseudo_lls: bool=False,
-                device: str="cpu" 
+                device: str="cpu",
+                representation_layer: int=33, 
     ) -> None:
     device = torch.device(device) # NOTE: for Mac M1 processor, otherwise "cuda"
     torch.cuda.empty_cache()
@@ -139,6 +143,7 @@ def plm_routine(model_key: str,
                 seq_enc_alphabet=seq_enc_alphabet,
                 dev=device,
                 stepsize=stepsize,
+                rep_lyr=representation_layer,
             )
     elif "prot" in model_key:
         plm_rep = compute_prot_representation(
@@ -169,7 +174,7 @@ def plm_routine(model_key: str,
     return
 
 
-def main():
+def main(model_kvp=AVAILABLE_MODELS):
     parser = argparse.ArgumentParser(description="Experiment Specifications")
     parser.add_argument("-d", "--data", type=str, choices=ALL_DATASETS, help="Dataset identifier")
     parser.add_argument("-m", "--model", type=str, choices=AVAILABLE_MODELS.keys(), help="pLM model identifier")
@@ -189,7 +194,13 @@ def main():
     data_model_iterator = product(data, model_keys)
     for d_key, m_key in data_model_iterator:
         output_path = Path(__file__).parent.resolve() / "files"
-        plm_routine(data_key=d_key, model_key=m_key, output_path=output_path, stepsize=args.stepsize, pseudo_lls=args.pll, device=args.device)
+        plm_routine(data_key=d_key, 
+                    model_key=model_kvp.get(m_key).get("model_id"), 
+                    representation_layer=model_kvp.get(m_key).get("layer"),
+                    output_path=output_path, 
+                    stepsize=args.stepsize, 
+                    pseudo_lls=args.pll, 
+                    device=args.device)
 
 
 if __name__ == "__main__":
