@@ -8,10 +8,10 @@ __pycache__
 # mmseq temp directory
 data/tmp/*
 
-# deep sequence data
+# reference data
 data/deep_sequence/*
-
 data/eve/*
+data/protein_gym/*
 
 #Mlflow output
 mlruns/
