@@ -77,7 +77,7 @@ def compute_esm_representation(model, seqs: List[int], alphabet, seq_enc_alphabe
             batched_sequences = converted_sequences[i:i+stepsize]
             data = [(f"protein{j}", seq) for j, seq in enumerate(batched_sequences)]
             _, _, batch_tokens = batch_converter(data)
-            results = model(batch_tokens.to(dev), repr_layers=rep_lyr, return_contacts=False)
+            results = model(batch_tokens.to(dev), repr_layers=[rep_lyr], return_contacts=False)
             representation = results['representations'][rep_lyr].cpu().detach().numpy().mean(axis=1)
             rep.append(representation)
     print(f"Computed representations in shape (B, D) => {representation.shape}")
@@ -108,10 +108,10 @@ def compute_prot_representation(model, seqs: List[str], alphabet, seq_enc_alphab
 
 def load_model_from_repository(model_key, all_models=AVAILABLE_MODELS) -> tuple:
     if "esm" in model_key:
-        model, alphabet = torch.hub.load("facebookresearch/esm:main", all_models.get(model_key))
+        model, alphabet = torch.hub.load("facebookresearch/esm:main", all_models.get(model_key).get("model_id"))
     elif "prot" in model_key:
-        model = T5EncoderModel.from_pretrained(f"Rostlab/{all_models.get(model_key)}")
-        alphabet = T5Tokenizer.from_pretrained(f"Rostlab/{all_models.get(model_key)}")
+        model = T5EncoderModel.from_pretrained(f"Rostlab/{all_models.get(model_key).get('model_id')}")
+        alphabet = T5Tokenizer.from_pretrained(f"Rostlab/{all_models.get(model_key).get('model_id')}")
     else:
         raise ValueError(f"Specified model {model_key} not available!")
     return model, alphabet
@@ -195,7 +195,7 @@ def main(model_kvp=AVAILABLE_MODELS):
     for d_key, m_key in data_model_iterator:
         output_path = Path(__file__).parent.resolve() / "files"
         plm_routine(data_key=d_key, 
-                    model_key=model_kvp.get(m_key).get("model_id"), 
+                    model_key=m_key, 
                     representation_layer=model_kvp.get(m_key).get("layer"),
                     output_path=output_path, 
                     stepsize=args.stepsize, 
