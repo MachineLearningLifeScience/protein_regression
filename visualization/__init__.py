@@ -6,7 +6,7 @@ from algorithms import GPonRealSpace, RandomForest, KNN, UncertainRandomForest
 from visualization.plot_metric_for_mixtures import plot_metric_for_mixtures
 from visualization.plot_metric_for_mixtures import plot_metric_against_threshold
 
-colorscheme = ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A", "#19D3F3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52", "darkmagenta"]
+colorscheme = ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A", "#19D3F3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52", "darkred", "darkcyan", "darkblue"]
 
 #colorscheme = ['dimgrey', '#661100', '#332288', '#054709',  "#126160", "crimson", "darkblue", "darkmagenta", "dimgray"]
 
@@ -27,6 +27,12 @@ representation_colors = {ONE_HOT: colorscheme[0],
             ESM2: colorscheme[9],
             PROTT5: colorscheme[10],
         }
+
+unsupervised_reference_colors = {
+    EVE: colorscheme[1],
+    "deepsequence": colorscheme[11],
+    "tranception": colorscheme[12],
+}
 
 representation_markers = {ONE_HOT: "o",
                         EVE: "D",
