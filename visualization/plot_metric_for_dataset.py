@@ -1,8 +1,9 @@
 from distutils.log import error
 from sys import stderr
+from pathlib import Path
 from warnings import warn
 from typing import List, OrderedDict
-from typing import Tuple
+from typing import Tuple, Dict
 from itertools import product
 import re
 import numpy as np
@@ -20,6 +21,7 @@ from visualization import algorithm_colors as ac
 from visualization import algorithm_markers as am
 from visualization import augmentation_colors as aug_c
 from visualization import representation_colors as rc
+from visualization import unsupervised_reference_colors as urc
 from visualization import representation_markers as rm
 from visualization import task_colors as tc
 from visualization import task_colors_to_algos_ablation as tcaa
@@ -28,12 +30,45 @@ from util.mlflow.constants import MLL, MSE, SPEARMAN_RHO, PAC_BAYES_EPS, STD_Y, 
 from util.postprocess import filter_functional_variant_data_less_than
 from util.postprocess import filter_functional_variant_data_greater_than
 
+
 plt.rcParams.update({
     "text.usetex": True,
     "font.family": "Helvetica",
     "font.family": "sans-serif",
 })
+plt.rc("text.latex", preamble=r"\usepackage{xcolor}")
 
+
+REP_LOOKUP_DICT = {
+    "one_hot": "One-Hot", 
+    "transformer": "ProtBert", 
+    "eve": "EVE", 
+    "esm": "ESM",
+    "pssm": "PSSM",
+    "eve_density": "EVE (evo-score)",
+    "prott5": "ProtT5",
+    "esm1v": "ESM-1v",
+    "esm2": "ESM-2",
+    }
+
+DATASET_LOOKUP_DICT = {
+        "1FQG": "BLAT_ECOLX_Stiffler",
+        "UBQT": "RL401_YEAST_Mavor",
+        "CALM": "CALM1",
+        "MTH3": "MTH3",
+        "BRCA": "BRCA1",
+        "TIMB": "TRPC_THEMA",
+        "TOXI": "Aakre",
+    }
+
+
+HEADER_DICT = {
+    "1FQG": r"$\beta$-Lactamase", 
+    "UBQT": "Ubiquitin", 
+    "CALM": "Calmodulin", 
+    "TIMB": "TIM-Barrel", 
+    "MTH3": "T2-MTH", 
+    "BRCA": "BRCA1"}
 
 def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
     plt.figure(figsize=(15,10))
@@ -105,7 +140,60 @@ def barplot_metric_comparison(metric_values: dict, cvtype: str, metric: str, hei
     plt.show()
 
 
-def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, width: float=0.17, color_by: str="algo", x_axis: str="rep", augmentation=None, suffix=None, dim=None, savefig=True, annotate_NA=True) -> None:
+def generate_reference_dict(lookup_dict=DATASET_LOOKUP_DICT) -> dict:
+    """
+    Utility function to lookup reference DMS experiment filename for each entry in the lookup dict
+    """
+    project_dir = Path(__file__).parent.parent.resolve()
+    pg_reference_df = pd.read_csv(project_dir / "data" / "protein_gym" / "proteingym_ref_substitutions.csv")
+    reference_file_list = pg_reference_df[pg_reference_df.DMS_filename.str.contains("|".join(list(lookup_dict.values())))][["DMS_filename"]]
+    reference_dict = {k: reference_file_list[reference_file_list.DMS_filename.str.contains(v)].DMS_filename.values[0] for k, v in lookup_dict.items()}
+    return reference_dict
+
+
+def compute_reference_values(file_lookup_dict: Dict[str, str], models: List[str], protocol: bool=False, p: int=15, cv: int=10) -> Dict[str, float]:
+    project_dir = Path(__file__).parent.parent.resolve()
+    if protocol:
+        reference_dict = {k: {"Random": {}, "Position": {}} for k in file_lookup_dict.keys()}
+    else:
+        reference_dict = {k: {} for k in file_lookup_dict.keys()}
+    for k, filename in file_lookup_dict.items():
+        if k == "TOXI":
+            continue # TODO: implement multi-mutants/TOXI
+        reference_filepath = project_dir / "data" / "protein_gym" / "results" / "substitutions" / filename
+        reference_subdf = pd.read_csv(reference_filepath)[["mutant", "DMS_score"] + models]
+        reference_subdf["mutant_pos"] = reference_subdf.mutant.str.slice(1,-1).astype(int)
+        positions = reference_subdf.mutant_pos.unique()
+        position_ranges = np.arange(positions[0], positions[-1]+p, p)
+        if not protocol:
+            reference_dict[k] = {model: spearmanr(reference_subdf.DMS_score.values, reference_subdf[model].values)[0] for model in models}
+            continue
+        pos_dfs = []
+        for idx, pos in enumerate(position_ranges[:-1]): # slice by position
+            pos_df = reference_subdf.loc[(reference_subdf["mutant_pos"] >= pos) & (reference_subdf["mutant_pos"] < position_ranges[idx+1])]
+            pos_dfs.append(pos_df)
+        rand_shuffled_df = reference_subdf.sample(frac=1, random_state=123)
+        part_size = rand_shuffled_df.shape[0] // cv
+        rand_df_parts = [rand_shuffled_df.iloc[i*part_size:(i+1)*part_size] for i in range(cv)]
+        # all values for full assessment
+        reference_dict[k]["Random"] = {model: np.nanmean(
+                [spearmanr(part_df.DMS_score.values, part_df[model].values)[0] for part_df in rand_df_parts]) 
+            for model in models}
+        # positional slices for secondary assessment
+        reference_dict[k]["Position"] = {model: np.nanmean(
+                [spearmanr(part_df.DMS_score.values, part_df[model].values)[0] for part_df in pos_dfs], ) 
+            for model in models}
+    return reference_dict
+
+
+def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str, 
+                                width: float=0.17, color_by: str="algo", x_axis: str="rep",
+                                header_dict=HEADER_DICT, 
+                                augmentation=None, suffix=None, dim=None, savefig=True, title=True,
+                                annotate_NA=True, rep_lookup: dict=REP_LOOKUP_DICT, 
+                                reference_results: bool=False, 
+                                ref_models=["EVE_ensemble", "Tranception_M_retrieval", "Progen2_ensemble"],
+                                ref_cv=False) -> None:
     """
     Barplot Fig. 2 for comparisons (i.e. representation, algorithms, etc.)
     """
@@ -115,6 +203,10 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
     if x_axis.lower() not in ["algo", "rep", "task"]:
         warn("Misspecified the plotting groups. Default to representations.")
         x_axis = "rep"
+    if reference_results and metric == SPEARMAN_RHO: # only annotate rank correlation figures
+        ref_file_dict = generate_reference_dict()
+        #ref_values_dict = compute_reference_values(ref_file_dict, ref_models)
+        ref_values_dict = compute_reference_values(ref_file_dict, ref_models, protocol=ref_cv)
     splitters = list(metric_values.keys())
     datasets = list(metric_values[splitters[0]])
     methods = list(metric_values[splitters[0]][datasets[0]])
@@ -124,16 +216,16 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
         filename += f"_dim={str(dim)}"
     if suffix:
         filename += str(suffix)
-    font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
+    font_kwargs = {'family': 'Arial', 'fontsize': 35, "weight": 'bold'}
     labelsize = 19
-    font_kwargs_small = {'family': 'Arial', 'fontsize': 20, "weight": 'bold'}
+    font_kwargs_small = {'family': 'Arial', 'fontsize': 22, "weight": 'bold'}
     if x_axis == "rep":
         n_cols = len(representations)*len(splitters)
     elif x_axis == "algo":
         n_cols = len(methods)*len(splitters)
     else:
         n_cols = len(splitters)
-    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*8, 6), sharey="row")
+    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*5, 4), sharey="row")
     axs = np.ravel(ax)
     labels = []
     column_spacing = 4
@@ -161,12 +253,18 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
                         dimensions.append(metric_values[splitter][dataset_key][algo][rep][augmentation]["dim"])
                     for k, (_m, _std_err) in enumerate(zip(mean, std_err)):
                         axs[d].bar(seps[idx]+k*0.45, _m, yerr=_std_err, color=selected_color, ecolor="black",
-                                    capsize=3, label=label if i == 0 else None,
-                                   width=1.2) # NOTE: label reversed mean of quantiles
+                                    capsize=3, label=label if i == 0 else None, width=1.2) # NOTE: label reversed mean of quantiles
                         if num_NA:
                             axs[d].text(seps[idx]+k*0.45-0.25, np.nan_to_num(_m)+np.nan_to_num(_std_err)+0.02, r'$^*\frac{{{vals}}}{{{num_obs}}}$'.format(vals=num_obs-num_NA, num_obs=num_obs), color="black", **font_kwargs_small)
                     idx += 1
-
+        vertical_sep = (seps[int(len(seps)/2)-1]+seps[int(len(seps)/2)])/2
+        if reference_results and metric == SPEARMAN_RHO: # add reference dashed lines for unsupervised learning models
+            for model in ref_models:
+                if ref_cv: # account for splitting protocols
+                    axs[d].hlines(np.array(ref_values_dict.get(dataset_key).get("Random").get(model)), seps[0]-1, vertical_sep, linestyle='dashed', label=f"{model.split('_')[0]} RCV", lw=2., alpha=0.8, colors=urc.get(model.split("_")[0].lower()))
+                    axs[d].hlines(np.array(ref_values_dict.get(dataset_key).get("Position").get(model)), vertical_sep, seps[-1]+1, linestyle='dashed', label=f"{model.split('_')[0]} PCV", lw=2., alpha=0.8, colors=urc.get(model.split("_")[0].lower()))
+                else:
+                    axs[d].hlines(np.array(ref_values_dict.get(dataset_key).get(model)), seps[0]-1, seps[-1]+1, linestyle='dashed', label=model.split("_")[0], lw=2., alpha=0.8, colors=urc.get(model.split("_")[0].lower()))
         # Add text elements
         axs[d].text(x=0.25, y=0.05, s="Random CV", horizontalalignment='center', verticalalignment='center',
                  transform=axs[d].transAxes, fontsize=labelsize)
@@ -174,14 +272,13 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
                     transform=axs[d].transAxes, fontsize=labelsize)
 
         # Add vertical/horizontal lines
-        axs[d].axvline((seps[int(len(seps)/2)-1]+seps[int(len(seps)/2)])/2, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='black', ls='--', linewidth=2)
+        axs[d].axvline(vertical_sep, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='black', ls='--', linewidth=2)
         for val in [0, 0.5, 0.75, 0.25, -0.25]:
             axs[d].axhline(val, seps[0]-0.5, len(splitter)+seps[-1]+0.5, c='grey', ls='--', alpha=0.25)
 
         # x-axis
         if x_axis.lower() == "rep":
-            # tick_labels = ["One-Hot", "EVE", "EVE (evo-score)", "ProtBert", "ESM"]*2
-            tick_labels = list(metric_values.get(splitter).get(dataset_key).get(algo).keys())*2
+            tick_labels = [rep_lookup.get(k) for k in metric_values.get(splitter).get(dataset_key).get(algo).keys()]*2
             if dimensions:
                 tick_labels.remove("EVE (evo-score)")
                 tick_labels.remove("EVE (evo-score)") # NOTE: dim reduction SI experiments don't include evo-score
@@ -207,11 +304,17 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
             axs[d].set_ylabel("")
         axs[d].set_yticks([-0.25, 0.0, 0.25, 0.5, 0.75, 1.0])
         axs[d].set_ylim((-0.25, 1.0))
-
-        # axs[d].set_title(dataset_key_map[dataset_key], size=25)
+        if title:
+            axs[d].set_title(header_dict[dataset_key], **font_kwargs)
     handles, labels = axs[-1].get_legend_handles_labels()
     # fig.legend(handles[:len(labels)], labels[:len(labels)], loc='lower right', ncol=len(labels), prop={'size': 14})
-    # plt.suptitle(plot_heading, size=12)
+    if reference_results and metric == SPEARMAN_RHO:
+        select_handles, select_labels = [], []
+        for h, l in zip(handles, labels):
+            if l.split(" ")[0] in [m.split("_")[0] for m in ref_models] and l.split(" ")[0] not in select_labels:
+                select_handles.append(h)
+                select_labels.append(l.split(" ")[0])
+        axs[-1].legend(select_handles, select_labels, loc="upper right", prop={'size': 14})
     plt.subplots_adjust(wspace=0.15, left=0.075, right=0.975, bottom=0.25, top=0.95)
     if savefig:
         plt.savefig(filename+".png", bbox_inches="tight")
@@ -1009,10 +1112,7 @@ def __parse_cumulative_results_dict(metrics_values: dict, metric: str, number_qu
     return observations
 
 
-def cumulative_performance_plot(metrics_values: dict, metrics=[MSE, SPEARMAN_RHO], number_quantiles=10, threshold=None, savefig=False):
-    header_dict = {"1FQG": r"$\beta$-Lactamase", "UBQT": "Ubiquitin", "CALM": "Calmodulin", 
-                    "TIMB": "TIM-Barrel", "MTH3": "MTH3", "BRCA": "BRCA"}
-    header_rep_dict = {"one_hot": "One-Hot", "transformer": "ProtBert", "eve": "EVE", "esm": "ESM"}
+def cumulative_performance_plot(metrics_values: dict, metrics=[MSE, SPEARMAN_RHO], number_quantiles=10, threshold=None, savefig=False, header_rep_dict=REP_LOOKUP_DICT, header_dict=HEADER_DICT):
     font_kwargs = {'family': 'Arial', 'fontsize': 28, "weight": 'bold'}
     font_kwargs_small = {'family': 'Arial', 'fontsize': 18, "weight": 'bold'}
     data_fractions = np.array(list(metrics_values.keys())).astype(float)
@@ -1114,7 +1214,10 @@ def errorplot_cv_comparison(metric_values: dict, metric: str, width: float=0.17,
                     mean, std_err, num_NA = _compute_metric_results(metric_values[splitter][dataset_key][algo][rep][None][metric], metric=metric, suffix=f"{dataset_key}, {algo}, {rep}, {splitter}")
                     selected_color = tcaa.get(splitter_fam).get(algo)
                     for _m, _std_err in zip(mean, std_err):
-                        axs[d].errorbar(idx, _m, yerr=_std_err, color=selected_color, capsize=5, lw=3, label=label)
+                        try:
+                            axs[d].errorbar(idx, _m, yerr=_std_err, color=selected_color, capsize=5, lw=3, label=label)
+                        except AttributeError as _:
+                            print(f"Error! {num_NA} NaNs encountered; m={str(_m)}")
                         if num_NA:
                             axs[d].text(idx+0.45, np.nan_to_num(_m)+np.nan_to_num(_std_err)+0.02, r'$^*\frac{{{vals}}}{{{num_obs}}}$'.format(vals=num_obs-num_NA, num_obs=num_obs), color="black", **font_kwargs_small)
         # label double x-axis
@@ -1123,7 +1226,7 @@ def errorplot_cv_comparison(metric_values: dict, metric: str, width: float=0.17,
         axs[d].set_xticks(np.arange(len(tick_labels)))
         axs[d].set_xticklabels([f"{t1}\n{t2}" for t1, t2 in zip(tick_labels, alternate_labels + [""])], size=labelsize)
         axs[d].tick_params(axis='y', which='both', labelsize=22)
-        axs[d].set_xlabel(f"Splitting k \n p", **font_kwargs_small)
+        axs[d].set_xlabel(r"CV $k$-fold \newline Positional \textcolor{red}{$p$}", **font_kwargs_small)
         # y-axis
         metric_label = r'$R^2$' if metric == MSE or metric == "R2" else metric
         metric_label = r'spearman $\rho$' if metric == SPEARMAN_RHO else metric_label
@@ -1133,6 +1236,7 @@ def errorplot_cv_comparison(metric_values: dict, metric: str, width: float=0.17,
             axs[d].set_ylabel("")
         axs[d].set_yticks([-0.25, 0.0, 0.25, 0.5, 0.75, 1.0])
         axs[d].set_ylim((-0.5, 1.0))
+        axs[d].yaxis.grid(color='gray', linestyle='dashed')
     custom_handles = [Line2D([0], [0], color=tcaa.get(s).get(a), lw=4) for s, a in map(lambda x: x.split(), labels)]
     plt.subplots_adjust(wspace=0.15, left=0.075, right=0.975, bottom=0.25, top=0.95)
     plt.legend(handles=custom_handles, labels=labels, ncol=2)
