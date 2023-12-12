@@ -14,7 +14,7 @@ from shapely.geometry import Polygon
 import mlflow
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
-from util.mlflow.constants import MSE, NO_AUGMENT, DATASET, AUGMENTATION, METHOD, REPRESENTATION, SPLIT, VAE
+from util.mlflow.constants import MSE, NO_AUGMENT, DATASET, AUGMENTATION, METHOD, PROTT5, REPRESENTATION, SPLIT, VAE
 from util.mlflow.constants import SPEARMAN_RHO, GP_L_VAR, OBSERVED_Y, STD_Y
 from util.mlflow.constants import RF_ESTIMATORS
 from util.mlflow.convenience_functions import get_mlflow_results_artifacts
@@ -26,7 +26,7 @@ from visualization import representation_colors as rc
 from visualization import algorithm_colors as ac
 from visualization import algorithm_markers as am
 from util.postprocess import filter_functional_variant_data_less_than
-from util.mlflow.constants import ESM, EVE, ONE_HOT, TRANSFORMER, EVE_DENSITY
+from util.mlflow.constants import ESM, EVE, ONE_HOT, TRANSFORMER, EVE_DENSITY, ESM1V, ESM2, PSSM
 
 # MLFLOW CODE ONLY WORKS WITH THE BELOW LINE:
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
@@ -110,9 +110,13 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
     algos = []
     name_dict = {
         ONE_HOT: "One-Hot",
+        PSSM: "PSSM",
         EVE: "EVE",
         TRANSFORMER: "ProtBert",
-        ESM: "ESM",
+        ESM: "ESM-1b",
+        ESM1V: "ESM-1v",
+        ESM2: "ESM2",
+        PROTT5: "ProtT5",
     }
     font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
     font_kwargs_small = {'family': 'Arial', 'fontsize': 16, "weight": 'bold'}
@@ -120,7 +124,7 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
     for d in metric_values.keys():
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
-    fig, axs = plt.subplots(n_prot, n_reps, figsize=(4.75*n_reps,2.5*n_prot + 1), squeeze=False, sharey="row") #gridspec_kw={'height_ratios': [4, 1]})
+    fig, axs = plt.subplots(n_prot, n_reps, figsize=(4*n_reps,4*n_prot + 1), squeeze=False, sharey="row") #gridspec_kw={'height_ratios': [4, 1]})
     algos = []
     for d, dataset_key in enumerate(metric_values.keys()):
         for i, algo in enumerate(metric_values[dataset_key].keys()):
@@ -193,9 +197,13 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                 "BRCA": "BRCA"}
     name_dict = {
         ONE_HOT: "One-Hot",
+        PSSM: "PSSM",
         EVE: "EVE",
         TRANSFORMER: "ProtBert",
-        ESM: "ESM",
+        ESM: "ESM-1b",
+        ESM1V: "ESM-1v",
+        ESM2: "ESM2",
+        PROTT5: "ProtT5",
     }
     cv_names_dict = {"RandomSplitter": "Random CV", 
                     "PositionSplitter_p15": "Position CV",
@@ -210,7 +218,7 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
     for d in metric_values.keys():
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
-    fig, axs = plt.subplots(n_prot*2, n_reps, figsize=(5*n_reps,5*n_prot), squeeze=False) #gridspec_kw={'height_ratios': [4, 1]})
+    fig, axs = plt.subplots(n_prot*2, n_reps, figsize=(3*n_reps,7*n_prot), squeeze=False) #gridspec_kw={'height_ratios': [4, 1]})
     algos = []
     for d, dataset_key in enumerate(metric_values.keys()):
         for i, algo in enumerate(metric_values[dataset_key].keys()):     
@@ -259,11 +267,11 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
                     axs[d+1,j].xaxis.set_tick_params(labelsize=18)
                     axs[plt_idx].set_xlim(0, 1.)
     handles, labels = axs[plt_idx].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='lower right', ncol=len(algos)+1, prop={'size': 16})
+    fig.legend(handles, labels, loc='lower center', ncol=len(algos)+1, prop={'size': 17})
+    plt.subplots_adjust(wspace=0.28, hspace=0.33, left=0.05, right=0.97, top=0.855, bottom=0.175)
     plt.suptitle(f"{header_dict.get(dataset[0])} {cv_names_dict.get(cvtype)}", **font_kwargs)
     plt.xticks(size=20)
     plt.yticks(size=20)
-    plt.tight_layout()
     if savefig:
         plt.savefig(filename+".png")
         plt.savefig(filename+".pdf")
@@ -342,7 +350,7 @@ def confidence_curve(metric_values: dict, number_quantiles: int, cvtype: str = '
         n_algo = len(metric_values[d].keys())
         for a in metric_values[d].keys():
             n_reps = len(metric_values[d][a].keys())
-    fig, axs = plt.subplots(n_prot, n_reps, figsize=(25,12.5))
+    fig, axs = plt.subplots(n_prot, n_reps, figsize=(20,17.5))
     for d, dataset_key in enumerate(metric_values.keys()):
         algos = []
         for i, algo in enumerate(metric_values[dataset_key].keys()):          
