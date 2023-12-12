@@ -3,6 +3,7 @@ Utility function to merge mlflow results from different sources.
 Merges by meta.yaml accounts for input results directories.
 """
 import os
+from pathlib import Path
 import shutil
 import yaml
 
@@ -58,5 +59,6 @@ if __name__ == "__main__":
     # NOTE: THIS SCRIPT PRESUPPOSES THAT ALL FILES ARE IN ONE MLRUNS OUTPUT DIRECTORY
     # NOTE: IT IS REQUIRED THAT THE EXPERIMENT DIR DO NOT CONTAIN meta.yaml FILES, ONLY THE INDIVIDUAL OUTPUT DIRECTORIES
     # NOTE: if results have been copied from another source into this mlruns directory, check that all meta information aligns if the names are correct
-    MLFLOW_DIRECTORY = "/Users/rcml/protein_regression/results/mlruns/"
-    align_meta_files(MLFLOW_DIRECTORY)
+    MLFLOW_DIRECTORY = Path(__file__).parent.parent.parent.resolve() / "results" / "mlruns"
+    print(f"Merging results under run directory: {MLFLOW_DIRECTORY.as_posix()}")
+    align_meta_files(MLFLOW_DIRECTORY.as_posix())
