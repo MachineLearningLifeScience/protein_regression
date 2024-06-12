@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=PR_BENCH_noOpt
-#SBATCH -p boomsma
+#SBATCH -p gpu
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=8G

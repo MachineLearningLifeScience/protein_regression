@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=PositionPR_BENCH
-#SBATCH -p boomsma
+#SBATCH -p gpu
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=5
 #SBATCH --mem-per-cpu=8G
