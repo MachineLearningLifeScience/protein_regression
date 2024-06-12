@@ -1,13 +1,16 @@
 import warnings
 from typing import Callable
-from gpflow.kernels import SquaredExponential, Linear, Polynomial, Matern52, LinearCoregionalization
+
+from gpflow.kernels import (Linear, LinearCoregionalization, Matern52,
+                            Polynomial, SquaredExponential)
+
 from algorithms.abstract_algorithm import AbstractAlgorithm
+from algorithms.gmm_regression import GMMRegression
 from algorithms.gp_on_real_space import GPonRealSpace
+from algorithms.KNN import KNN
 from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.random_forest import RandomForest
 from algorithms.uncertain_rf import UncertainRandomForest
-from algorithms.KNN import KNN
-from algorithms.gmm_regression import GMMRegression
 from util.mlflow.constants import ONE_HOT
 
 

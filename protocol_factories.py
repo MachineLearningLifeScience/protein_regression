@@ -2,13 +2,14 @@
 Reference CV splitter instances, for usage across all experimental runs and plotting
 """
 from typing import List
+
 import numpy as np
-from typing import Callable
+
 from algorithm_factories import get_key_for_factory
-from data.train_test_split import AbstractTrainTestSplitter
-from data.train_test_split import RandomSplitter, BlockPostionSplitter 
-from data.train_test_split import PositionSplitter, BioSplitter
-from data.train_test_split import FractionalRandomSplitter, WeightedTaskSplitter
+from data.train_test_split import (AbstractTrainTestSplitter, BioSplitter,
+                                   BlockPostionSplitter,
+                                   FractionalRandomSplitter, PositionSplitter,
+                                   RandomSplitter, WeightedTaskSplitter)
 
 # SPLITTING: random, block, positional, fractional-random, mutation-lvl
 
