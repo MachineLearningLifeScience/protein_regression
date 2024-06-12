@@ -1,7 +1,7 @@
 import numpy as np
-from sklearn.mixture import GaussianMixture
 from gmr.gmm import GMM
 from gmr.sklearn import GaussianMixtureRegressor
+
 from algorithms.abstract_algorithm import AbstractAlgorithm
 
 
@@ -16,11 +16,6 @@ class GMMRegression(AbstractAlgorithm):
         return f"GMMRegression_n{self.n_components}"
 
     def train(self, X, Y):
-        # gmm = GaussianMixture(n_components=self.n_components, covariance_type="diag", random_state=42)
-        # gmm.fit(X, Y)
-        # covariances = [np.diag(_c) for _c in gmm.covariances_]
-        # self.model = GMM(n_components=self.n_components, priors=gmm.weights_, means=gmm.means_, 
-        #                 covariances=covariances, random_state=42)
         prior_assignments = np.concatenate([np.array(Y<self.threshold).astype(np.float64),
                                             np.array(Y>=self.threshold).astype(np.float64)], axis=1)
         self.model = GaussianMixtureRegressor(n_components=self.n_components, init_params="kmeans++")

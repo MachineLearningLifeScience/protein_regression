@@ -1,22 +1,22 @@
-import warnings
-import pickle
-import numpy as np
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import cross_val_score
-from algorithms.abstract_algorithm import AbstractAlgorithm
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.utils.validation import check_is_fitted, _check_sample_weight
-from sklearn.ensemble._base import BaseEnsemble, _partition_estimators
-from sklearn.utils.fixes import _joblib_parallel_args
-from sklearn._config import config_context, get_config
-from skopt.space import Integer, Real, Categorical
-from skopt.utils import use_named_args
-from skopt import gp_minimize
-import numpy as np
-import threading
-from joblib import Parallel
-from functools import update_wrapper
 import functools
+import pickle
+import threading
+import warnings
+from functools import update_wrapper
+
+import numpy as np
+from joblib import Parallel
+from sklearn._config import config_context, get_config
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble._base import _partition_estimators
+from sklearn.model_selection import cross_val_score
+from sklearn.utils.fixes import _joblib_parallel_args
+from sklearn.utils.validation import check_is_fitted
+from skopt import gp_minimize
+from skopt.space import Integer
+from skopt.utils import use_named_args
+
+from algorithms.abstract_algorithm import AbstractAlgorithm
 
 
 # remove when https://github.com/joblib/joblib/issues/1071 is fixed
@@ -96,8 +96,6 @@ class Uncertain_RandomForestRegressor(RandomForestRegressor):
             delayed(_accumulate_uncertain_prediction)(e.predict, X, [y_hat], [y_hat2], lock)
             for e in self.estimators_)
 
-        # y_hat /= len(self.estimators_)
-        # y_hat2 /= len(self.estimators_)
         print(len(self.estimators_))
         y_hat = np.divide(y_hat, len(self.estimators_))
         y_hat2 = np.divide(y_hat2, len(self.estimators_))
@@ -144,7 +142,6 @@ class UncertainRandomForest(AbstractAlgorithm):
 
     def train(self, X, Y):
         assert(Y.shape[1] == 1)
-        #Y = Y.squeeze() if Y.shape[0] > 1 else Y
         if self.optimize:
             if self._cached and self._persist_id:
                 # NOTE: use hash, data, splitter, split when persisting optimal parameters

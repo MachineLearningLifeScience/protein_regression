@@ -1,12 +1,14 @@
-import warnings
 import pickle
+import warnings
+
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import cross_val_score
-from algorithms.abstract_algorithm import AbstractAlgorithm
+from skopt import gbrt_minimize
 from skopt.space import Integer
 from skopt.utils import use_named_args
-from skopt import gbrt_minimize
+
+from algorithms.abstract_algorithm import AbstractAlgorithm
 
 
 class RandomForest(AbstractAlgorithm):
@@ -15,7 +17,7 @@ class RandomForest(AbstractAlgorithm):
         self.optimize = optimize
         self.seed = seed
         self.opt_budget = opt_budget
-        self.model = RandomForestRegressor(random_state=self.seed, n_jobs=-1)  # use all processors
+        self.model = RandomForestRegressor(random_state=self.seed, n_jobs=-1)  # use all threads
         self._persist_id = persist_optimal_parameters
 
     def get_name(self):

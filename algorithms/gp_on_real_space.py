@@ -1,20 +1,19 @@
-from statistics import variance
 import warnings
-import scipy
-from packaging.version import parse
+from statistics import variance
 
+import gpflow.optimizers
 import numpy as np
+import scipy
 import tensorflow as tf
 import tensorflow_probability as tfp
-import gpflow.optimizers
 from gpflow import Parameter
-from gpflow.utilities import to_default_float, set_trainable
 from gpflow.ci_utils import ci_niter
-from gpflow.mean_functions import Constant, Zero
-from gpflow.optimizers import Scipy
-from gpflow.models import GPR
-from gpflow.utilities import print_summary
 from gpflow.kernels.linears import Linear
+from gpflow.mean_functions import Constant, Zero
+from gpflow.models import GPR
+from gpflow.optimizers import Scipy
+from gpflow.utilities import print_summary, set_trainable, to_default_float
+from packaging.version import parse
 
 from algorithms.abstract_algorithm import AbstractAlgorithm
 

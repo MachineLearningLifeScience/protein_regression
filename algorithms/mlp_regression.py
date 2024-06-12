@@ -1,9 +1,10 @@
 import numpy as np
-from sklearn.neural_network import MLPRegressor
 from sklearn.model_selection import cross_val_score
-from algorithms.abstract_algorithm import AbstractAlgorithm
-from skopt.space import Integer
+from sklearn.neural_network import MLPRegressor
 from skopt import gbrt_minimize
+from skopt.space import Integer
+
+from algorithms.abstract_algorithm import AbstractAlgorithm
 
 
 class MLPEnsemble(AbstractAlgorithm):

@@ -1,15 +1,19 @@
-import numpy as np
-import re 
-import warnings
-import pandas as pd
 import pickle
-from typing import Tuple, Callable
-from os.path import join, dirname
+import re
+import warnings
+from os.path import dirname, join
+from typing import Callable, Tuple
+
+import numpy as np
+import pandas as pd
+
 from data.get_alphabet import get_alphabet
 from util import numpy_one_hot_2dmat
 from util.aa2int import map_alphabets
-from util.mlflow.constants import TRANSFORMER, VAE, ONE_HOT, NONSENSE, ESM, EVE, ESM1V, ESM2, PROTT5, PSSM
-from util.mlflow.constants import VAE_DENSITY, VAE_AUX, VAE_RAND, EVE_DENSITY, ROSETTA
+from util.mlflow.constants import (ESM, ESM1V, ESM2, EVE, EVE_DENSITY,
+                                   NONSENSE, ONE_HOT, PROTT5, PSSM, ROSETTA,
+                                   TRANSFORMER, VAE, VAE_AUX, VAE_DENSITY,
+                                   VAE_RAND)
 
 base_path = join(dirname(__file__), "files")
 

@@ -1,13 +1,14 @@
-import time
-import numpy as np
 import warnings
 from typing import Tuple
-from sklearn.neighbors import KNeighborsRegressor
+
+import numpy as np
 from sklearn.model_selection import cross_val_score
-from algorithms.abstract_algorithm import AbstractAlgorithm
+from sklearn.neighbors import KNeighborsRegressor
+from skopt import gbrt_minimize
 from skopt.space import Integer
 from skopt.utils import use_named_args
-from skopt import gbrt_minimize
+
+from algorithms.abstract_algorithm import AbstractAlgorithm
 
 
 class KNN(AbstractAlgorithm):

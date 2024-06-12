@@ -1,14 +1,11 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
-import gpflow
 from gpflow import Parameter
-from gpflow.mean_functions import Constant
-from gpflow.models import GPR
 from gpflow.kernels.linears import Linear
-from gpflow.utilities import to_default_float, set_trainable
+from gpflow.models import GPR
+from gpflow.utilities import to_default_float
 
 from algorithms.gp_on_real_space import GPonRealSpace
-from util.numpy_one_hot import numpy_one_hot_2dmat
 
 
 class GPOneHotSequenceSpace(GPonRealSpace):
