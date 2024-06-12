@@ -1,7 +1,7 @@
 from numpy import ndarray
 
 
-class AbstractAlgorithm():
+class AbstractAlgorithm:
     def get_name(self):
         raise NotImplementedError("abstract method")
 

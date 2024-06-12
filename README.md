@@ -1,5 +1,12 @@
 # Protein Regression Assessment
 
+Repository to replicate the results of [A systematic analysis of regression models for protein engineering](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1012061).
+
+
+## Data \& Results
+
+All data and persisted results can be found in the [Electronic Research Data Archive](https://erda.ku.dk/archives/9a379e8618a1ba1f2730ec33fa3a736d/published-archive.html) (ID=archive-xENMse, status=frozen).
+
 
 ## Installation
 
@@ -60,20 +67,21 @@ See the ``python run_experiments.py --help`` for more details.
 
 
 
+### Cite
+This codebase is element of 
 
+Michael R, Kæstel-Hansen J, Mørch Groth P, Bartels S, Salomon J, Tian P, Hatzakis NS, Boomsma W. __A systematic analysis of regression models for protein engineering__. _PLoS Comput Biol._ 2024 May 3;20(5):e1012061. doi: 10.1371/journal.pcbi.1012061. PMID: 38701099; PMCID: PMC11095727.
 
-## DIKU/KU specific instructions:
-###  Mounting Erda
-Instructions can be found on the DIKU slurm wiki: 
-https://diku-dk.github.io/wiki/slurm-cluster#erda
-Only the first paragraph is relevant.
-
-Add 
 ```
-Host erda
-    HostName io.erda.dk
-    User <ku user id: abc123 or ku-email! (in my case)>
+@article{michael2024systematic,
+  title={A systematic analysis of regression models for protein engineering},
+  author={Michael, Richard and K{\ae}stel-Hansen, Jacob and M{\o}rch Groth, Peter and Bartels, Simon and Salomon, Jesper and Tian, Pengfei and Hatzakis, Nikos S and Boomsma, Wouter},
+  journal={PLOS Computational Biology},
+  volume={20},
+  number={5},
+  pages={e1012061},
+  year={2024},
+  publisher={Public Library of Science San Francisco, CA USA}
+}
 ```
-to `~/.ssh/config`
 
-Be sure to add your public key in ERDA's sftp settings.

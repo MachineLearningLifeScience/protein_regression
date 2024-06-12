@@ -53,7 +53,7 @@ NONSENSE = "nonsense"
 ESM = "esm"
 ESM1V = "esm1v"
 ESM2 = "esm2"
-KNN_name = 'knn'
+KNN_name = "knn"
 PSSM = "pssm"
 
 # dim-reduction

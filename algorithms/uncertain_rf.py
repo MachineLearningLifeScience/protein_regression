@@ -22,14 +22,17 @@ from algorithms.abstract_algorithm import AbstractAlgorithm
 # remove when https://github.com/joblib/joblib/issues/1071 is fixed
 def delayed(function):
     """Decorator used to capture the arguments of a function."""
+
     @functools.wraps(function)
     def delayed_function(*args, **kwargs):
         return _FuncWrapper(function), args, kwargs
+
     return delayed_function
 
 
 class _FuncWrapper:
     """Load the global configuration before calling the function."""
+
     def __init__(self, function):
         self.function = function
         self.config = get_config()
@@ -54,7 +57,7 @@ def _accumulate_uncertain_prediction(predict, X, out1, out2, lock):
         else:
             for i in range(len(out1)):
                 out1[i] += prediction[i]
-                out2[i] += prediction[i]**2
+                out2[i] += prediction[i] ** 2
 
 
 class Uncertain_RandomForestRegressor(RandomForestRegressor):
@@ -91,15 +94,21 @@ class Uncertain_RandomForestRegressor(RandomForestRegressor):
 
         # Parallel loop
         lock = threading.Lock()
-        Parallel(n_jobs=n_jobs, verbose=self.verbose,
-                 **_joblib_parallel_args(require="sharedmem"))(
-            delayed(_accumulate_uncertain_prediction)(e.predict, X, [y_hat], [y_hat2], lock)
-            for e in self.estimators_)
+        Parallel(
+            n_jobs=n_jobs,
+            verbose=self.verbose,
+            **_joblib_parallel_args(require="sharedmem"),
+        )(
+            delayed(_accumulate_uncertain_prediction)(
+                e.predict, X, [y_hat], [y_hat2], lock
+            )
+            for e in self.estimators_
+        )
 
         print(len(self.estimators_))
         y_hat = np.divide(y_hat, len(self.estimators_))
         y_hat2 = np.divide(y_hat2, len(self.estimators_))
-        
+
         return y_hat, (y_hat2) - y_hat**2
 
 
@@ -118,45 +127,69 @@ class UncertainRandomForest(AbstractAlgorithm):
     def _optimize_regressor(self, X, Y) -> Uncertain_RandomForestRegressor:
         # NOTE: use RF Regressor for optimize, to avoid parallel processing inconsistencies from predict
         # NOTE: RF and UncertainRF are fundamentally the same, except for predict function, after training
-        self.model = RandomForestRegressor(random_state=self.seed, n_jobs=-1)  # use all processors
+        self.model = RandomForestRegressor(
+            random_state=self.seed, n_jobs=-1
+        )  # use all processors
         opt_space = [
             Integer(2, 3000, name="n_estimators"),
         ]
+
         @use_named_args(opt_space)
         def _opt_objective(**params):
-            self.model.set_params(**params) # NOTE: Optimization cannot be multi-threaded 
-            return -np.mean(cross_val_score(self.model, X, Y.ravel(), cv=3, n_jobs=-1, scoring="neg_mean_absolute_error", error_score="raise")) # TODO: multithreading fails
+            self.model.set_params(
+                **params
+            )  # NOTE: Optimization cannot be multi-threaded
+            return -np.mean(
+                cross_val_score(
+                    self.model,
+                    X,
+                    Y.ravel(),
+                    cv=3,
+                    n_jobs=-1,
+                    scoring="neg_mean_absolute_error",
+                    error_score="raise",
+                )
+            )  # TODO: multithreading fails
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            res_gp = gp_minimize(_opt_objective, opt_space, n_calls=self.opt_budget, random_state=self.seed)
+            res_gp = gp_minimize(
+                _opt_objective,
+                opt_space,
+                n_calls=self.opt_budget,
+                random_state=self.seed,
+            )
         self.optimal_parameters = res_gp.x
         print(f"Score: {res_gp.fun}")
         print(f"Parameters: N={res_gp.x[0]}")
         model = Uncertain_RandomForestRegressor(
-                    n_estimators=res_gp.x[0],
-                    random_state=self.seed, 
-                    n_jobs=1,
-                    )
+            n_estimators=res_gp.x[0],
+            random_state=self.seed,
+            n_jobs=1,
+        )
         return model
 
-
     def train(self, X, Y):
-        assert(Y.shape[1] == 1)
+        assert Y.shape[1] == 1
         if self.optimize:
             if self._cached and self._persist_id:
                 # NOTE: use hash, data, splitter, split when persisting optimal parameters
-                filename = f"./results/cache/RF_optimal_estimators_{self._persist_id}.pkl"
+                filename = (
+                    f"./results/cache/RF_optimal_estimators_{self._persist_id}.pkl"
+                )
                 with open(filename, "rb") as infile:
                     loaded_optimal_parameters = pickle.load(infile)
                 self.model = Uncertain_RandomForestRegressor(
                     n_estimators=loaded_optimal_parameters.get("n_estimators"),
-                    random_state=self.seed, 
+                    random_state=self.seed,
                     n_jobs=1,
-                    )
+                )
             else:
                 self.model = self._optimize_regressor(X, Y)
         else:
-            self.model = Uncertain_RandomForestRegressor(random_state=self.seed, n_jobs=1)
+            self.model = Uncertain_RandomForestRegressor(
+                random_state=self.seed, n_jobs=1
+            )
         self.model.fit(X, Y.ravel())
 
     def predict(self, X, return_var=False):

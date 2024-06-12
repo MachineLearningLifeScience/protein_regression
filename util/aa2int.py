@@ -7,7 +7,7 @@ a2n = dict((a, n) for n, a in enumerate(alphabet))
 
 
 def aa2int(x: str):
-    return a2n.get(x, a2n['-'])
+    return a2n.get(x, a2n["-"])
 
 
 def seq2int(seq: str):
@@ -25,7 +25,7 @@ def list_of_pairs_2_seq(list):
             raise RuntimeError("Parsed Sequence has gaps!")
         last_i = i
         seq_str.append(s)
-    return Seq(''.join(seq_str))
+    return Seq("".join(seq_str))
 
 
 def map_alphabets(a_from: dict, a_to: dict):
