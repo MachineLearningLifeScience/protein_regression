@@ -1,24 +1,20 @@
-from typing import Tuple
-import mlflow
-import pickle
 import os
+import pickle
+from typing import List, Tuple
+
 import numpy as np
-from typing import List
-from gpflow.kernels import SquaredExponential, Matern52
+from gpflow.kernels import Matern52
 from gpflow.kernels.linears import Linear
-from mlflow.entities import ViewType
-from data.train_test_split import BlockPostionSplitter, RandomSplitter
+
 from algorithms.gp_on_real_space import GPonRealSpace
-from algorithms.one_hot_gp import GPOneHotSequenceSpace
 from algorithms.uncertain_rf import UncertainRandomForest
-from algorithms.random_forest import RandomForest
-from algorithms.KNN import KNN
-from util.mlflow.constants import DATASET, METHOD, MSE, REPRESENTATION, STD_Y, TRANSFORMER, VAE, VAE_DENSITY, EVE_DENSITY, ESM, AT_RANDOM, EVE
-from util.mlflow.constants import SPLIT, ONE_HOT, NONSENSE, KNN_name, SEED, OPTIMIZATION, EXPERIMENT_TYPE, OBSERVED_Y
-from util.mlflow.convenience_functions import get_mlflow_results_optimization
 from data.load_dataset import load_dataset
+from util.mlflow.constants import (AT_RANDOM, ESM, EVE, EVE_DENSITY,
+                                   OBSERVED_Y, ONE_HOT, STD_Y, TRANSFORMER)
+from util.mlflow.convenience_functions import get_mlflow_results_optimization
 from visualization.plot_metric_for_dataset import plot_optimization_task
-from visualization.plot_metric_for_uncertainties import plot_uncertainty_optimization
+from visualization.plot_metric_for_uncertainties import \
+    plot_uncertainty_optimization
 
 
 # TODO: refactor into util/postprocessing
@@ -128,10 +124,9 @@ def plot_optimization_results(datasets: List[str], algos: List[str], representat
 if __name__ == "__main__":
     # gathers all our results and saves them into a numpy array
     datasets = ["1FQG", "UBQT"] 
-    representations = [TRANSFORMER, ESM, ONE_HOT, EVE] # TRANSFORMER, ESM, ONE_HOT, EVE
+    representations = [TRANSFORMER, ESM, ONE_HOT, EVE]
     plot_calibration = False
     seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245] # 11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245
-    #seeds = [11]
     reference_benchmark_rep = [EVE_DENSITY] # option: VAE_DENSITY
 
     algos = [GPonRealSpace(kernel_factory=lambda: Matern52()).get_name(), 

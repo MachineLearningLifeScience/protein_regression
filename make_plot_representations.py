@@ -1,12 +1,14 @@
+from pathlib import Path
 from typing import Tuple
 
-import pandas as pd
-from umap import UMAP
 import matplotlib.pyplot as plt
-from data import load_dataset
-from util.mlflow.constants import ESM, ESM1V, ESM2, EVE, ONE_HOT, PROTT5, TRANSFORMER, EVE_DENSITY, PSSM
+import pandas as pd
 import seaborn as sns
-from pathlib import Path
+from umap import UMAP
+
+from data import load_dataset
+from util.mlflow.constants import (ESM, ESM1V, ESM2, EVE, ONE_HOT, PROTT5,
+                                   PSSM, TRANSFORMER)
 
 PROJECT_DIR = Path(__file__).parent.resolve()
 
@@ -116,7 +118,6 @@ def plot_reduced_representations_all_datasets(datasets: Tuple[str, ...], represe
 
 if __name__ == "__main__":
     datasets = ["1FQG", "UBQT", "TIMB", "MTH3", "BRCA"]
-    # representations = [EVE_DENSITY, TRANSFORMER, ONE_HOT, ESM, EVE]
     representations = [ONE_HOT, EVE, PROTT5, ESM]
     plot_reduced_representations_all_datasets(datasets, representations, augmentation=None)
     ## SI ablation: 

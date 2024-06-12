@@ -1,24 +1,14 @@
-from os.path import join, dirname
-import json
-import mlflow
-import numpy as np
-from gpflow.kernels import SquaredExponential, Matern52
-from gpflow.kernels.linears import Linear
-from sklearn.model_selection import train_test_split
-from data.train_test_split import BlockPostionSplitter, PositionSplitter, RandomSplitter, BioSplitter, FractionalRandomSplitter, WeightedTaskSplitter
+from gpflow.kernels import Matern52, SquaredExponential
+
 from algorithms.gp_on_real_space import GPonRealSpace
-from algorithms.one_hot_gp import GPOneHotSequenceSpace
-from algorithms.uncertain_rf import UncertainRandomForest
-from algorithms.random_forest import RandomForest
 from algorithms.KNN import KNN
-from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, PROTT5, PSSM, REPRESENTATION, LINEAR, NON_LINEAR
-from util.mlflow.constants import NO_AUGMENT, ROSETTA, TRANSFORMER, VAE, VAE_RAND, VAE_AUX, EVE, ESM2, ESM1V
-from util.mlflow.constants import SPLIT, ONE_HOT, ESM, NONSENSE, KNN_name, VAE_DENSITY
-from visualization.plot_metric_for_uncertainties import plot_uncertainty_eval, plot_uncertainty_eval_across_dimensions
+from algorithms.uncertain_rf import UncertainRandomForest
+from data.train_test_split import BioSplitter, PositionSplitter, RandomSplitter
+from util.mlflow.constants import (ESM, ESM1V, ESM2, EVE, LINEAR, MSE,
+                                   NO_AUGMENT, ONE_HOT, PROTT5, TRANSFORMER)
+from visualization.plot_metric_for_uncertainties import plot_uncertainty_eval
 
 datasets = ["1FQG"] # 1FQG, UBQT, CALM
-# datasets = ["TOXI"]
-# train_test_splitter = BioSplitter(datasets[0], 3, 4) # BlockPostionSplitter # PositionSplitter # RandomSplitter # BlockPostionSplitter # BioSplitter
 
 metric = MSE
 reps = [PROTT5, ESM, EVE, ONE_HOT]
@@ -30,7 +20,7 @@ algos = [UncertainRandomForest().get_name(),
         GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(), 
         GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(),]
 d = None # 2, 10, 100, 1000, None
-dim_reduction = LINEAR # LINEAR # NON_LINEAR
+dim_reduction = LINEAR
 cached_results = True
 
 

@@ -1,14 +1,13 @@
-from algorithms import GPonRealSpace
 from gpflow.kernels import SquaredExponential
-from algorithms import RandomForest
-from algorithms import KNN
-from data.train_test_split import BlockPostionSplitter, RandomSplitter, PositionSplitter
-from util.mlflow.constants import MSE, ONE_HOT, VAE, TRANSFORMER, ESM, LINEAR, NON_LINEAR, SPEARMAN_RHO, MLL, EVE
+
+from algorithms import GPonRealSpace, RandomForest
+from data.train_test_split import PositionSplitter, RandomSplitter
+from util.mlflow.constants import (ESM, EVE, LINEAR, MSE, ONE_HOT,
+                                   SPEARMAN_RHO, TRANSFORMER)
 from visualization.plot_lowerdim import plot_lower_dim_results
 
-
 if __name__ == "__main__":
-    datasets = ["1FQG", "UBQT", "CALM"] # "TIMB", "CALM", "1FQG", "UBQT", "BRCA"
+    datasets = ["1FQG", "UBQT", "CALM"]
     algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), RandomForest().get_name()] # 
     metrics = [MSE, SPEARMAN_RHO]
     representations = [TRANSFORMER, ESM, ONE_HOT, EVE]

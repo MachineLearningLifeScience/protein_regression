@@ -1,33 +1,33 @@
 import pickle
 from os.path import exists
-from gpflow.kernels import SquaredExponential, Matern52
-from protocol_factories import FractionalSplitterFactory
-from algorithms.gp_on_real_space import GPonRealSpace
-from algorithms.random_forest import RandomForest
-from algorithms.uncertain_rf import UncertainRandomForest
-from algorithms.KNN import KNN
-from protocol_factories import RandomSplitterFactory, PositionalSplitterFactory
-from util import parse_baseline_mutation_observations
-from util import compute_delta_between_results
-from util.mlflow.convenience_functions import load_cached_results
-from util.mlflow.convenience_functions import load_results_dict_from_mlflow
-from util.mlflow.convenience_functions import get_mlflow_results
-from util.mlflow.convenience_functions import get_mlflow_results_artifacts
-from util.mlflow.constants import AUGMENTATION, DATASET, LINEAR, METHOD, MSE, SPEARMAN_RHO
-from util.mlflow.constants import NON_LINEAR, REPRESENTATION, ROSETTA, TRANSFORMER, VAE, ESM, VAE_AUX, VAE_RAND, EVE, EVE_DENSITY
-from util.mlflow.constants import PSSM, PROTT5, ESM1V, ESM2
-from util.mlflow.constants import SPLIT, ONE_HOT, NONSENSE, KNN_name, VAE_DENSITY, VAE_AUX, NO_AUGMENT, LINEAR, NON_LINEAR, MEAN_Y, STD_Y, OBSERVED_Y
-from data.train_test_split import PositionSplitter, RandomSplitter
-from data.train_test_split import BioSplitter, AbstractTrainTestSplitter
-from data.train_test_split import WeightedTaskSplitter, FractionalRandomSplitter, OptimizationSplitter
-from visualization.plot_metric_for_dataset import barplot_metric_comparison, barplot_metric_comparison_bar_splitting, errorplot_metric_comparison, barplot_metric_comparison_bar
-from visualization.plot_metric_for_dataset import barplot_metric_comparison_bar_splitting
-from visualization.plot_metric_for_dataset import barplot_metric_functional_mutation_comparison
-from visualization.plot_metric_for_dataset import barplot_metric_augmentation_comparison, barplot_metric_mutation_comparison
-from visualization.plot_metric_for_dataset import barplot_metric_mutation_matrix
-from visualization.plot_metric_for_dataset import threshold_metric_comparison
-from visualization.plot_metric_for_dataset import errorplot_cv_comparison
 from typing import List
+
+from gpflow.kernels import Matern52, SquaredExponential
+
+from algorithms.gp_on_real_space import GPonRealSpace
+from algorithms.KNN import KNN
+from algorithms.random_forest import RandomForest
+from data.train_test_split import (AbstractTrainTestSplitter, BioSplitter,
+                                   OptimizationSplitter, PositionSplitter,
+                                   RandomSplitter)
+from protocol_factories import (FractionalSplitterFactory,
+                                PositionalSplitterFactory,
+                                RandomSplitterFactory)
+from util import (compute_delta_between_results,
+                  parse_baseline_mutation_observations)
+from util.mlflow.constants import (ESM, ESM1V, ESM2, EVE, EVE_DENSITY, LINEAR,
+                                   MSE, ONE_HOT, PROTT5, PSSM, SPEARMAN_RHO,
+                                   TRANSFORMER)
+from util.mlflow.convenience_functions import (get_mlflow_results,
+                                               get_mlflow_results_artifacts,
+                                               load_cached_results,
+                                               load_results_dict_from_mlflow)
+from visualization.plot_metric_for_dataset import (
+    barplot_metric_augmentation_comparison, barplot_metric_comparison,
+    barplot_metric_comparison_bar, barplot_metric_comparison_bar_splitting,
+    barplot_metric_mutation_comparison, barplot_metric_mutation_matrix,
+    errorplot_cv_comparison, errorplot_metric_comparison,
+    threshold_metric_comparison)
 
 
 def plot_metric_comparison(datasets: List[str], 
@@ -394,7 +394,7 @@ if __name__ == "__main__":
     ### SI: delta in performance:
     for rep in [ESM, ONE_HOT, EVE]:
         plot_metric_comparison_bar_param_delta(datasets=["1FQG", "UBQT", "TIMB", "MTH3", "BRCA"], # ,  "UBQT", "TIMB", "MTH3", "BRCA"
-                            reps=[rep], # ESM, ONE_HOT, EVE ;
+                            reps=[rep],
                             metrics=metrics,
                             train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")], #
                             algos=algos,
@@ -405,7 +405,6 @@ if __name__ == "__main__":
     for algo in [GPonRealSpace().get_name(), 
                 GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(),
                 GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(),
-                #RandomForest().get_name(),
                 KNN().get_name()
                 ]:
         print(algo)

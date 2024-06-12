@@ -1,21 +1,17 @@
 import os
 import pickle
-import numpy as np
-from gpflow.kernels import SquaredExponential, Matern52
-from mlflow.entities import ViewType
-from algorithm_factories import UncertainRFFactory
-from data.train_test_split import FractionalRandomSplitter
-from algorithms.gp_on_real_space import GPonRealSpace
-from algorithms.one_hot_gp import GPOneHotSequenceSpace
-from algorithms.random_forest import RandomForest
-from algorithms.uncertain_rf import Uncertain_RandomForestRegressor, UncertainRandomForest
-from algorithms.KNN import KNN
-from util.mlflow.constants import AUGMENTATION, DATASET, LINEAR, METHOD, MSE, SPEARMAN_RHO, MLL, PAC_BAYES_EPS, GP_L_VAR, STD_Y
-from util.mlflow.constants import NON_LINEAR, REPRESENTATION, ROSETTA, TRANSFORMER, VAE, ESM, VAE_AUX, VAE_RAND, EVE
-from util.mlflow.constants import SPLIT, ONE_HOT, NONSENSE, KNN_name, VAE_DENSITY, VAE_AUX, NO_AUGMENT, LINEAR, NON_LINEAR
-from util.mlflow.convenience_functions import get_mlflow_results, get_mlflow_results_artifacts
-from visualization.plot_metric_for_dataset import cumulative_performance_plot
 from typing import List
+
+import numpy as np
+from gpflow.kernels import Matern52
+
+from algorithms.gp_on_real_space import GPonRealSpace
+from algorithms.uncertain_rf import UncertainRandomForest
+from data.train_test_split import FractionalRandomSplitter
+from util.mlflow.constants import (ESM, EVE, GP_L_VAR, LINEAR, MSE, ONE_HOT,
+                                   STD_Y, TRANSFORMER)
+from util.mlflow.convenience_functions import get_mlflow_results_artifacts
+from visualization.plot_metric_for_dataset import cumulative_performance_plot
 
 
 def plot_cumulative_comparison(datasets: List[str], 
@@ -29,7 +25,6 @@ def plot_cumulative_comparison(datasets: List[str],
                             threshold: float=None,
                             cached_results: bool=False,
                             savefig=True):
-    # TODO: refactor
     cached_filename = f"/Users/rcml/protein_regression/results/cache/results_cumulative_split_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={'_'.join([s.get_name()[:5] for s in train_test_splitters[:5]])}.pkl"
     if cached_results and os.path.exists(cached_filename):
         print(f"Loading cached results: {cached_filename}")
@@ -59,8 +54,7 @@ def plot_cumulative_comparison(datasets: List[str],
 if __name__ == "__main__":
     datasets = ["1FQG", "CALM", "BRCA", "UBQT", "MTH3", "TIMB"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
     thresholds = [None]
-    algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(), 
-        #GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), 
+    algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(),
             UncertainRandomForest().get_name()]
     testing_fractions = np.concatenate([np.arange(0.001, .3, 0.01), np.arange(.3, .6, 0.03), np.arange(.6, 1.05, 0.05)])
     train_test_splitters = [FractionalRandomSplitter(datasets[0], n) for n in testing_fractions]
