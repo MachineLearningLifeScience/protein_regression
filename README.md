@@ -118,7 +118,7 @@ This codebase is element of
 Michael R, Kæstel-Hansen J, Mørch Groth P, Bartels S, Salomon J, Tian P, Hatzakis NS, Boomsma W. __A systematic analysis of regression models for protein engineering__. _PLoS Comput Biol._ 2024 May 3;20(5):e1012061. doi: 10.1371/journal.pcbi.1012061. PMID: 38701099; PMCID: PMC11095727.
 
 ```
-@article{michael2024systematic,
+@article{MichaelKaestel2024Systematic,
   title={A systematic analysis of regression models for protein engineering},
   author={Michael, Richard and K{\ae}stel-Hansen, Jacob and M{\o}rch Groth, Peter and Bartels, Simon and Salomon, Jesper and Tian, Pengfei and Hatzakis, Nikos S and Boomsma, Wouter},
   journal={PLOS Computational Biology},
