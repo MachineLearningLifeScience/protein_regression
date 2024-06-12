@@ -4,21 +4,21 @@ This code wraps up all code that can be found in the Notebooks:
     additional prot-T5 code
 To be used to derive embeddings on cluster compute resources.
 """
-from itertools import product
-import sys
 import argparse
-from pathlib import Path
-import numpy as np
-from os.path import join
-from tqdm import tqdm
 import pickle
-from typing import Tuple, List
-import torch
-from transformers import T5Tokenizer, T5EncoderModel
-from data.load_dataset import get_wildtype_and_offset
-from data.get_alphabet import get_alphabet
-from data.load_dataset import load_one_hot
+import sys
+from itertools import product
+from os.path import join
+from pathlib import Path
+from typing import List, Tuple
 
+import numpy as np
+import torch
+from tqdm import tqdm
+from transformers import T5EncoderModel, T5Tokenizer
+
+from data.get_alphabet import get_alphabet
+from data.load_dataset import get_wildtype_and_offset, load_one_hot
 
 AVAILABLE_MODELS = {
     "esm1b": {"model_id": "esm1b_t33_650M_UR50S",
