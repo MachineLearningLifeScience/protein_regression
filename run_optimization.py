@@ -1,16 +1,19 @@
 import argparse
-from algorithm_factories import GPLinearFactory, get_key_for_factory, ALGORITHM_REGISTRY
-from algorithm_factories import GPMaternFactory, GPSEFactory, UncertainRFFactory
-import data
-from run_single_optimization_task import run_single_optimization_task, run_ranked_reference_task
-from util.execution.cluster import execute_job_array_on_slurm_cluster
-from util.mlflow.constants import EVE_DENSITY, TRANSFORMER, ONE_HOT, VAE, ESM, VAE_DENSITY, VAE_AUX, VAE_RAND, EVE, AT_RANDOM
 from typing import List
+
+import data
+from algorithm_factories import (ALGORITHM_REGISTRY, GPLinearFactory,
+                                 GPMaternFactory, GPSEFactory,
+                                 UncertainRFFactory, get_key_for_factory)
+from run_single_optimization_task import (run_ranked_reference_task,
+                                          run_single_optimization_task)
+from util.mlflow.constants import (AT_RANDOM, ESM, EVE, EVE_DENSITY, ONE_HOT,
+                                   TRANSFORMER)
 
 RUN_ON_CLUSTER = False
 
-datasets = ["UBQT", "CALM", "1FQG"] # "UBQT", "CALM", "1FQG"
-representations = [TRANSFORMER, ONE_HOT, ESM, EVE] # TRANSFORMER, VAE_RAND, VAE_AUX, ONE_HOT, ESM, EVE
+datasets = ["UBQT", "CALM", "1FQG"]
+representations = [TRANSFORMER, ONE_HOT, ESM, EVE]
 seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245] # 11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245
 max_iterations = 500
 
@@ -44,4 +47,4 @@ if __name__ == "__main__":
     seeds = [args.seeds] if not isinstance(args.seeds, list) else args.seeds
 
     optimization_experiment(datasets=datasets, method_keys=methods, representations=representations, 
-                budget=args.budget, seeds=seeds) # TODO: schedule all UBQT runs on cluster
+                budget=args.budget, seeds=seeds)

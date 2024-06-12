@@ -1,23 +1,25 @@
+import argparse
 import os
 from os.path import join
-import numpy as np
-import argparse
+
 import mlflow
-import tensorflow as tf
-from tqdm import tqdm
-from scipy.stats import norm as normal
-from util.preprocess import scale_observations
-from util.log import prep_for_logdict
-from algorithm_factories import ALGORITHM_REGISTRY
-from data.load_dataset import load_dataset, get_alphabet
-from util.mlflow.constants import DATASET, METHOD, ONE_HOT, REPRESENTATION, SEED, OPTIMIZATION, EXPERIMENT_TYPE, OBSERVED_Y, OPTIMIZATION, VAE_DENSITY, EVE_DENSITY
-from util.mlflow.constants import GP_LEN, GP_L_VAR, GP_VAR, GP_D_PRIOR, GP_K_PRIOR, OPT_SUCCESS
-from util.mlflow.constants import MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, MEAN_Y, STD_Y, AT_RANDOM
-from util.mlflow.convenience_functions import find_experiments_by_tags, make_experiment_name_from_tags
-from scipy import stats
-from gpflow.utilities import print_summary
+import numpy as np
 from gpflow import kernels
+from scipy import stats
+from scipy.stats import norm as normal
 from scipy.stats import spearmanr
+from tqdm import tqdm
+
+from algorithm_factories import ALGORITHM_REGISTRY
+from data.load_dataset import get_alphabet, load_dataset
+from util.log import prep_for_logdict
+from util.mlflow.constants import (AT_RANDOM, DATASET, EVE_DENSITY,
+                                   EXPERIMENT_TYPE, GP_D_PRIOR, GP_K_PRIOR,
+                                   GP_L_VAR, GP_LEN, GP_VAR, MEAN_Y, METHOD,
+                                   MLL, MSE, OBSERVED_Y, ONE_HOT, OPT_SUCCESS,
+                                   OPTIMIZATION, REPRESENTATION, SEED,
+                                   SPEARMAN_RHO, STD_Y, MedSE, SEVar)
+from util.preprocess import scale_observations
 
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 

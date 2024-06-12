@@ -1,29 +1,32 @@
-import os
-from os.path import join
 import concurrent.futures
-import numpy as np
-from sklearn.decomposition import PCA
-import tensorflow as tf
-import tensorflow_probability as tfp
-import mlflow
-from tqdm import tqdm
-from scipy.stats import spearmanr
-from umap import UMAP
+import os
 import warnings
+from os.path import join
 from typing import Tuple
-from algorithm_factories import ALGORITHM_REGISTRY
-from protocol_factories import PROTOCOL_REGISTRY
-from data import load_dataset, get_alphabet
-from data.train_test_split import AbstractTrainTestSplitter, BioSplitter, PositionSplitter, WeightedTaskSplitter
-from util.log import prep_for_logdict, prep_for_mutation
-from util.mlflow.constants import AUGMENTATION, DATASET, METHOD, MSE, MedSE, SEVar, MLL, SPEARMAN_RHO, REPRESENTATION, SPLIT, ONE_HOT, VAE_DENSITY
-from util.mlflow.constants import GP_L_VAR, GP_LEN, GP_VAR, GP_MU, OPT_SUCCESS, NO_AUGMENT
-from util.mlflow.constants import K_NEIGHBORS, RF_MIN_SPLIT, RF_ESTIMATORS, RF_MAX_FEAT, RF_CRIT
-from util.mlflow.constants import NON_LINEAR, LINEAR, GP_K_PRIOR, GP_D_PRIOR, MEAN_Y, STD_Y, PAC_BAYES_EPS
-from util.preprocess import scale_observations
-from bound.pac_bayes_bound import alquier_bounded_regression
+
+import mlflow
+import numpy as np
+import tensorflow as tf
 from gpflow import kernels
-from visualization.plot_training import plot_prediction_CV
+from scipy.stats import spearmanr
+from sklearn.decomposition import PCA
+from tqdm import tqdm
+from umap import UMAP
+
+from algorithm_factories import ALGORITHM_REGISTRY
+from bound.pac_bayes_bound import alquier_bounded_regression
+from data import get_alphabet, load_dataset
+from data.train_test_split import (AbstractTrainTestSplitter, BioSplitter,
+                                   PositionSplitter, WeightedTaskSplitter)
+from util.log import prep_for_logdict, prep_for_mutation
+from util.mlflow.constants import (AUGMENTATION, DATASET, GP_D_PRIOR,
+                                   GP_K_PRIOR, GP_L_VAR, GP_LEN, GP_VAR,
+                                   K_NEIGHBORS, LINEAR, MEAN_Y, METHOD, MLL,
+                                   MSE, NON_LINEAR, OPT_SUCCESS, PAC_BAYES_EPS,
+                                   REPRESENTATION, RF_ESTIMATORS, SPEARMAN_RHO,
+                                   SPLIT, STD_Y, MedSE, SEVar)
+from util.preprocess import scale_observations
+
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 
 
