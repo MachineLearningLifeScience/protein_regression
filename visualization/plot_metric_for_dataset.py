@@ -43,7 +43,7 @@ REP_LOOKUP_DICT = {
     "one_hot": "One-Hot", 
     "transformer": "ProtBert", 
     "eve": "EVE", 
-    "esm": "ESM",
+    "esm": "ESM-1b",
     "pssm": "PSSM",
     "eve_density": "EVE (evo-score)",
     "prott5": "ProtT5",
@@ -190,6 +190,7 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
                                 width: float=0.17, color_by: str="algo", x_axis: str="rep",
                                 header_dict=HEADER_DICT, 
                                 augmentation=None, suffix=None, dim=None, savefig=True, title=True,
+                                fig_height=4, fig_width=5,
                                 annotate_NA=True, rep_lookup: dict=REP_LOOKUP_DICT, 
                                 reference_results: bool=False, 
                                 ref_models=["EVE_ensemble", "Tranception_M_retrieval", "Progen2_ensemble"],
@@ -225,7 +226,7 @@ def barplot_metric_comparison_bar(metric_values: dict, cvtype: str, metric: str,
         n_cols = len(methods)*len(splitters)
     else:
         n_cols = len(splitters)
-    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*5, 4), sharey="row")
+    fig, ax = plt.subplots(1, len(datasets), figsize=(len(datasets)*fig_width, fig_height), sharey="row")
     axs = np.ravel(ax)
     labels = []
     column_spacing = 4

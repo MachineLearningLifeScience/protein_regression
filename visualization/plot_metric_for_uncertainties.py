@@ -155,14 +155,14 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
                     yerr = np.std(chis) / np.sqrt(len(chis)) # NOTE: std. error across CV splits
                     # print(f"ch.squ. value: {np.mean(chis)}")
                     axs[plt_idx].errorbar(i, np.mean(chis), yerr=yerr, c=ac.get(algo), marker="D", fillstyle='full', ms=12, lw=2, linestyle='-', capsize=4., label=algo)
-                    if np.mean(chis) > 10e4:
-                        axs[plt_idx].text(i-0.2, 8500, '{:,.2f}'.format(np.round(np.mean(chis),2)), color=ac.get(algo), **font_kwargs_small)
+                    if np.mean(chis) > 10e2:
+                        axs[plt_idx].text(i-0.2, 65, '{:.0f}'.format(np.round(np.mean(chis),0)), color=ac.get(algo), **font_kwargs_small)
                     axs[plt_idx].hlines(1., -0.26, len(metric_values[dataset_key].keys())-0.0125, linestyles='dotted', color='k', label='Perfect Calibration', linewidths=2.5)
                     axs[plt_idx].fill_between(np.arange(-0.26, len(metric_values[dataset_key].keys())+0.0125), 0.5, 1.5, alpha=0.0125, color="k")
                     axs[plt_idx].set_title(name_dict[rep], **font_kwargs)
                     axs[plt_idx].set_yscale("log")
                     if dataset_key.lower() == "1fqg":
-                        axs[plt_idx].set_ylim((10e-2, 10e3))
+                        axs[plt_idx].set_ylim((10e-2, 10e1))
                     else:
                         axs[plt_idx].set_ylim((10e-4, 10e4))
                     axs[plt_idx].set_xlim((-0.24, float(len(metric_values[dataset_key].keys())-0.5)))
@@ -174,7 +174,7 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
     plt.tight_layout()
     handles, labels = axs[plt_idx].get_legend_handles_labels()
     fig.legend(handles[(len(algos)-1):], labels[(len(algos)-1):], loc='lower center', ncol=len(algos)+1, prop={'size': 19})
-    plt.subplots_adjust(wspace=0.1, left=0.075, right=0.975, bottom=0.2)
+    plt.subplots_adjust(wspace=0.1, left=0.08, right=0.975, bottom=0.2)
     if savefig:
         plt.savefig(filename+".png")
         plt.savefig(filename+".pdf")
@@ -449,6 +449,7 @@ def plot_uncertainty_eval(datasets: List[str], reps: List[str], algos: List[str]
                         savefig=True):
     filename = f"/Users/rcml/protein_regression/results/cache/results_calibration_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={train_test_splitter.get_name()}.pkl"
     if cached_results and os.path.exists(filename):
+        print(f"Loading cached results: {filename}")
         with open(filename, "rb") as infile:
             results_dict = pickle.load(infile)
     else:
