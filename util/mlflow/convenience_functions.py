@@ -1,17 +1,29 @@
-import re
-import os
+"""
+Utility functions for loading and processing MlFlow outputs.
+
+NOTE: 
+String based searches are very slow, thus loading and processing is very slow.
+This can be done more efficiently by loading and subselecting based on query DataFrames.
+Refactor of this module has to be done (TODO).
+"""
 import json
+import os
 import pickle
+import re
 from os.path import join
-import numpy as np
+from typing import List, Tuple
+
 import mlflow
+import numpy as np
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
-from util.mlflow.constants import DATASET, METHOD, ONE_HOT, OPTIMIZATION, REPRESENTATION, SPLIT, SEED
-from util.mlflow.constants import AUGMENTATION, NO_AUGMENT, DIMENSION, LINEAR, NON_LINEAR, VAE, EVE, THRESHOLD
-from util.mlflow.constants import STD_Y, OBSERVED_Y
+
 from data.train_test_split import AbstractTrainTestSplitter
-from typing import List, Tuple
+from util.mlflow.constants import (AUGMENTATION, DATASET, DIMENSION, EVE,
+                                   LINEAR, METHOD, NO_AUGMENT, NON_LINEAR,
+                                   OBSERVED_Y, ONE_HOT, OPTIMIZATION,
+                                   REPRESENTATION, SEED, SPLIT, STD_Y,
+                                   THRESHOLD, VAE)
 
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
 

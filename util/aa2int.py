@@ -1,7 +1,6 @@
 import numpy as np
 from Bio.Seq import Seq
 
-
 alphabet = "ARNDCQEGHILKMFPSTWYV-"
 # map amino acids to integers (A->0, R->1, etc)
 a2n = dict((a, n) for n, a in enumerate(alphabet))

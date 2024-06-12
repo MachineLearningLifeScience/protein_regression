@@ -1,6 +1,19 @@
+from typing import Tuple
+
 import numpy as np
 
-def scale_observations(y):
+
+def scale_observations(y: np.ndarray) -> tuple:
+    """
+    z-scale function for observations.
+    Ensures float64 typecast.
+    Parameters:
+        y (float): observations
+    Returns Tuple[np.array, np.array, np.array]:
+        mean_y (float): mean of observations
+        std_y (float): std.deviation of observations
+        y (float): scaled observations
+    """
     mean_y = np.mean(y)
     y -= mean_y
     std_y = np.std(y)
