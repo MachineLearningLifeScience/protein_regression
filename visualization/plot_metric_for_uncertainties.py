@@ -1,32 +1,26 @@
-from cProfile import label
-import numpy as np
 import os
-import json
 import pickle
-from os.path import join, dirname
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
-from matplotlib.patches import PathPatch
-from matplotlib.collections import PatchCollection
-import imageio
+from os.path import join
 from typing import List
-from shapely.geometry import Polygon
+
+import imageio
+import matplotlib.pyplot as plt
 import mlflow
-from mlflow.entities import ViewType
-from mlflow.exceptions import MlflowException
-from util.mlflow.constants import MSE, NO_AUGMENT, DATASET, AUGMENTATION, METHOD, PROTT5, REPRESENTATION, SPLIT, VAE
-from util.mlflow.constants import SPEARMAN_RHO, GP_L_VAR, OBSERVED_Y, STD_Y
-from util.mlflow.constants import RF_ESTIMATORS
-from util.mlflow.convenience_functions import get_mlflow_results_artifacts
-from algorithms import NUM_TRAINABLE_PARAMETERS
-from uncertainty_quantification.chi_squared import chi_squared_stat, reduced_chi_squared_stat, chi_squared_anees
+import numpy as np
+from matplotlib.collections import PatchCollection
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path
+from shapely.geometry import Polygon
+
+from uncertainty_quantification.calibration import prep_reliability_diagram
+from uncertainty_quantification.chi_squared import chi_squared_anees
 from uncertainty_quantification.confidence import quantile_and_oracle_errors
-from uncertainty_quantification.calibration import prep_reliability_diagram, confidence_based_calibration
-from visualization import representation_colors as rc
+from util.mlflow.constants import (ESM, ESM1V, ESM2, EVE, GP_L_VAR, MSE,
+                                   NO_AUGMENT, OBSERVED_Y, ONE_HOT, PROTT5,
+                                   PSSM, RF_ESTIMATORS, STD_Y, TRANSFORMER)
+from util.mlflow.convenience_functions import get_mlflow_results_artifacts
 from visualization import algorithm_colors as ac
 from visualization import algorithm_markers as am
-from util.postprocess import filter_functional_variant_data_less_than
-from util.mlflow.constants import ESM, EVE, ONE_HOT, TRANSFORMER, EVE_DENSITY, ESM1V, ESM2, PSSM
 
 # MLFLOW CODE ONLY WORKS WITH THE BELOW LINE:
 mlflow.set_tracking_uri('file:'+join(os.getcwd(), join("results", "mlruns")))
@@ -58,7 +52,7 @@ def plot_calibration(fractions, savefig=True, suffix="") -> None:
 
 def combine_pointsets(x1, x2):
     """
-    AUTHOR: Jacob KH
+    AUTHOR: JKH
     Function takes two lists and combines them to a list that is 
     ready to be fed to shapely.Polygon class by outputting a new list 
     with each element being a point on the polygon. This is
@@ -104,7 +98,7 @@ def plot_polygon(ax, poly, **kwargs):
 def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representation='', optimize_flag=False, dim=None, dim_reduction=None, savefig=True):
     """
     Visualize X**2 statistic on predictions.
-    AUTHOR: Richard M
+    AUTHOR: RM
     """
     filename = f'results/figures/uncertainties/Xi_squared_{cvtype}_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}{dim_reduction}'
     algos = []
@@ -184,8 +178,8 @@ def chi_square_fig(metric_values: dict, cvtype: str = '', dataset='', representa
 def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str = '', dataset='', representation='', optimize_flag=False, dim=None, dim_reduction=None, savefig=True):
     """
     Plotting calibration Curves.
-    AUTHOR: Jacob KH, 
-    LAST CHANGES: Richard M
+    AUTHOR: JKH, 
+    LAST CHANGES: RM
     """
     filename = f'results/figures/uncertainties/{cvtype}_reliabilitydiagram_{dataset}_{representation}_opt_{optimize_flag}_d_{dim}{dim_reduction}'
     algos = []
@@ -281,7 +275,7 @@ def reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str =
 def multi_dim_reliabilitydiagram(metric_values: dict, number_quantiles: int, cvtype: str='', dataset='', representation='', optimize_flag=True, dim_reduction=None):
     """
     Plotting calibration Curves including results from lower dimensions.
-    AUTHOR: Richard M with utility functions from JAKA H
+    AUTHOR: RM with utility functions JKH
     """
     colors = ac.values()
     markers = [plt.Line2D([0,0],[0,0], color=color, marker='o', linestyle='') for color in colors]

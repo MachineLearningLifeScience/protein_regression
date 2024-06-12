@@ -1,35 +1,33 @@
-from distutils.log import error
-from sys import stderr
-from pathlib import Path
-from warnings import warn
-from typing import List, OrderedDict
-from typing import Tuple, Dict
-from itertools import product
 import re
+from itertools import product
+from pathlib import Path
+from typing import Dict, List, Tuple
+from warnings import warn
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 import seaborn as sns
-import matplotlib.patches as mpatches
-from matplotlib.transforms import Affine2D
-from sklearn.metrics import mean_squared_error
+from matplotlib.lines import Line2D
 from scipy.stats import spearmanr
+from sklearn.metrics import mean_squared_error
+
 from data.load_dataset import load_dataset
-from visualization.plot_metric_for_uncertainties import prep_reliability_diagram
+from util.mlflow.constants import (EVE, EVE_DENSITY, GP_L_VAR, LINEAR, MLL,
+                                   MSE, ONE_HOT, PAC_BAYES_EPS, SPEARMAN_RHO,
+                                   STD_Y, VAE, VAE_DENSITY)
+from util.postprocess import (filter_functional_variant_data_greater_than,
+                              filter_functional_variant_data_less_than)
 from visualization import algorithm_colors as ac
 from visualization import algorithm_markers as am
 from visualization import augmentation_colors as aug_c
 from visualization import representation_colors as rc
-from visualization import unsupervised_reference_colors as urc
 from visualization import representation_markers as rm
 from visualization import task_colors as tc
 from visualization import task_colors_to_algos_ablation as tcaa
-from util.mlflow.constants import GP_L_VAR, LINEAR, VAE, EVE, VAE_DENSITY, ONE_HOT, EVE_DENSITY
-from util.mlflow.constants import MLL, MSE, SPEARMAN_RHO, PAC_BAYES_EPS, STD_Y, PAC_BAYES_EPS
-from util.postprocess import filter_functional_variant_data_less_than
-from util.postprocess import filter_functional_variant_data_greater_than
-
+from visualization import unsupervised_reference_colors as urc
+from visualization.plot_metric_for_uncertainties import \
+    prep_reliability_diagram
 
 plt.rcParams.update({
     "text.usetex": True,
@@ -61,7 +59,6 @@ DATASET_LOOKUP_DICT = {
         "TOXI": "Aakre",
     }
 
-
 HEADER_DICT = {
     "1FQG": r"$\beta$-Lactamase", 
     "UBQT": "Ubiquitin", 
@@ -69,6 +66,7 @@ HEADER_DICT = {
     "TIMB": "TIM-Barrel", 
     "MTH3": "T2-MTH", 
     "BRCA": "BRCA1"}
+
 
 def plot_metric_for_dataset(metric_values: dict, cvtype: str, dim):
     plt.figure(figsize=(15,10))

@@ -1,6 +1,5 @@
-import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits import mplot3d
+import numpy as np
 
 
 def plot_prediction_1d(X_test, y_test, predictions, unc, method, rep, dim_reduction):
@@ -14,15 +13,6 @@ def plot_prediction_1d(X_test, y_test, predictions, unc, method, rep, dim_reduct
 
 
 def plot_prediction_2d(X_test, y_test, predictions, unc, method, rep, dim_reduction):
-    # fig = plt.figure()
-    # ax = plt.axes(projection='3d')
-    # ax.view_init(35, 25)
-    # ax.scatter(X_test[:, 0], X_test[:, 1], y_test, c=y_test, label="assay values")
-    # ax.scatter(X_test[:, 0], X_test[:, 1], predictions, c="k", zuplims=predictions+unc, zlolims=predictions-unc, label="predictions", alpha=0.3)
-    # ax.set_xlabel("d=1")
-    # ax.set_ylabel("d=2")
-    # ax.set_zlabel("assay value")
-    # ax.set_title(f"2D predictions {method.get_name()}, {rep}, {dim_reduction}")
     plt.scatter(X_test[:, 0].ravel(), X_test[:, 1].ravel(), c=y_test, label="assay values", s=7)
     plt.errorbar(X_test[:, 0].ravel(), X_test[:, 1].ravel(), yerr=unc.ravel(), color="k", fmt="o", label="predictions", alpha=0.7, ms=5)
     plt.ylabel("d=2")

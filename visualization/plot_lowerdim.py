@@ -1,13 +1,14 @@
-from curses.ascii import SP
+from typing import List
+
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy.polynomial.polynomial import Polynomial as poly
-import matplotlib.pyplot as plt
-from pyparsing import alphas
-from util.mlflow.convenience_functions import get_mlflow_results, check_results
-from util.mlflow.constants import MSE, SPEARMAN_RHO, LINEAR, NON_LINEAR, VAE
-from typing import List
-from tqdm import tqdm
 from scipy.optimize import curve_fit
+from tqdm import tqdm
+
+from util.mlflow.constants import LINEAR, MSE, SPEARMAN_RHO, VAE
+from util.mlflow.convenience_functions import check_results, get_mlflow_results
+
 
 def f(x, a, b, c):
     return a * np.log(b*x) + c
