@@ -40,7 +40,7 @@ def plot_reduced_representations_all_datasets(datasets: Tuple[str, ...], represe
         "UBQT": "Ubiquitin",
         "TIMB": "TIM-Barrel",
         "MTH3": "T2-MTH",
-        "BRCA": "BRCA",
+        "BRCA": "BRCA1",
     }
     font_kwargs = {'family': 'Arial', 'fontsize': 30, "weight": 'bold'}
     font_kwargs_small = {'family': 'Arial', 'fontsize': 20}

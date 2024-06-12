@@ -81,12 +81,3 @@ if __name__ == "__main__":
                           algos=algos, train_test_splitter=BioSplitter("TOXI", 3, 4),
                           augmentations = augmentations, number_quantiles=number_quantiles, optimize=True,
                           d=d, dim_reduction=None, cached_results=cached_results)
-        # ### MAKE UNCERTAIN PLOTS ACROSS DIMENSIONS NOTE: taken out
-        # plot_uncertainty_eval_across_dimensions(datasets=datasets, reps=reps,
-        #                   algos=algos, train_test_splitter=RandomSplitter(datasets[0]),
-        #                   augmentation = augmentations, number_quantiles=number_quantiles, optimize=True,
-        #                   dimensions=[2, 10, 100, 1000, None], dim_reduction=dim_reduction)
-        # plot_uncertainty_eval_across_dimensions(datasets=datasets, reps=reps,
-        #                   algos=algos, train_test_splitter=PositionSplitter(datasets[0]),
-        #                   augmentation = augmentations, number_quantiles=number_quantiles, optimize=True,
-        #                   dimensions=[2, 10, 100, 1000, None], dim_reduction=dim_reduction)

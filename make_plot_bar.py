@@ -56,20 +56,28 @@ def plot_metric_comparison_bar(datasets: List[str],
                             seeds: List[int]=None,
                             color_by="algo",
                             x_axis="algo",
+                            fig_height=4,
+                            fig_width=5,
                             cached_results=False,
                             optimized=True,
                             dim=None,
                             dim_reduction=LINEAR,
-                            savefig=True) -> None:
+                            savefig=True,
+                            title: bool=True,
+                            reference_results: bool=False,
+                            ref_cv: bool=False) -> None:
     cached_filename = f"/Users/rcml/protein_regression/results/cache/results_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={'_'.join([s.get_name()[:5] for s in train_test_splitter[:5]])}_{str(seeds)}_opt={str(optimized)}_d={dim}_{dim_reduction}.pkl"
     if cached_results and exists(cached_filename):
+        print(f"Loading cached results: {cached_filename}")
         results_dict = load_cached_results(cached_filename)
     else:
         results_dict = load_results_dict_from_mlflow(datasets, algos, metrics, reps, train_test_splitter, seeds, cache=cached_results, cache_fname=cached_filename, optimized=optimized, dim=dim, dim_reduction=dim_reduction)
     cvtype = str(set([splitter.get_name()[:12] for splitter in train_test_splitter])) + f"d=full"   
     for metric in metrics:
-        barplot_metric_comparison_bar(metric_values=results_dict, cvtype=cvtype, metric=metric, color_by=color_by, x_axis=x_axis, dim=dim, savefig=savefig)
-
+        try:
+            barplot_metric_comparison_bar(metric_values=results_dict, cvtype=cvtype, metric=metric, color_by=color_by, x_axis=x_axis, dim=dim, savefig=savefig, reference_results=reference_results, title=title, ref_cv=ref_cv, fig_height=fig_height, fig_width=fig_width)
+        except KeyError as _e:
+            print(f"Error figure: d={datasets}, a={algos}, r={reps}, cv={cvtype}, metric={metric}")
 
 def plot_cv_comparison_error(datasets: List[str], 
                             algos: List[str],
@@ -84,6 +92,7 @@ def plot_cv_comparison_error(datasets: List[str],
                             savefig=True) -> None:
     cached_filename = f"/Users/rcml/protein_regression/results/cache/cv_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={'_'.join([s.get_name()[-2:] for s in train_test_splitter])}_opt={str(optimized)}.pkl"
     if cached_results and exists(cached_filename):
+        print(f"Loading cached results: {cached_filename}")
         results_dict = load_cached_results(cached_filename)
     else:
         results_dict = load_results_dict_from_mlflow(datasets, algos, metrics, reps, train_test_splitter, seeds, cache=cached_results, cache_fname=cached_filename, optimized=optimized, dim=dim, dim_reduction=dim_reduction) 
@@ -107,6 +116,7 @@ def plot_metric_comparison_bar_param_delta(datasets: List[str],
     for opt_val in [True, False]:
         cached_filename = f"/Users/rcml/protein_regression/results/cache/results_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={'_'.join([s.get_name()[:5] for s in train_test_splitter[:5]])}_{str(seeds)}_opt={str(opt_val)}_d={dim}_{dim_reduction}.pkl"
         if cached_results and exists(cached_filename):
+            print(f"Loading cached results: {cached_filename}")
             results_dict = load_cached_results(cached_filename)
         else:
             results_dict = load_results_dict_from_mlflow(datasets, algos, metrics, reps, train_test_splitter, seeds, cache=cached_results, cache_fname=cached_filename, optimized=opt_val, dim=dim, dim_reduction=dim_reduction)
@@ -130,6 +140,7 @@ def plot_metric_comparison_bar_splitting(datasets: List[str],
                             savefig=True) -> None:
     cached_filename = f"/Users/rcml/protein_regression/results/cache/results_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={'_'.join([s.get_name()[:5] for s in train_test_splitter[:5]])}_{str(seeds)}_opt={str(optimized)}.pkl"
     if cached_results and exists(cached_filename):
+        print(f"Loading cached results: {cached_filename}")
         results_dict = load_cached_results(cached_filename)
     else:
         results_dict = load_results_dict_from_mlflow(datasets, algos, metrics, reps, train_test_splitter, seeds, cache=cached_results, cache_fname=cached_filename, optimized=optimized)
@@ -148,6 +159,7 @@ def load_mutation_results_with_baseline(datasets: List[str],
                             cached_results: bool=False) -> dict:
     cached_filename = f"/Users/rcml/protein_regression/results/cache/results_mutation_comparison_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={'_'.join([s.get_name()[:5] for s in train_test_splitter[:5]])}.pkl"
     if cached_results and exists(cached_filename):
+        print(f"Loading cached results: {cached_filename}")
         results_dict = load_cached_results(cached_filename)
     else: # TODO: refactor into dedicated loading function
         results_dict = {}
@@ -239,21 +251,37 @@ def plot_metric_augmentation_comparison(datasets: List[str],
 
 if __name__ == "__main__":
     algos = [GPonRealSpace().get_name(), GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(),
-             RandomForest().get_name(), KNN().get_name()]
+             RandomForest().get_name(), #UncertainRandomForest().get_name(), # RandomForest().get_name(), 
+             KNN().get_name()]
     metrics = [MSE, SPEARMAN_RHO] # MSE, SPEARMAN_RHO
     seeds = [11, 42, 123, 54, 2345, 987, 6538, 78543, 3465, 43245]
     dim = None
     dim_reduction = LINEAR # LINEAR, NON_LINEAR
-    # ### MAIN FIGURES
+    ### MAIN FIGURES
     # compare embeddings:
-    plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"], # ["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"]
-                          reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM],
+    # BASE FIGURE
+    plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
+                          reps=[ONE_HOT, EVE, EVE_DENSITY, PROTT5, ESM],
                           metrics=metrics,
                           train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
                           algos=[GPonRealSpace(kernel_factory=lambda: Matern52()).get_name()],
                           color_by="rep",
                           x_axis="rep",
-                          cached_results=True)
+                          fig_height=6,
+                          fig_width=4,
+                          cached_results=True, 
+                          title=False)
+    # SI ADDITIONS FIGURE: representations + references on unsupervised learning
+    plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
+                          reps=[ONE_HOT, PSSM, EVE, EVE_DENSITY, TRANSFORMER, PROTT5, ESM, ESM1V, ESM2],
+                          metrics=metrics,
+                          train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
+                          algos=[GPonRealSpace(kernel_factory=lambda: Matern52()).get_name()],
+                          color_by="rep",
+                          x_axis="rep",
+                          cached_results=True,
+                          reference_results=True,
+                          ref_cv=True)
     # compare regressors:
     plot_metric_comparison_bar(datasets=["1FQG", "UBQT", "TIMB", "MTH3", "BRCA"],
                           reps=[ESM], metrics=metrics,
@@ -261,7 +289,20 @@ if __name__ == "__main__":
                           algos=algos,
                           color_by="algo",
                           x_axis="algo",
-                          cached_results=True)
+                          cached_results=True,
+                          title=True)
+    ## SI ADDITIONS FIGURE: representations + reference on unsupervised learning
+    plot_metric_comparison_bar(datasets=["1FQG", "UBQT", "TIMB", "MTH3", "BRCA"],
+                        reps=[ESM], 
+                        metrics=metrics,
+                        train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
+                        algos=algos,
+                        color_by="algo",
+                        x_axis="algo",
+                        cached_results=True,
+                        reference_results=True,
+                        ref_cv=True,
+                        title=True)
     # compare splitters:
     fractional_splitters = FractionalSplitterFactory("1FQG")
     plot_metric_comparison_bar_splitting(datasets=["1FQG", "UBQT"],
@@ -323,22 +364,24 @@ if __name__ == "__main__":
                           dim_reduction=LINEAR,
                           cached_results=True)
 
-    # ### SI: remaining embedding comparisons (different regressors)
+    ## SI: remaining embedding comparisons (different regressors)
     for algo in [GPonRealSpace().get_name(), 
                 GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(),
-                RandomForest().get_name(),
+                GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(),
+                RandomForest().get_name(), # UncertainRandomForest().get_name(), #
                 KNN().get_name()]:
         print(algo)
-        plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
-                            reps=[ONE_HOT, EVE, EVE_DENSITY, TRANSFORMER, ESM],
+        plot_metric_comparison_bar(datasets=["1FQG", "UBQT", "TIMB", "MTH3", "BRCA"],
+                            reps=[ONE_HOT, PSSM, EVE, EVE_DENSITY, TRANSFORMER, PROTT5, ESM, ESM1V, ESM2],
                             metrics=metrics,
                             train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")],
                             algos=[algo],
                             color_by="rep",
                             x_axis="rep",
-                            cached_results=True)
+                            cached_results=True,
+                            title=False)
     ### SI: remaining regressor comparisons (different representations):
-    for embedding in [TRANSFORMER, ONE_HOT, EVE]:
+    for embedding in [TRANSFORMER, PROTT5, ONE_HOT, PSSM, EVE, ESM2]: # NOTE: ESM1V has missings
         plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
                             reps=[embedding], 
                             metrics=metrics,
@@ -346,23 +389,25 @@ if __name__ == "__main__":
                             algos=algos,
                             color_by="algo",
                             x_axis="algo",
-                            cached_results=True)
+                            cached_results=True,
+                            title=False)
     ### SI: delta in performance:
     for rep in [ESM, ONE_HOT, EVE]:
         plot_metric_comparison_bar_param_delta(datasets=["1FQG", "UBQT", "TIMB", "MTH3", "BRCA"], # ,  "UBQT", "TIMB", "MTH3", "BRCA"
-                            reps=[rep], # ESM, ONE_HOT, EVE ; TODO: TRANSFORMER
+                            reps=[rep], # ESM, ONE_HOT, EVE ;
                             metrics=metrics,
                             train_test_splitter=[RandomSplitter("1FQG"), PositionSplitter("1FQG")], #
                             algos=algos,
                             color_by="algo",
                             x_axis="algo",
                             cached_results=True) 
-    ### SI: Update Representation Comparison:
+    ## SI: Update Representation Comparison:
     for algo in [GPonRealSpace().get_name(), 
                 GPonRealSpace(kernel_factory= lambda: SquaredExponential()).get_name(),
                 GPonRealSpace(kernel_factory= lambda: Matern52()).get_name(),
                 #RandomForest().get_name(),
-                KNN().get_name()]:
+                KNN().get_name()
+                ]:
         print(algo)
         plot_metric_comparison_bar(datasets=["1FQG",  "UBQT", "TIMB", "MTH3", "BRCA"],
                             reps=[ONE_HOT, PSSM, EVE, EVE_DENSITY, TRANSFORMER, PROTT5, ESM, ESM1V, ESM2],
@@ -373,15 +418,16 @@ if __name__ == "__main__":
                             x_axis="rep",
                             cached_results=True)
     ### SI: CV parameter comparison
-    ablation_protocols_random_cv = [RandomSplitterFactory("TIMB", k=i)[0] for i in [2, 3, 5, 7, 15]] + [PositionalSplitterFactory("TIMB", positions=p)[0] for p in [5,10,20,25]] 
-    for rep in [ESM, TRANSFORMER, EVE, ONE_HOT]:
-        print(rep)
-        plot_cv_comparison_error(
-            datasets=["TIMB"],
-            metrics=[MSE, SPEARMAN_RHO],
-            reps=[rep],
-            train_test_splitter=ablation_protocols_random_cv,
-            algos=[GPonRealSpace().get_name(), KNN().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()],
-            cached_results=True,
-            savefig=True,
-        )
+    for ablation_dataset in ["TIMB", "1FQG"]:
+        ablation_protocols_random_cv = [RandomSplitterFactory(ablation_dataset, k=i)[0] for i in [2, 3, 5, 7, 15]] + [PositionalSplitterFactory(ablation_dataset, positions=p)[0] for p in [5,10,20,25]] 
+        for rep in [ESM, TRANSFORMER, EVE, ONE_HOT]:
+            print(rep)
+            plot_cv_comparison_error(
+                datasets=[ablation_dataset],
+                metrics=[MSE, SPEARMAN_RHO],
+                reps=[rep],
+                train_test_splitter=ablation_protocols_random_cv,
+                algos=[GPonRealSpace().get_name(), KNN().get_name(), GPonRealSpace(kernel_factory= lambda: Matern52()).get_name()],
+                cached_results=True,
+                savefig=True,
+            )

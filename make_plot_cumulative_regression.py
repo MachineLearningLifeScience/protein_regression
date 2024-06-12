@@ -32,6 +32,7 @@ def plot_cumulative_comparison(datasets: List[str],
     # TODO: refactor
     cached_filename = f"/Users/rcml/protein_regression/results/cache/results_cumulative_split_d={'_'.join(datasets)}_a={'_'.join(algos)}_r={'_'.join(reps)}_m={'_'.join(metrics)}_s={'_'.join([s.get_name()[:5] for s in train_test_splitters[:5]])}.pkl"
     if cached_results and os.path.exists(cached_filename):
+        print(f"Loading cached results: {cached_filename}")
         with open(cached_filename, "rb") as infile:
             results_dict = pickle.load(infile)
     else:
@@ -77,10 +78,3 @@ if __name__ == "__main__":
     plot_cumulative_comparison(datasets=["TIMB"], algos=algos, metrics=metrics, reps=representations, testing_fractions=testing_fractions,
                         train_test_splitters=train_test_splitters, dimension=dim,
                         dim_reduction=dim_reduction, threshold=thresholds, cached_results=True)
-    # # ### BULK computation per representation NOTE: taken out
-    # # # gathers all our results and saves them into a numpy array
-    # datasets = ["1FQG", "CALM", "BRCA", "UBQT", "MTH3", "TIMB"] # ["TOXI"] # "MTH3", "TIMB", "UBQT", "1FQG", "CALM", "BRCA"
-    # # for rep in representations:    
-    # plot_cumulative_comparison(datasets=datasets, algos=algos, metrics=metrics, reps=[EVE], testing_fractions=testing_fractions,
-    #                         train_test_splitters=train_test_splitters, dimension=dim,
-    #                         dim_reduction=dim_reduction, threshold=thresholds, cached_results=True)
