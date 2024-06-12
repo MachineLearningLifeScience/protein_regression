@@ -1,21 +1,19 @@
-import numpy as np
 from typing import Tuple
+
+import numpy as np
 from scipy import stats
-from sklearn.preprocessing import scale
-from util.preprocess import scale_observations
 
 
 ## Uncertainty calibration
 # confidence calibration
 def prep_reliability_diagram(true, preds, uncertainties, number_quantiles):
     """
-    AUTHOR: Jacob KH
+    AUTHOR: JKH
     """
     true, preds, uncertainties = np.array(true), np.array(preds), np.array(uncertainties)
 
     # confidence intervals
     #four_sigma = 0.999936657516334
-    #perc = np.concatenate([np.linspace(0.1,0.9,number_quantiles-1),[four_sigma]])
     perc = np.arange(0, 1.1, 1/number_quantiles)
     count_arr = np.vstack([np.abs(true-preds) <= stats.norm.interval(q, loc=np.zeros(len(preds)), scale=uncertainties)[1] for q in perc])
     count = np.mean(count_arr, axis=1)
@@ -32,10 +30,17 @@ def prep_reliability_diagram(true, preds, uncertainties, number_quantiles):
 
 def confidence_based_calibration(y_pred: np.array, uncertainties: np.array, y_ref_mean=0, quantiles=10) -> Tuple[np.array, np.array]:
     """
-    AUTHOR: Richard M
+    AUTHOR: RM
+    Calculate confidence interval based calibration.
     See scalia et al. pg.2703 prior to Eq. (9), description of confidence based calibration.
+    For each quantile compute the fraction of observations (+/- var) within the upper and lower-bound of the interval.
+    One key underlying assumption prediction and variance describe a Gaussian distribution.
 
-    Assumed standardized values... TODO
+    Parameters:
+        y_pred (np.ndarray): predicted labels
+        uncertainties (np.ndarray): predictive variance
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: fractions and quantiles over which fractions were computed.
     """
     assert len(y_pred) == len(uncertainties)
     N = len(y_pred)
