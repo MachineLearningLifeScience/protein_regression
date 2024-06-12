@@ -132,8 +132,7 @@ def plm_routine(model_key: str,
     model.to(device)
     # load data
     seq_enc_alphabet = get_alphabet(data_key)
-    # wt_sequence, offset = get_wildtype_and_offset(data_key)
-    sequences, _ = load_one_hot(data_key)
+    sequences, labels = load_one_hot(data_key)
     print(f"Loaded {data_key}: N={len(sequences)}")
     if "esm" in model_key:
         plm_rep = compute_esm_representation(
@@ -156,7 +155,7 @@ def plm_routine(model_key: str,
             )
     # persist results
     out_filepath = output_path / f'./{data_key.lower()}_{model_key}_rep.pkl'
-    np.savez(out_filepath.with_suffix(".npz"), plm_rep)
+    np.savez(out_filepath.with_suffix(".npz"), X=plm_rep, labels=labels)
     with open(out_filepath, "wb") as outfile:
         pickle.dump(plm_rep, outfile)
     if pseudo_lls:
