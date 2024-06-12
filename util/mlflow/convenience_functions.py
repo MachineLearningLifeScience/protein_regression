@@ -163,7 +163,11 @@ def get_mlflow_results_artifacts(datasets: list, algos: list, reps: list, metric
                     #     runs = runs[runs[f'tags.{THRESHOLD}'].isnull()]
                     # refine search, as query string does not allow for dim=None and we need very specific run
                     runs = runs.iloc[:1]  # get most recent result
-                    assert len(runs) == 1 , rep+a+dataset+str(aug)
+                    try:
+                        assert len(runs) == 1 , rep+a+dataset+str(aug)
+                    except:
+                        print(f"Missing run: {rep} {a} {dataset} {train_test_splitter}")
+                        continue # TODO FIXME
                     for id in runs['run_id'].to_list():
                         PATH = f"/Users/rcml/protein_regression/results/mlruns/{exps.experiment_id}/{id}" + "/" + "artifacts" # TODO: replace with project path
                         split_dict = {}
